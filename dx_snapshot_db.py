@@ -1,4 +1,4 @@
-#!/home/delphix/landshark/bin/python
+#!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script snapshots a vdb or dSource
 #requirements
@@ -54,7 +54,7 @@ Options:
 
 """
 
-VERSION="v.0.0.009"
+VERSION="v.0.0.010"
 
 
 from docopt import docopt

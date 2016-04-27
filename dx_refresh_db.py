@@ -1,4 +1,4 @@
-#!/home/delphix/landshark/bin/python
+#!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script refreshes a vdb
 #requirements
@@ -57,7 +57,7 @@ Options:
 
 """
 
-VERSION="v.0.0.004"
+VERSION="v.0.0.005"
 
 
 from docopt import docopt

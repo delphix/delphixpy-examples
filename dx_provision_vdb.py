@@ -1,4 +1,4 @@
-#!/home/delphix/landshark/bin/python
+#!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script provisions a vdb or dSource
 #requirements
@@ -100,7 +100,7 @@ Options:
 
 """
 
-VERSION="v.0.0.005"
+VERSION="v.0.0.006"
 
 from docopt import docopt
 import logging
