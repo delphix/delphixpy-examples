@@ -7,7 +7,9 @@ In the most simplest answer, [Delphix](http://www.delphix.com) is an awesome sof
 ##What is delphixpy?
 delphixpy is a python module created by Delphix to enable users to directly invoke the Delphix API via python. 
 
-##Where can I get delphixpy?
+##Where can I get Delphix and delphixpy?
+You can download a free version of Delphix [here](https://www.delphix.com/products/free-trial-request). It also comes with two additional pre-configured CentOS VM's (Landshark) running Oracle XE, MySQL, and PostGreSQL to get you up and running with Delphix as quick as possible. 
+
 delphixpy is available on PyPy, so you can install it by invoking pip<br>
 `pip install delphixpy`
 
