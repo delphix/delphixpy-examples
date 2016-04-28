@@ -131,7 +131,7 @@ def find_database_by_name_and_group_name(engine, server, group_name, database_na
         if each.name == database_name:
             print_debug(engine["hostname"] + ": Found a match " + str(each.reference))
             return each
-    print_info(engine["hostname"] + ": "Unable to find \"" + database_name + "\" in " + group_name)
+    print_info(engine["hostname"] + ": Unable to find \"" + database_name + "\" in " + group_name)
 
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
