@@ -57,7 +57,7 @@ Options:
 
 """
 
-VERSION="v.0.0.005"
+VERSION="v.0.0.006"
 
 
 from docopt import docopt
@@ -146,7 +146,7 @@ def find_obj_by_name(engine, server, f_class, obj_name):
         if obj.name == obj_name:
             print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
             return obj
-    print_info(engine["hostname"] + ": "Unable to find a match")
+    print_info(engine["hostname"] + ": Unable to find a match")
 
 def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
     snapshots = snapshot.get_all(server, database=database_obj.reference)
