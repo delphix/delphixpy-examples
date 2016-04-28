@@ -15,9 +15,7 @@ Usage:
                   [--sourcegroup <name>] [--template <name>] [--mapfile <file>]
                   [--timestamp_type <type>] [--timestamp <timepoint_semantic>]
                   [--instname <sid>] [--mntpoint <path>] [--noopen]
-                  [--uniqname <name>] [--post_refresh_script <path>]
-                  [--pre_refresh_script <path>] [--postscript <path>]
-                  [--configure_clone_script <path>] [--prescript <path>]
+                  [--uniqname <name>] 
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
@@ -76,14 +74,6 @@ Options:
   --mntpoint <path>         Mount point for the VDB
                             [default: /mnt/provision]
   --noopen                  Don't open database after provision (Oracle Only)
-  --post_refresh_script <path>  Add script from path as postrefresh hook 
-                                (*nix only)
-  --pre_refresh_script <path>  prerefresh Add script from path as prerefresh
-                               hook (*nix only)
-  --configure_clone_script <path>  Add script from path as configureclone
-                                   hook (*nix only)
-  --prescript <path>        Path to pre script on target machine (Windows Only)
-  --postscript <path>       Path to post script on target machine (Windows Only)
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
@@ -100,7 +90,7 @@ Options:
 
 """
 
-VERSION="v.0.0.006"
+VERSION="v.0.0.007"
 
 from docopt import docopt
 import logging
