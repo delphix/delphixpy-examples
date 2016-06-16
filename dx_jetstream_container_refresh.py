@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #Adam Bowen - Jun 2016
-#jetstream_refresh.py
+#dx_jetstream_container_refresh.py
 #Use this file as a starter for your python scripts, if you like
 #requirements
 #pip install docopt delphixpy
@@ -10,17 +10,17 @@
 """Start and refresh Jetstream containers
 
 Usage:
-  jetstream_refresh.py --template <name> (--container <name> | --all_containers )
+  dx_jetstream_container_refresh.py --template <name> (--container <name> | --all_containers )
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  jetstream_refresh.py -h | --help | -v | --version
+  dx_jetstream_container_refresh.py -h | --help | -v | --version
 
 Refresh a Jetstream Container
 
 Examples:
-  jetstream_refresh.py --template "Masked SugarCRM Application" --container "Automated Testing"
-
+  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --container "Automated Testing"
+  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --all_containers
 
 
 Options:
@@ -38,7 +38,7 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_snapshot_db.log]
+                            [default: ./dx_jetstream_container_refresh.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 
@@ -64,6 +64,69 @@ from delphixpy.v1_6_0.exceptions import HttpError, JobError
 from delphixpy.v1_6_0 import job_context
 from delphixpy.v1_6_0.web import jetstream, job
 #from delphixpy.v1_6_0.web.vo import 
+
+def run_async(func):
+    """
+        http://code.activestate.com/recipes/576684-simple-threading-decorator/
+        run_async(func)
+            function decorator, intended to make "func" run in a separate
+            thread (asynchronously).
+            Returns the created Thread object
+
+            E.g.:
+            @run_async
+            def task1():
+                do_something
+
+            @run_async
+            def task2():
+                do_something_too
+
+            t1 = task1()
+            t2 = task2()
+            ...
+            t1.join()
+            t2.join()
+    """
+    from threading import Thread
+    from functools import wraps
+
+    @wraps(func)
+    def async_func(*args, **kwargs):
+        func_hl = Thread(target = func, args = args, kwargs = kwargs)
+        func_hl.start()
+        return func_hl
+
+    return async_func
+
+def container_recover(engine, server, container_obj):
+    '''This function recovers a container that is in an "INCONSISTENT" state'''
+    if container_obj.state == "INCONSISTENT":
+        #if not recover it
+        job_obj = jetstream.container.recover(server, container_obj.reference)
+        #wait for the recovery action to finish
+        job_context.wait(server,job_obj.reference)
+        #get the updated object with the new state
+        container_obj = jetstream.container.get(server, container_obj.reference)
+        return container_obj
+
+@run_async
+def container_refresh(engine, server, container_obj):
+    '''This function refreshes a container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Now let's refresh it.
+    refresh_job = jetstream.container.refresh(server, container_obj.reference)
+    print str(refresh_job)
+    return refresh_job
+
+def container_start(engine, server, container_obj):
+    '''This function starts/enables a container that is in an "OFFLINE" state'''
+    if container_obj.state == "OFFLINE":
+        #if not, enable it
+        jetstream.container.enable(server, container_obj.reference)
 
 def find_container_by_name_and_template_name(engine, server, container_name, template_name):
     template_obj = find_obj_by_name(engine, server, jetstream.template, template_name)
@@ -151,7 +214,7 @@ def job_mode(server):
         print_debug("These jobs will be executed asynchronously")
     return job_m
 
-def job_wait():
+def job_wait(server):
     """
     This job stops all work in the thread/process until jobs are completed.
     """
@@ -217,40 +280,6 @@ def set_exit_handler(func):
     """
     signal.signal(signal.SIGTERM, func)
 
-def run_async(func):
-    """
-        http://code.activestate.com/recipes/576684-simple-threading-decorator/
-        run_async(func)
-            function decorator, intended to make "func" run in a separate
-            thread (asynchronously).
-            Returns the created Thread object
-
-            E.g.:
-            @run_async
-            def task1():
-                do_something
-
-            @run_async
-            def task2():
-                do_something_too
-
-            t1 = task1()
-            t2 = task2()
-            ...
-            t1.join()
-            t2.join()
-    """
-    from threading import Thread
-    from functools import wraps
-
-    @wraps(func)
-    def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
-        func_hl.start()
-        return func_hl
-
-    return async_func
-
 @run_async
 def main_workflow(engine):
     """
@@ -286,29 +315,31 @@ def main_workflow(engine):
         return
     #reset the running job count before we begin
     i = 0
-    with job_mode(server):
-        #While there are still running jobs or containers still to process....
-        while (len(jobs) > 0 or len(containers) > 0):
-            #While there are containers still to process and we are still under 
-            #the max simultaneous jobs threshold (if specified)
-            while len(containers) > 0 and (arguments['--parallel'] == None or i < int(arguments['--parallel'])):
-                #Give us the next database in the list, and remove it from the list
-                container_obj = containers.pop()
-
-                refresh_job = jetstream.container.refresh(server, container_obj.reference)
-                #If refresh_job has any value, then we know that a job was initiated.
-                if refresh_job:
-                    #increment the running job count
-                    i += 1
-            #Check to see if we are running at max parallel processes, and report if so.
-            if ( arguments['--parallel'] != None and i >= int(arguments['--parallel'])):
-                print_info(engine["hostname"] + ": Max jobs reached (" + str(i) + ")")
-            #reset the running jobs counter, as we are about to update the count from the jobs report.
-            i = update_jobs_dictionary(engine, server, jobs)
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. " + str(len(containers)) + " jobs waiting to run")
-            #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
-                sleep(float(arguments['--poll']))
+    container_threads = []
+    #While there are still running jobs or containers still to process....
+    while (i > 0 or len(containers) > 0):
+        #While there are containers still to process and we are still under 
+        #the max simultaneous jobs threshold (if specified)
+        while len(containers) > 0 and (arguments['--parallel'] == None or i < int(arguments['--parallel'])):
+            #Give us the next database in the list, and remove it from the list
+            container_obj = containers.pop()
+            #refresh the container
+            container_threads.append(container_refresh(engine, server, container_obj))
+            #For each thread in the list...
+            i = len(container_threads)
+        #Check to see if we are running at max parallel processes, and report if so.
+        if ( arguments['--parallel'] != None and i >= int(arguments['--parallel'])):
+            print_info(engine["hostname"] + ": Max jobs reached (" + str(i) + ")")
+        #reset the running jobs counter, as we are about to update the count from the jobs report.
+        i = len(container_threads)
+        print_info(engine["hostname"] + ": " + str(i) + " jobs running. " + str(len(containers)) + " jobs waiting to run")
+        #If we have running jobs, pause before repeating the checks.
+        if i > 0:
+            sleep(float(arguments['--poll']))
+    #For each thread in the list...
+    for each in container_threads:
+        #join them back together so that we wait for all threads to complete before moving on
+        each.join()
 
 def run_job(engine):
     """
@@ -396,9 +427,7 @@ def main(argv):
     global usebackup
     global time_start
     global config_file_path
-    global dxtools_objects
-
-    
+    global dxtools_objects    
 
     try:
         #Declare globals that will be used throughout the script.
