@@ -44,7 +44,7 @@ Options:
 
 """
 
-VERSION="v.0.0.001"
+VERSION="v.0.0.002"
 
 
 from docopt import docopt
@@ -55,6 +55,7 @@ import sys
 import time
 import traceback
 import json
+import threading
 
 from multiprocessing import Process
 from time import sleep, time
@@ -88,12 +89,12 @@ def run_async(func):
             t1.join()
             t2.join()
     """
-    from threading import Thread
+    #from threading import Thread
     from functools import wraps
 
     @wraps(func)
     def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
+        func_hl = threading.Thread(target = func, args = args, kwargs = kwargs)
         func_hl.start()
         return func_hl
 
@@ -119,9 +120,7 @@ def container_refresh(engine, server, container_obj):
     container_start(engine, server, container_obj)
     #Now let's refresh it.
     refresh_job = jetstream.container.refresh(server, container_obj.reference)
-    print str(refresh_job)
-    return refresh_job
-
+    
 def container_start(engine, server, container_obj):
     '''This function starts/enables a container that is in an "OFFLINE" state'''
     if container_obj.state == "OFFLINE":
@@ -331,11 +330,15 @@ def main_workflow(engine):
         if ( arguments['--parallel'] != None and i >= int(arguments['--parallel'])):
             print_info(engine["hostname"] + ": Max jobs reached (" + str(i) + ")")
         #reset the running jobs counter, as we are about to update the count from the jobs report.
-        i = len(container_threads)
+        i=0
+        for t in container_threads:
+            if t.isAlive():
+                i+=1
         print_info(engine["hostname"] + ": " + str(i) + " jobs running. " + str(len(containers)) + " jobs waiting to run")
         #If we have running jobs, pause before repeating the checks.
         if i > 0:
             sleep(float(arguments['--poll']))
+    print "made it out"
     #For each thread in the list...
     for each in container_threads:
         #join them back together so that we wait for all threads to complete before moving on
