@@ -11,7 +11,8 @@
 
 Usage:
   dx_jetstream_container_refresh.py --template <name> (--container <name> | --all_containers )
-                  [-d <identifier> | --engine <identifier> | --all]
+                  --operation <name> [-d <identifier> | --engine <identifier> | --all]
+                  [--bookmark_name <name>] [--bookmark_tags <tags>]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_jetstream_container_refresh.py -h | --help | -v | --version
@@ -19,9 +20,9 @@ Usage:
 Refresh a Jetstream Container
 
 Examples:
-  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --container "Automated Testing"
-  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --all_containers
-
+  dx_jetstream_container_refresh.py --operation refresh --template "Masked SugarCRM Application" --container "Automated Testing"
+  dx_jetstream_container_refresh.py --operation reset --template "Masked SugarCRM Application" --all_containers
+  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --container "Automated Testing" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three"
 
 Options:
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
@@ -30,6 +31,13 @@ Options:
   --all_containers          Run against all jetstream containers
   --template <name>         Name of Jetstream template to execute against.
   --container <name>        Name of Jetstream container to execute against.
+  --operation <name>        Name of the operation to execute
+                            Can be one of:
+                            start, stop, recover, refresh, reset, bookmark
+  --bookmark_name <name>    Name of the bookmark to create
+                            (only valid with "--operation bookmark")
+  --bookmark_tags <tags>    Comma-delimited list to tag the bookmark
+                            (only valid with "--operation bookmark")
   --host <name>             Name of environment in Delphix to execute against.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -44,7 +52,7 @@ Options:
 
 """
 
-VERSION="v.0.0.002"
+VERSION="v.0.0.003"
 
 
 from docopt import docopt
@@ -64,6 +72,7 @@ from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError, JobError
 from delphixpy.v1_6_0 import job_context
 from delphixpy.v1_6_0.web import jetstream, job
+from delphixpy.v1_6_0.web.vo import JSBookmark, JSBookmarkCreateParameters, JSTimelinePointLatestTimeInput 
 #from delphixpy.v1_6_0.web.vo import 
 
 def run_async(func):
@@ -100,6 +109,25 @@ def run_async(func):
 
     return async_func
 
+@run_async
+def container_bookmark(engine, server, container_obj, bookmark_name, tags):
+    '''This function bookmarks the current branch on the container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Prepare the bookmark creation parameters
+    bookmark_create_params = JSBookmarkCreateParameters()
+    bookmark_create_params.bookmark = JSBookmark()
+    bookmark_create_params.bookmark.name = bookmark_name
+    bookmark_create_params.bookmark.branch = container_obj.active_branch
+    bookmark_create_params.bookmark.tags = tags
+    bookmark_create_params.timeline_point_parameters = JSTimelinePointLatestTimeInput()
+    bookmark_create_params.timeline_point_parameters.source_data_layout = container_obj.reference
+
+    jetstream.bookmark.create(server, bookmark_create_params)
+
+
 def container_recover(engine, server, container_obj):
     '''This function recovers a container that is in an "INCONSISTENT" state'''
     if container_obj.state == "INCONSISTENT":
@@ -111,6 +139,11 @@ def container_recover(engine, server, container_obj):
         container_obj = jetstream.container.get(server, container_obj.reference)
         return container_obj
 
+@run_async   
+def container_recover_async(engine, server, container_obj):
+    '''This function recovers all specified containers asynchronously'''
+    container_recover(engine, server, container_obj)
+
 @run_async
 def container_refresh(engine, server, container_obj):
     '''This function refreshes a container'''
@@ -120,12 +153,38 @@ def container_refresh(engine, server, container_obj):
     container_start(engine, server, container_obj)
     #Now let's refresh it.
     refresh_job = jetstream.container.refresh(server, container_obj.reference)
-    
+
+@run_async
+def container_reset(engine, server, container_obj):
+    '''This function resets a container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Now let's refresh it.
+    reset_job = jetstream.container.reset(server, container_obj.reference)
+
 def container_start(engine, server, container_obj):
     '''This function starts/enables a container that is in an "OFFLINE" state'''
     if container_obj.state == "OFFLINE":
         #if not, enable it
         jetstream.container.enable(server, container_obj.reference)
+
+@run_async   
+def container_start_async(engine, server, container_obj):
+    '''This function starts all specified containers asynchronously'''
+    container_start(engine, server, container_obj)
+
+def container_stop(engine, server, container_obj):
+    '''This function starts/enables a container that is in an "OFFLINE" state'''
+    if container_obj.state == "ONLINE":
+        #if not, enable it
+        jetstream.container.disable(server, container_obj.reference)
+
+@run_async   
+def container_stop_async(engine, server, container_obj):
+    '''This function starts all specified containers asynchronously'''
+    container_stop(engine, server, container_obj)
 
 def find_container_by_name_and_template_name(engine, server, container_name, template_name):
     template_obj = find_obj_by_name(engine, server, jetstream.template, template_name)
@@ -322,8 +381,24 @@ def main_workflow(engine):
         while len(containers) > 0 and (arguments['--parallel'] == None or i < int(arguments['--parallel'])):
             #Give us the next database in the list, and remove it from the list
             container_obj = containers.pop()
-            #refresh the container
-            container_threads.append(container_refresh(engine, server, container_obj))
+            #what do we want to do?
+            if arguments['--operation'] == "refresh":
+                #refresh the container
+                container_threads.append(container_refresh(engine, server, container_obj))
+            elif arguments['--operation'] == "reset":
+                container_threads.append(container_reset(engine, server, container_obj))
+            elif arguments['--operation'] == "start":
+                container_threads.append(container_start_async(engine, server, container_obj))
+            elif arguments['--operation'] == "stop":
+                container_threads.append(container_stop_async(engine, server, container_obj))
+            elif arguments['--operation'] == "recover":
+                container_threads.append(container_recover_async(engine, server, container_obj))
+            elif arguments['--operation'] == "bookmark":
+                if arguments['--bookmark_tags']:
+                    tags = arguments['--bookmark_tags'].split(',')
+                else:
+                    tags = []
+                container_threads.append(container_bookmark(engine, server, container_obj, arguments['--bookmark_name'], tags))
             #For each thread in the list...
             i = len(container_threads)
         #Check to see if we are running at max parallel processes, and report if so.
