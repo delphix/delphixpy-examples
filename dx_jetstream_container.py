@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 #Adam Bowen - Jun 2016
-#dx_jetstream_container_refresh.py
+#dx_jetstream_container.py
 #Use this file as a starter for your python scripts, if you like
 #requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script. This thing is brilliant.
-"""Start and refresh Jetstream containers
+"""Perform routine operations on Jetstream containers
 
 Usage:
   dx_jetstream_container_refresh.py --template <name> (--container <name> | --all_containers )
@@ -17,12 +17,12 @@ Usage:
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_jetstream_container_refresh.py -h | --help | -v | --version
 
-Refresh a Jetstream Container
+Perform routine operations on a Jetstream Container
 
 Examples:
-  dx_jetstream_container_refresh.py --operation refresh --template "Masked SugarCRM Application" --container "Automated Testing"
-  dx_jetstream_container_refresh.py --operation reset --template "Masked SugarCRM Application" --all_containers
-  dx_jetstream_container_refresh.py --template "Masked SugarCRM Application" --container "Automated Testing" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three"
+  dx_jetstream_container.py --operation refresh --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container"
+  dx_jetstream_container.py --operation reset --template "Masked SugarCRM Application" --all_containers
+  dx_jetstream_container.py --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three"
 
 Options:
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
