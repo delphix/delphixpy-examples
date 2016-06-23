@@ -12,7 +12,7 @@
 Usage:
   dx_jetstream_container_refresh.py --template <name> (--container <name> | --all_containers )
                   --operation <name> [-d <identifier> | --engine <identifier> | --all]
-                  [--bookmark_name <name>] [--bookmark_tags <tags>]
+                  [--bookmark_name <name>] [--bookmark_tags <tags>] [--bookmark_shared <bool>]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_jetstream_container_refresh.py -h | --help | -v | --version
@@ -22,7 +22,7 @@ Perform routine operations on a Jetstream Container
 Examples:
   dx_jetstream_container.py --operation refresh --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container"
   dx_jetstream_container.py --operation reset --template "Masked SugarCRM Application" --all_containers
-  dx_jetstream_container.py --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three"
+  dx_jetstream_container.py --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three" --bookmark_shared true
 
 Options:
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
@@ -38,6 +38,8 @@ Options:
                             (only valid with "--operation bookmark")
   --bookmark_tags <tags>    Comma-delimited list to tag the bookmark
                             (only valid with "--operation bookmark")
+  --bookmark_shared <bool>  Share bookmark: true/false
+                            [default: false]
   --host <name>             Name of environment in Delphix to execute against.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -52,7 +54,7 @@ Options:
 
 """
 
-VERSION="v.0.0.003"
+VERSION="v.0.0.005"
 
 
 from docopt import docopt
@@ -110,7 +112,7 @@ def run_async(func):
     return async_func
 
 @run_async
-def container_bookmark(engine, server, container_obj, bookmark_name, tags):
+def container_bookmark(engine, server, container_obj, bookmark_name, bookmark_shared, tags):
     '''This function bookmarks the current branch on the container'''
     #But first, let's make sure it is in a CONSISTENT state
     container_recover(engine, server, container_obj)
@@ -121,12 +123,12 @@ def container_bookmark(engine, server, container_obj, bookmark_name, tags):
     bookmark_create_params.bookmark = JSBookmark()
     bookmark_create_params.bookmark.name = bookmark_name
     bookmark_create_params.bookmark.branch = container_obj.active_branch
+    bookmark_create_params.bookmark.shared = bookmark_shared
     bookmark_create_params.bookmark.tags = tags
     bookmark_create_params.timeline_point_parameters = JSTimelinePointLatestTimeInput()
     bookmark_create_params.timeline_point_parameters.source_data_layout = container_obj.reference
 
     jetstream.bookmark.create(server, bookmark_create_params)
-
 
 def container_recover(engine, server, container_obj):
     '''This function recovers a container that is in an "INCONSISTENT" state'''
@@ -398,7 +400,19 @@ def main_workflow(engine):
                     tags = arguments['--bookmark_tags'].split(',')
                 else:
                     tags = []
-                container_threads.append(container_bookmark(engine, server, container_obj, arguments['--bookmark_name'], tags))
+                if arguments['--bookmark_shared']:
+                    if str(arguments['--bookmark_shared']).lower() == "true":
+                        bookmark_shared = True
+                    elif str(arguments['--bookmark_shared']).lower() == "false":
+                        bookmark_shared = False
+                    else:
+                        print_error("Invalid argument \"" + str(arguments['--bookmark_shared']).lower() + "\"  for --bookmark_shared")
+                        print_error("--bookmark_shared only takes a value of true/false.")
+                        print_error("Exiting")
+                        sys.exit(1)
+                else:
+                    bookmark_shared=False
+                container_threads.append(container_bookmark(engine, server, container_obj, arguments['--bookmark_name'], bookmark_shared, tags))
             #For each thread in the list...
             i = len(container_threads)
         #Check to see if we are running at max parallel processes, and report if so.
