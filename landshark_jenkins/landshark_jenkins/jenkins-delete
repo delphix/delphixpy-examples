@@ -1,4 +1,0 @@
-#!/bin/bash
-CONTENTDIR=`pwd`
-
-sudo docker rm -f landshark-jenkins
