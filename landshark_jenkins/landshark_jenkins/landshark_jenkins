@@ -1,0 +1,868 @@
+#!/bin/sh
+#template_version=2.3.0.90
+#Adam Bowen - June, 2016
+#<update author name> - <date>
+#landshark_jenkins
+#Thanks to Linerd @ http://tuxtweaks.com/2014/05/bash-getopts for the great getops examples.
+#<place attribution for code snippets you borrow in here>
+#####################################################################
+##Stock Variables
+VERSION=2.3.0.001i
+DESCRIPTION="This script installs the Jenkins use case in to the Landshark environment."
+CONTENTDIR=`pwd`
+CONTENTLIST=${CONTENTDIR}/Content.installed
+APPDIR=/u02/app
+HOMEDIR=/home/delphix
+MD5FILE=${CONTENTDIR}/Content.md5
+FETCH_ONLY=N
+SCRIPT=`basename ${BASH_SOURCE[0]}`
+RELEASE=ULTRON
+BUCKETPATH="landshark/Modules/${RELEASE}/${SCRIPT}"
+S3_BASE="https://s3-us-west-2.amazonaws.com/$BUCKETPATH"
+AWSCLI_BASE="s3://$BUCKETPATH"
+IPADDR=$(/sbin/ifconfig eth0 2>/dev/null|awk '/inet addr:/ {print $2}'|sed 's/addr://')
+BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+TEMPFILES=("${SCRIPT}" "example_file")
+EXCLUDES=(--exclude \"example_file_name\" --exclude \"*example_dir_name/*\")
+STARTTIME=$(date +%s)
+NOW=$(date +"%m-%d-%Y %T")
+#This variable should be set to one of: LS, PRIME, or BOTH
+#LS - This content is only applicable to the public version of Landshark
+#PRIME - This content is only applicable to the internal version of Landshark
+#BOTH - This content is applicable to the internal and public version of Landshark
+LSORPRIME=PRIME
+
+NORM=`tput sgr0`
+BOLD=`tput bold`
+REV=`tput smso`
+ALERT=`tput setab 1 setaf 0`
+#####################################################################
+##Custom Variables
+exitcode=1
+vdbs_inQueue=true
+LP_FILE="${HOMEDIR}/landshark_apache/webapps/ROOT/landshark_properties.xml"
+RUN_LP=false
+
+
+#####################################################################
+##Stock functions and checks
+#This script should only be run as root (sudo)
+if [[ $EUID -ne 0 ]]; then
+   echo "${ALERT}This script must be run as root${NORM}" 1>&2
+   exit 1
+fi
+
+[[ -f ${HOMEDIR}/.ls/config ]] && source ${HOMEDIR}/.ls/config
+
+function CLEAN_UP {
+	#Delete temporary and setup files
+	if [[ "$KEEP" == "N" ]]; then
+		echo "Removing the following files from ${CONTENTDIR}"
+		echo "${TEMPFILES[@]}"
+		cd ${CONTENTDIR}
+		rm -f ${TEMPFILES[@]}
+		cd - &> /dev/null
+	else
+		echo "-k was given. Setup files will remain in ${CONTENTDIR}"
+	fi
+}
+
+function DISABLE_SOURCE {
+	#This function disables the source
+	#Takes one parameter: The Source Reference
+	curl -s -X POST -k "http://${DEIP}/resources/json/delphix/source/${1}/disable" \
+		-b ~/cookies.txt -H "Content-Type: application/json"
+}
+
+function ENABLE_SOURCE {
+	#This function enables the source
+	#Takes one parameter: The Source Reference
+	curl -s -X POST -k "http://${DEIP}/resources/json/delphix/source/${1}/enable" \
+		-b ~/cookies.txt -H "Content-Type: application/json"
+}
+
+function ENGINE_TEST {
+	#runs simple curl calls to attempt to establish as simple login to the Delphix Engine
+	echo "Testing Delphix Engine"
+	echo "Establishing a Session to the Delphix Engine"
+	SESS=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/session \
+    -c ~/cookies.txt -H "Content-Type: application/json" <<-EOF
+	{
+	    "type": "APISession",
+	    "version": {
+	        "type": "APIVersion",
+	        "major": 1,
+	        "minor": 6,
+	        "micro": 0
+	    }
+	}
+	EOF
+	)
+
+	if [[ "`echo $SESS |jq '.status'`" == "\"OK\"" ]]; then
+		echo "Delphix Engine Session was created"
+	else
+		echo "Delphix Engine Session was unable to be created"
+		until  [[ "$CONT" == "Y" ]] || [[ "$CONT" == "N" ]]; do
+			read -p "Are you sure you want to continue? (Y/N)" CONT
+			CONT=${CONT^^}
+		done
+		if [[ "$CONT" == "N" ]]; then
+			echo "Please validate your Delphix Engine parameters, and try again."
+			exit 1
+		else
+			return
+		fi
+	fi
+	echo "Authenticating with the Delphix Engine"
+	AUTH=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/login \
+	    -b ~/cookies.txt -H "Content-Type: application/json"<<-EOF
+	{
+	    "type": "LoginRequest",
+	    "username": "${DEUSERNAME}",
+	    "password": "${DEPASSWORD}"
+	}
+	EOF
+	 )
+
+	if [[ "`echo $AUTH|jq '.status'`" == "\"OK\"" ]]; then
+		echo "Delphix Engine Authentication was successful"
+	else
+		echo "Delphix Engine Authentication was unsuccessful"
+		until  [[ "$CONT" == "Y" ]] || [[ "$CONT" == "N" ]]; do
+			read -p "Are you sure you want to continue? (Y/N)" CONT
+			CONT=${CONT^^}
+		done
+		if [[ "$CONT" == "N" ]]; then
+			echo "Please validate your Delphix Engine parameters, and try again."
+			exit 1
+		else
+			return
+		fi
+	fi
+	echo "Delphix Engine tests completed successfully"
+}
+
+function ENGINE_WAIT {
+	#runs simple curl calls to attempt to establish as simple login to the Delphix Engine
+	#and waits until the Delphix Engine responds
+	until [[ 1 -gt 2 ]]; do 
+		echo "Waiting for the Delphix Engine"
+		echo "Establishing a Session to the Delphix Engine"
+		SESS=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/session \
+	    -c ~/cookies.txt -H "Content-Type: application/json" <<-EOF
+		{
+		    "type": "APISession",
+		    "version": {
+		        "type": "APIVersion",
+		        "major": 1,
+		        "minor": 6,
+		        "micro": 0
+		    }
+		}
+		EOF
+		)
+
+		if [[ "`echo $SESS |jq '.status'`" == "\"OK\"" ]]; then
+			echo "Delphix Engine Session was created"
+			SESS=Y
+			echo "Authenticating with the Delphix Engine"
+			AUTH=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/login \
+			    -b ~/cookies.txt -H "Content-Type: application/json"<<-EOF
+			{
+			    "type": "LoginRequest",
+		    	"username": "${DEUSERNAME}",
+		    	"password": "${DEPASSWORD}"
+			}
+			EOF
+		 	)
+
+			if [[ "`echo $AUTH|jq '.status'`" == "\"OK\"" ]]; then
+				echo "Delphix Engine Authentication was successful"
+				return
+			else
+				echo "Delphix Engine Authentication was unsuccessful"
+			fi
+		else
+			echo "Delphix Engine Session was unable to be created"
+		fi
+		echo "Sleeping for 10 seconds, then will check the engine again."
+		sleep 10
+	done
+}
+
+function FETCH_AWSCLI {
+	#For fetching large or multiple items
+	echo "Fetching ${SCRIPT} content"
+	FETCH_DIR="aws s3 sync ${AWSCLI_BASE} ${CONTENTDIR} --exclude \"*.git/*\" --exclude \"*lt/*\" --exclude \"*ls/*\" --exclude \"*wt/*\" \
+		--exclude \"*ws/*\" ${EXCLUDES[@]}"
+	#echo $FETCH_DIR
+	su - delphix -c "$FETCH_DIR" || { echo "Unable to download content. Please consult /tmp/${SCRIPT}.log and try again."; exit 1; }
+	if 	[[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		FETCH_DIR="aws s3 sync ${AWSCLI_BASE}/lt ${CONTENTDIR} --exclude \"*.git/*\" ${EXCLUDES[@]}"
+	elif [[ "$HOSTNAME" == "linuxsource.delphix.local" ]]; then
+		FETCH_DIR="aws s3 sync ${AWSCLI_BASE}/ls ${CONTENTDIR} --exclude \"*.git/*\" ${EXCLUDES[@]}"
+	elif [[ "$HOSTNAME" == "windowstarget.delphix.local" ]]; then
+		FETCH_DIR="aws s3 sync ${AWSCLI_BASE}/wt ${CONTENTDIR} --exclude \"*.git/*\" ${EXCLUDES[@]}"
+	elif [[ "$HOSTNAME" == "windowssource.delphix.local" ]];then
+		FETCH_DIR="aws s3 sync ${AWSCLI_BASE}/ws ${CONTENTDIR} --exclude \"*.git/*\" ${EXCLUDES[@]}"
+	fi
+	su - delphix -c "$FETCH_DIR" || { echo "Unable to download content. Please consult /tmp/${SCRIPT}.log and try again."; exit 1; }
+}
+
+function FETCH_CURL {
+	#For items that have to be fetched on an individual basis.
+	DIRECTORY=`echo $1| sed -e 's|\(.*\)\(/\)\(.*\)|\1\2|'`
+	FILE=`echo $1 | sed -e 's|\(.*\)\(/\)\(.*\)|\3|'`
+	#echo $DIRECTORY
+	#echo $FILE
+	cd ${DIRECTORY}
+	if [[ -f ${1} ]] && grep ${FILE} ${MD5FILE} | md5sum -c --quiet; then
+		echo "${1} already present and validated."
+		echo "Skipping download."
+	else
+		echo "Fetching ${FILE}"
+		echo "su delphix -c \"curl -L -o ${1} -O ${S3_BASE}/${FILE}\""
+		su delphix -c "curl -L -o ${1} -O ${S3_BASE}/${FILE}" || { echo "Unable to download content. Please consult /tmp/${SCRIPT}.log and try again."; exit 1; }
+	fi
+	cd - &> /dev/null
+}
+
+function FETCH_ENGINE_PARAMS {
+	#this function will prompt the user for unassigned engine parameters
+	until ipcalc -c $DEIP &> /dev/null; do
+		read -p "Enter the Delphix Engine IP address: " DEIP
+	done
+	[[ -z $DEUSERNAME ]] && read -p "Enter the Delphix Engine Admin username: (delphix_admin)" DEUSERNAME
+	DEUSERNAME=${DEUSERNAME:-delphix_admin}
+	[[ -z $DEPASSWORD  ]] && read -p "Enter the Delphix Engine Admin password: (landshark)" DEPASSWORD
+	DEPASSWORD=${DEPASSWORD:-landshark}
+	echo "Delphix Engine = $DEIP"
+	echo "Delphix Engine Username = $DEUSERNAME"
+	echo "Delphix Engine password received"
+}
+
+function FETCH_MASKING_PARAMS {
+	#this function will prompt the user for unassigned engine parameters
+	#The default value for the masking engie is the linuxtarget's ip address
+	if [[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		until ipcalc -c $DMIP &> /dev/null; do
+			read -p "What will be the IP address of your Agile Masking Engine?: (${IPADDR})" DMIP
+			DMIP=${DMIP:-$IPADDR}
+		done
+	else
+		until ipcalc -c $DMIP &> /dev/null; do
+			read -p "What will be the IP address of your Agile Masking Engine?: (${LTIPADDR})" DMIP
+			DMIP=${DMIP:-$LTIPADDR}
+		done
+	fi
+	until echo $DMPORT | grep -E "^([0-9]{4}|[0-9]{5})$" &> /dev/null; do
+		read -p "What port will Agile Masking run on?: (8282)" DMPORT
+		DMPORT=${DMPORT:-8282}
+	done
+	[[ -z $DMUSERNAME ]] && read -p "Enter the Masking Engine Admin username: (AxisTech)" DMUSERNAME
+	DMUSERNAME=${DMUSERNAME:-AxisTech}
+	[[ -z $DMPASSWORD ]] && read -p "Enter the Masking Engine Admin password: (Axis_123)" DMPASSWORD
+	DMPASSWORD=${DMPASSWORD:-AxiS_123}
+	echo "Masking Engine = $DMIP"
+	echo "Masking Port = $DMPORT"
+	echo "Masking Engine Username = $DMUSERNAME"
+	echo "Masking Engine password received"
+}
+
+function FETCH_S3CURL {
+	#For items that have to be fetched on an individual basis.
+	DIRECTORY=`echo $1| sed -e 's|\(.*\)\(/\)\(.*\)|\1\2|'`
+	FILE=`echo $1 | sed -e 's|\(.*\)\(/\)\(.*\)|\3|'`
+	#echo $DIRECTORY
+	#echo $FILE
+	cd ${DIRECTORY}
+	if [[ -f ${1} ]] && grep ${FILE} ${MD5FILE} | md5sum -c --quiet; then
+		echo "${1} already present and validated."
+		echo "Skipping download."
+	else
+		echo "Fetching ${FILE}"
+		echo "su delphix -c \"${CONTENTDIR}/s3curl.pl --id=landshark -- -L -o ${1} -O ${S3_BASE}/${FILE}\""
+		su delphix -c "${CONTENTDIR}/s3curl.pl --id=landshark -- -L -o ${1} -O ${S3_BASE}/${FILE}" || { echo "Unable to download content. Please consult /tmp/${SCRIPT}.log and try again."; exit 1; }
+	fi
+	cd - &> /dev/null
+}
+
+function FETCH_VM_PARAMS {
+	#prompts the user for the other Linux VM IP
+	#Will add Windows support later
+	if [[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		until ipcalc -c $LSIPADDR &> /dev/null; do
+			read -p "Enter the linuxsource ip address: " LSIPADDR
+		done
+		until ipcalc -c $WSIPADDR &> /dev/null; do
+				read -p "Enter the windowssource ip address: " WSIPADDR
+		done
+		until ipcalc -c $WTIPADDR &> /dev/null; do
+				read -p "Enter the windowstarget ip address: " WTIPADDR
+		done
+	else
+		until ipcalc -c $LTIPADDR &> /dev/null; do
+			read -p "Enter the linuxtarget ip address: " LTIPADDR
+		done
+		until ipcalc -c $WSIPADDR &> /dev/null; do
+			read -p "Enter the windowssource ip address: " WSIPADDR
+		done
+		until ipcalc -c $WTIPADDR &> /dev/null; do
+				read -p "Enter the windowstarget ip address: " WTIPADDR
+		done
+	fi
+	if [[ "LATER" == True ]]; then
+		if [[ "$HOSTNAME" == "windowstarget.delphix.local" ]]; then
+			until ipcalc -c $WSIPADDR &> /dev/null; do
+				read -p "Enter the windowssource ip address: " WSIPADDR
+			done
+		else
+			until ipcalc -c $WTIPADDR &> /dev/null; do
+				read -p "Enter the windowstarget ip address: " WTIPADDR
+			done
+		fi
+	fi
+}
+
+function GET_ACTIVE_BRANCH_REF {
+	#This function gets the reference of the template and the active branch on the template
+	#Takes one parameter: The template name
+	TEMPLATENAME=$1
+	TEMPLATE=$(curl -X GET -k "http://${DEIP}/resources/json/delphix/jetstream/template" \
+		-b ~/cookies.txt -H "Content-Type: application/json" | jq -r ".result[]| select (.name ==\"${TEMPLATENAME}\")")
+	TEMPLATEREF=$(echo $TEMPLATE| jq -r '.reference')
+	BRANCHREF=$(echo $TEMPLATE| jq -r '.activeBranch')
+	echo "${TEMPLATENAME} Ref, Active Branch Ref:"
+	echo "${TEMPLATEREF}, ${BRANCHREF}"
+}
+
+function GET_DATABASE_REFS {
+	#This function gets the reference of the database
+	#Takes one parameter: The database name
+	TARGETDBNAME=$1
+	DATABASES=$(curl -X GET -k "http://${DEIP}/resources/json/delphix/database" \
+		-b ~/cookies.txt -H "Content-Type: application/json")
+	TARGETDATABASE=$(echo $DATABASES | jq -r ".result[] | select(.name == \"${TARGETDBNAME}\")")
+	TARGETDATABASEREF=$(echo $TARGETDATABASE | jq -r '.reference')
+	echo "${TARGETDBNAME} Reference:"
+	echo "${TARGETDATABASEREF}"
+}
+
+function GET_SOURCE_REF {
+	#This function gets the reference of the source
+	#Takes one parameter: The Source Name
+	local SOURCENAME
+	local SOURCEREF
+	
+	SOURCENAME="${1}"
+
+	SOURCEREF=$(curl -X GET -k "http://${DEIP}/resources/json/delphix/source" \
+		-b ~/cookies.txt -H "Content-Type: application/json" | \
+		jq -r ".result[]| select(.name == \"${SOURCENAME}\")| .reference")
+	echo $SOURCEREF
+}
+
+function HELP {
+	#Tailor this for your script
+	echo -e \\n"Help documentation for ${BOLD}${SCRIPT}.${NORM}"\\n
+	echo -e "${REV}Basic usage:${NORM} ${BOLD}$SCRIPT${NORM}"\\n
+	echo "Command line switches are optional. The following switches are recognized."
+	echo "${REV}-e${NORM}  --Sets the value for the ${BOLD}delphix engine ip address${NORM}."
+	echo "${REV}-u${NORM}  --Sets the value for the ${BOLD}delphix engine username${NORM}. Default is ${BOLD}delphix_admin${NORM}."
+	echo "${REV}-p${NORM}  --Sets the value for the ${BOLD}delphix engine password${NORM}. Default is ${BOLD}landshark${NORM}."
+	echo -e "${REV}-k${NORM}  --The script will ${BOLD}keep${NORM} the setup files when complete. Accepts Y ior N value."
+	echo -e "${REV}-f${NORM}  --The script will ${BOLD}only fetch${NORM} the setup files and then exit. Accepts Y ior N value. \
+		Default value is N. (-f Y implies -k Y)"
+	echo -e "${REV}-F${NORM}  --The script will attempt to re-apply the content, even if the installed version is the same or higher. \
+		Default value is N."
+	echo -e "${REV}-r${NORM}  --The script will ${BOLD}refresh${NORM} the environments in Delphix when complete. Accepts Y ior N value. 
+		This parameter only applies to the linuxtarget"
+	echo -e "${REV}-s${NORM}  --The script will ${BOLD}shrink${NORM} the Virtual Machine when complete. Accepts Y ior N value."
+	echo -e "${REV}-h${NORM}  --Displays this ${BOLD}help${NORM} message. No further functions are performed."
+	echo -e "${REV}-U${NORM}  --The script will automatically install any related/required content/${BOLD}updates${NORM}.Accepts Y ior N value."
+	echo -e "${REV}-v${NORM}  --Displays the ${BOLD}version${NORM} of ${SCRIPT}. No further functions are performed."
+	echo -e "Example: landshark_fetch ${BOLD}$SCRIPT -v ${NORM}"\\n
+	exit 1
+}
+
+function LSEVAL {
+	if [[ "`hostname`" != "linuxsource.delphix.local" ]] && [[ "`hostname`" != "linuxtarget.delphix.local" ]]; then
+		echo "This is not a landshark system. Exiting."
+		exit 1
+	fi
+
+	local IFS=' '
+	read -a LSRELEASE <<< "`cat /etc/landshark-release 2> /dev/null`"
+
+	if [[ "${LSRELEASE[1]}" == "Prime" ]]; then
+		[[ "${LSORPRIME}" == "LS" ]] && echo "${SCRIPT} is not compatible with Landshark Prime" && exit 1
+
+		local IFS='.'
+		read -a LSVERSION <<< "${LSRELEASE[2]}"
+		LANDSHARK_PROCESS=${CONTENTDIR}/prime_setup.py
+		LATEST_CONTENT=prime_latest
+
+		if [[ "${LSRELEASE[0]}" == "Landshark" ]] && [[ "${LSRELEASE[1]}" == "Prime" ]] && [[ ${LSVERSION[0]} -eq 2 ]] && [[ ${LSVERSION[1]} -eq 3 ]]; then
+			echo "This system is running `cat /etc/landshark-release`" 
+			echo "This system is compatible for upgrade."
+		elif [[ ! ${LSVERSION[0]} -ge 2 ]] && [[ ! ${LSVERSION[1]} -ge 3 ]]; then
+			echo "Only Landshark Prime 2.3.0 or higher is supported"
+			exit 1
+		elif [[ ! ${LSVERSION[0]} -ge 2 ]] && [[ ! ${LSVERSION[1]} -ge 0 ]] && [[ ! ${LSVERSION[2]} -ge 5 ]]; then
+			echo "Only Landshark Prime 2.3 or higher is supported"
+			exit 1
+		else
+			echo "Unable to determine version of this Landshark System. Exiting"
+			exit 1
+		fi
+	else
+		[[ "${LSORPRIME}" == "PRIME" ]] && echo "${SCRIPT} is not compatible with Landshark, and is for Delphix internal use only" && exit 1
+		local IFS='.'
+		read -a LSVERSION <<< "${LSRELEASE[1]}"
+		LANDSHARK_PROCESS=${CONTENTDIR}/landshark_setup.py
+		LATEST_CONTENT=landshark_latest
+
+		if [[ "${LSRELEASE[0]}" == "Landshark" ]] && [[ ${LSVERSION[0]} -eq 2 ]] && [[ ${LSVERSION[1]} -eq 3 ]]; then
+			echo "This system is running `cat /etc/landshark-release`" 
+			echo "This system is compatible for upgrade."
+		elif [[ ! ${LSVERSION[0]} -ge 2 ]] && [[ ! ${LSVERSION[1]} -ge 3 ]]; then
+			echo "Only Landshark 2.3.0 or higher is supported"
+			exit 1
+		else
+			echo "Unable to determine version of this Landshark System. Exiting"
+			exit 1
+		fi
+	fi
+}
+
+function NETWORK_CHECK {
+	#call this function if you need to check that the user is on the Delphix Networ
+	until [[ $ping_result == 0 ]]; do
+		DELPHIX_IP="172.16.101.11"
+		ping -c 1 $DELPHIX_IP
+		ping_result=$?
+		if [[ $ping_result != 0 ]]; then
+			echo "Could not ping ${DELPHIX_IP}"
+			echo -e \\n"${REV}${BOLD}In order to run ${SCRIPT}, you need to be connected to the Delphix Network ${NORM}"\\n
+			echo "Please ensure your host machine is connected to the VPN, or on the corporate network"
+			echo "If you are remote and in the field, ensure that your VM's are setup on"
+			echo "a NAT network so that they can access the VPN network through your host"
+			read -p "Press [Enter] when you have connected to the network (i.e. via VPN)"
+		fi
+	done
+}
+
+function QUICK_REFRESH {
+	#This function performs a quick no-check refresh on all the environments
+	#in the DE
+	ENVIRONMENTS=$(curl -X GET -k "http://${DEIP}/resources/json/delphix/environment" \
+		-b ~/cookies.txt -H "Content-Type: application/json" | jq -r ".result[].reference")
+
+	for ENV in $ENVIRONMENTS; do
+		curl -s -X POST -k "http://${DEIP}/resources/json/delphix/environment/${ENV}/refresh" -b ~/cookies.txt -H "Content-Type: application/json"
+	done
+	for ENV in $ENVIRONMENTS; do
+		RUNNING_JOBS_WAIT $ENV
+	done
+}
+
+function REBOOT_THE_ENGINE {
+	#This function initiates a reboot on the DE, and waits the DE to go 
+	#down. You can then follow this function with the ENGINE_WAIT function to 
+	#wait for the DE to come back up.
+	echo "Beginning Reboot routine."
+	until [[ 1 -gt 2 ]]; do 
+		echo "Waiting for the Delphix Engine"
+		echo "Establishing a Session to the Delphix Engine"
+		SESS=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/session \
+	    -c ~/cookies_sysadmin.txt -H "Content-Type: application/json" <<-EOF
+		{
+		    "type": "APISession",
+		    "version": {
+		        "type": "APIVersion",
+		        "major": 1,
+		        "minor": 6,
+		        "micro": 0
+		    }
+		}
+		EOF
+		)
+
+		if [[ "`echo $SESS |jq '.status'`" == "\"OK\"" ]]; then
+			echo "Delphix Engine Session was created"
+			SESS=Y
+			echo "Authenticating with the Delphix Engine"
+			AUTH=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/login \
+			    -b ~/cookies_sysadmin.txt -H "Content-Type: application/json"<<-EOF
+			{
+			    "type": "LoginRequest",
+		    	"username": "sysadmin",
+		    	"password": "${SYSADMINPASSWORD}"
+			}
+			EOF
+		 	)
+
+			if [[ "`echo $AUTH|jq '.status'`" == "\"OK\"" ]]; then
+				echo "Delphix Engine Authentication was successful"
+				echo "Executing Reboot now"
+				curl -s -X POST -k "http://${DEIP}/resources/json/delphix/system/reboot" -b ~/cookies_sysadmin.txt -H "Content-Type: application/json"
+				echo "waiting for Engine to go down"
+				until [[ 1 -gt 2 ]]; do 
+					echo "Waiting for the Delphix Engine to go down"
+					echo "Establishing a Session to the Delphix Engine"
+					SESS=$(curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/session \
+				    -c ~/cookies_sysadmin.txt -H "Content-Type: application/json" <<-EOF
+					{
+					    "type": "APISession",
+					    "version": {
+					        "type": "APIVersion",
+					        "major": 1,
+					        "minor": 6,
+					        "micro": 0
+					    }
+					}
+					EOF
+					)
+					if [[ ! "`echo $SESS |jq '.status'`" == "\"OK\"" ]]; then
+						echo "Engine is down."
+						return
+					fi
+					echo "Sleeping for 10 seconds, then will check the engine again."
+					sleep 10
+				done
+			else
+				echo "Delphix Engine Authentication was unsuccessful"
+			fi
+		else
+			echo "Delphix Engine Session was unable to be created"
+		fi
+		echo "Sleeping for 10 seconds, then will check the engine again."
+		sleep 10
+	done
+}
+
+function REFRESH {
+	if [[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		echo "Some content updates may require your environments to be refreshed before they can be utilized."
+		until  [[ "$REFRESH" == "Y" ]] || [[ "$REFRESH" == "N" ]]; do
+			read -p "Do you want to refresh your environments now? (Y/N): " REFRESH
+			REFRESH=${REFRESH^^}
+		done
+		if [[ "$REFRESH" == "Y" ]]; then
+			su delphix -c "$LANDSHARK_PROCESS -r"
+		fi
+	fi
+}
+
+function REPLACE_APP_LINK {
+	#This function deletes the object out of the application directory and replaces it with a symlink to the object in the CONTENTDIR
+	#Current style guide is to move files out of the delphix application dir as they are replaced.
+	if [[ -L ${APPDIR}/${1} ]]; then
+		echo "${1} link present"
+	elif [[ -f ${APPDIR}/${1} ]]; then
+		echo "Removing ${APPDIR}/${1} and replacing with symlink to ${CONTENTDIR}/${1}"
+		rm ${APPDIR}/${1}
+		su delphix -c "ln -s ${CONTENTDIR}/${1} ${APPDIR}/${1}"
+	else
+		echo "Creating ${1} link"
+		su delphix -c "ln -s ${CONTENTDIR}/${1} ${APPDIR}/${1}"
+	fi
+}
+
+function REPLACE_HOME_LINK {
+	#This function deletes the object out of the delphix home directory and replaces it with a symlink to the object in the CONTENTDIR
+	#Current style guide is to move files out of the delphix homedir as they are replaced.
+	if [[ -L ${HOMEDIR}/${1} ]]; then
+		echo "${1} link present"
+	elif [[ -f ${HOMEDIR}/${1} ]]; then
+		echo "Removing ${HOMEDIR}/${1} and replacing with symlink to ${CONTENTDIR}/${1}"
+		rm ${HOMEDIR}/${1}
+		su delphix -c "ln -s ${CONTENTDIR}/${1} ${HOMEDIR}/${1}"
+	else
+		echo "Creating ${1} link"
+		su delphix -c "ln -s ${CONTENTDIR}/${1} ${HOMEDIR}/${1}"
+	fi
+}
+
+function RUNNING_JOBS_WAIT {
+	#This function wais for jobs to finish on the specified target
+	#Takes one parameter: The target reference
+	TARGETREF=$1
+	until [[ 1 -gt 2 ]]; do
+		fJOB=$(curl -X GET -k "http://${DEIP}/resources/json/delphix/job?target=${TARGETREF}&jobState=RUNNING" \
+			-b ~/cookies.txt -H "Content-Type: application/json"| jq -r ".result[].reference")
+		if [[ -n ${fJOB} ]]; then
+			echo "Waiting on $fJOB to complete"
+			sleep 5
+		else
+			break
+		fi
+	done
+	echo "Job's done"
+}
+
+function SHRINK_RAY {
+	#execute the landshark.shrink function
+	until  [[ "$SHRINK" == "Y" ]] || [[ "$SHRINK" == "N" ]]; do
+		read -p "Do you want to shrink your environments now? (Y/N): " SHRINK
+		SHRINK=${SHRINK^^}
+	done
+	if [[ "$SHRINK" == "Y" ]]; then
+		${CONTENTDIR}/landshark.shrink
+	fi
+}
+
+function START_SOURCE {
+	#This function starts the source
+	#Takes one parameter: The Source Reference
+	curl -s -X POST -k "http://${DEIP}/resources/json/delphix/source/${1}/start" \
+		-b ~/cookies.txt -H "Content-Type: application/json"
+}
+
+function STOP_SOURCE {
+	#This function stops the source
+	#Takes one parameter: The Source Reference
+	curl -s -X POST -k "http://${DEIP}/resources/json/delphix/source/${1}/stop" \
+		-b ~/cookies.txt -H "Content-Type: application/json"
+}
+
+function UPDATE_MANIFEST {
+	#Update the ${CONTENTDIR}/Content.installed file with the new version 
+	[[ -f ${CONTENTDIR}/Content.installed ]] &&	sed -i "/${SCRIPT}/d" ${CONTENTDIR}/Content.installed
+	echo -e "${SCRIPT}\t${VERSION}" >> ${CONTENTDIR}/Content.installed
+}
+
+function VERSION_GT {
+	#http://stackoverflow.com/questions/16989598/bash-comparing-version-numbers
+	test "$(echo "$@" | tr " " "\n" | sort -V | head -n 1)" != "$1"
+}
+
+function VERSION_CHECK {
+	#Don't run, if the content is already marked at this version, or higher
+	INSTALLED_VER=$(grep ${SCRIPT} ${CONTENTLIST}| awk '{print $NF}')
+	[[ -z "${INSTALLED_VER}" ]] && echo "Content not currently present. Install commencing" && return || echo "Installed Version is ${INSTALLED_VER}"
+	if VERSION_GT ${VERSION} ${INSTALLED_VER}; then
+		echo "Upgrade will commence"
+	elif [[ "$FORCE" == "Y" ]]; then
+		echo "Force Option set to Y. Content will be re-applied"
+	else
+		echo "Upgrade will not continue"
+		exit 0
+	fi
+}
+
+##################################
+##Custom Functions
+function DEPENDENCY_CHECK {
+	#Attempt to satusfy the specified landshark_fetch content dependency.
+	#Takes two arguments:
+	#content name: i.e. prime_latest
+	#content minimum version: i.e. 2.1.9 
+	echo "Validating that ${1} is installed and version ${2}, or higher..."
+	INSTALLED_VER=$(grep ${1} ${CONTENTLIST}| awk '{print $NF}')
+	[[ -z "${INSTALLED_VER}" ]] && echo "${1} not currently present. Install commencing" && ${CONTENTDIR}/landshark_fetch -m ${RELEASE} ${1} && return || echo "Installed Version is ${INSTALLED_VER}"
+	if VERSION_GT ${2} ${INSTALLED_VER}; then
+		echo "Upgrading ${1}"
+		${CONTENTDIR}/landshark_fetch -m ${RELEASE} ${1}
+
+	elif [[ "$FORCE" == "Y" ]]; then
+		echo "Force Option set to Y. Content will be re-applied"
+		${CONTENTDIR}/landshark_fetch -m ${RELEASE} ${1} -F y
+	else
+		echo "${1} is already an acceptable version"
+	fi
+	[[ $? -ne 0 ]] && echo "${1} did not complete successfully. Exiting ${SCRIPT}" && exit 1
+}
+
+#####################################################################
+##Welcome Message
+echo -e \\n"The time is now ${NOW}"
+echo -e \\n"${BOLD}Welcome to ${SCRIPT}, v${VERSION}${NORM}"
+echo -e \\n"${DESCRIPTION}"
+
+#####################################################################
+##Argument Parser
+while getopts :e:f:F:k:lr:u:p:s:U:hv FLAG; do
+  case $FLAG in
+    k)	KEEP=${OPTARG^^}
+		if [[ "$KEEP" != "Y" ]] && [[ "$KEEP" != "N" ]]; then
+			echo -e "${ALERT}-k only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+      ;;
+    e)	DEIP=$OPTARG
+      ;;
+  	f)	FETCH_ONLY=${OPTARG^^}
+		if [[ "$FETCH_ONLY" != "Y" ]] && [[ "$FETCH_ONLY" != "N" ]]; then
+			echo -e "${ALERT}-f only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+      ;;
+  	F)	FORCE=${OPTARG^^}
+		if [[ "$FORCE" != "Y" ]] && [[ "$FORCE" != "N" ]]; then
+			echo -e "${ALERT}-F only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+      ;;
+	r)	REFRESH=${OPTARG^^}
+		if [[ "$REFRESH" != "Y" ]] && [[ "$REFRESH" != "N" ]]; then
+			echo -e "${ALERT}-r only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+      ;;
+    s)	SHRINK=${OPTARG^^}
+		if [[ "$SHRINK" != "Y" ]] && [[ "$SHRINK" != "N" ]]; then
+			echo -e "${ALERT}-s only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+      ;;
+    u)	DEUSERNAME=$OPTARG
+		;;
+	U)  UPGRADE=${OPTARG^^}
+		if [[ "$UPGRADE" != "Y" ]] && [[ "$UPGRADE" != "N" ]]; then
+			echo -e "${ALERT}-U only accepts Y or N as parameters${NORM}"
+			HELP
+		fi
+		;;
+    p)  DEPASSWORD=$OPTARG
+		;;
+    h)  #show help
+    	HELP
+      ;;
+    v)  #print version and exit
+		echo "VERSION: ${VERSION}"
+		exit 0
+		;;
+    \?) #unrecognized option - show help
+    	echo -e \\n"Option -${BOLD}$OPTARG${NORM} not allowed."
+      HELP
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))
+#####################################################################
+##Custom Parameters
+#i.e SOMETHING=$1
+
+##Main Body
+##################################
+##Housekeeping
+#Let's check to see if this script even needs to be ran first
+VERSION_CHECK
+DEPENDENCY_CHECK prime_latest 2.3.05.040
+
+#Always assume that we are going to keep the files if we are just fetching
+[[ $FETCH_ONLY == "Y" ]] && KEEP="Y"
+
+#prompt for important variables that haven't been explicity set via arguments
+if [[ -z $KEEP ]]; then
+	until  [[ "$KEEP" == "Y" ]] || [[ "$KEEP" == "N" ]]; do
+		read -p "Do you want to keep the setup files after setup is complete? (Y/N): " KEEP
+		KEEP=${KEEP^^}
+	done
+fi
+
+#If we're not just fetching, let's grab and validate our config settings
+#Let's do this before the file fetch so that our users can go do other things
+if [[ $FETCH_ONLY == "N" ]]; then
+	#FETCH_ENGINE_PARAMS
+	LSEVAL
+	#ENGINE_TEST
+	ENGINE_WAIT
+	#FETCH_VM_PARAMS
+	:
+fi
+
+FETCH_AWSCLI
+
+if [[ "$FETCH_ONLY" == "Y" ]]; then
+	#We're done, if we were only fetching files
+	echo "-f was given. Files only downloaded. No installation will occur"
+else
+	#Otherwise now it is time to do work
+	#do something on both
+	if [[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		#do something to LT
+		GROUP_EXISTS=$(curl -s @- http://${DEIP}/resources/json/delphix/group -b ~/cookies.txt| jq -r ".result[] | select (.name == \"Jenkins Test VBDs\")")
+		if [ -z "${GROUP_EXISTS}" ]; then
+			echo "Creating the group to house the Jenkins jobs"
+			curl -s -X POST -k --data @- http://${DEIP}/resources/json/delphix/group \
+				    -b ~/cookies.txt -H "Content-Type: application/json"<<-EOF
+			{
+			    "type": "Group",
+			    "name": "Jenkins Test VBDs",
+			    "description": "VDB's automatically created via Jenkins are placed here"
+			}
+			EOF
+		else
+			echo "Group: \"Jenkins Test VBDs\" already exists"
+		fi
+
+		TEMPLATE_REF=$(curl -sS http://${DEIP}/resources/json/delphix/jetstream/template -b ~/cookies.txt| jq -r ".result[] | select (.name == \"Masked SugarCRM Application\")|.reference")
+		
+		if [ -z "${TEMPLATE_REF}" ]; then
+		    echo "Missing \"Masked SugarCRM Application\" Jetstream Template"
+		    echo "Running ${LANDSHARK_PROCESS} again with sugarcm set to \"jetstream\""
+		    RUN_LP=true
+		else
+			CONTAINER_REF=$(curl -sS http://${DEIP}/resources/json/delphix/jetstream/container?template=${TEMPLATE_REF} \-b ~/cookies.txt| jq -r ".result[] | select (.name == \"Sugar Automated Testing Container\")|.reference")
+			if [ -z "${CONTAINER_REF}" ]; then
+		    	echo "Missing \"Masked SugarCRM Application\" Jetstream Template"
+		    	echo "Running ${LANDSHARK_PROCESS} again with sugarcm set to \"jetstream\""
+		    	RUN_LP=true
+			fi
+		fi
+		
+		if [ "${RUN_LP}" == true ]; then
+			echo "Setting sugarcm to jet_stream in ${LP}"
+			CONTENT_LIST=$(cat ${LP_FILE}| xmlstarlet sel -T -t -m "//content/child::node()" -v "name()" -o "=" -v "value" -n | grep -v "^="|awk -F'=' '{print $1}')
+			for each in ${CONTENT_LIST};do
+				xmlstarlet ed --inplace -u "//content/$each/value" -v "not_selected" ${LP_FILE}
+			done
+			xmlstarlet ed --inplace -u "//content/sugarcrm/value" -v "jet_stream" ${LP_FILE}
+			echo -e "${BOLD} Starting ${LANDSHARK_PROCESS}."
+			echo -e "This may take several minutes."
+			echo -e "You can watch your progress at http://linuxtarget/logs.${NORM}"
+			su - delphix -c "${LANDSHARK_PROCESS}"
+			[[ $? -ne 0 ]] && echo "${LANDSHARK_PROCESS} did not complete successfully. Exiting ${SCRIPT}" && exit 1
+		fi
+
+
+
+		${CONTENTDIR}/jenkins-delete
+		${CONTENTDIR}/docker_pull_cap cloudsurgeon/landshark-jenkins
+		${CONTENTDIR}/yum_cap install git
+		${CONTENTDIR}/jenkins-start
+		[[ $? -ne 0 ]] && echo "jenkins-start did not complete successfully. Exiting ${SCRIPT}" && exit 1
+		
+
+	elif [[ "$HOSTNAME" == "linuxsource.delphix.local" ]]; then
+		#do something to LS
+		:
+	fi
+	#do something on both again
+	if [[ "$HOSTNAME" == "linuxtarget.delphix.local" ]]; then
+		#include post-install instructions only applicable to linuxtarget
+		echo -e \\n"${BOLD}POST INSTALL INSTRUCTIONS\\nRun jenkins-stop to stop your jenkins container"
+		echo -e "\\nRun jenkins-start to start your jenkins container\\nRun jenkins-delete to delete your jenkins container"
+		echo -e "\\nAccess your Jenkins container at http://linuxtarget:5777${NORM}"
+		:
+	elif [[ "$HOSTNAME" == "linuxsource.delphix.local" ]]; then
+		#include post-install instructions only applicable to linuxsource
+		:
+	fi
+	#include post-install instructions applicable to both VM's
+	##################################
+	##Cleanup and wrap up
+	UPDATE_MANIFEST
+	#CLEAN_UP
+	#REFRESH
+	#SHRINK_RAY
+fi
+#Let them know we're done
+ENDTIME=$(date +%s)
+echo "It took $(($ENDTIME - $STARTTIME)) seconds to complete ${SCRIPT}"
+echo "${SCRIPT} is complete."
+echo "The time is now ${NOW}"
