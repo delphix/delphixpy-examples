@@ -10,11 +10,10 @@
 """Create Host Environment
 
 Usage:
-  dx_environment.py --type <name> --env_name <name> --host_user <username> --pw <password> --ip <address> --toolkit <path_to_the_toolkit> | --delete <env_name>
+  dx_environment.py ( --type <name> --env_name <name> --host_user <username> --ip <address> --toolkit <path_to_the_toolkit> | --delete <env_name> | --refresh <env_name)
                     [--logdir <directory>] [--debug] [--config <filename>]
-                    [-d <identifier> | --engine <identifier>]
+                    [--pw <password>] [-d <identifier> | --engine <identifier>]
    
-
   dx_environment.py -h | --help | -v | --version
 
 Create a Delphix environment.
@@ -30,9 +29,10 @@ Options:
   --ip <addr>               The IP address of the Delphix environment
   --toolkit <path>          Path of the toolkit.
   --host_user <username>    The username on the Delphix environment
-  --pw <password>           The password of the user
   --delete <environment>    The name of the Delphix environment to delete
+  --refresh <environment>   The name of the Delphix environment to refresh
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
+  --pw <password>           Password of the user
   --all                     Run against all engines.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -78,16 +78,34 @@ def delete_env(server, env_name):
         print_error('Environment was not found in the Engine: ' + env_name)
 
 
-def create_linux_env(server, jobs, env_name, host_user, pw, ip_addr,
-                     toolkit_path):
+def refresh_env(server, env_name):
+    env_obj = getObjectReference(server, environment, env_name)
+
+    if env_obj:
+        environment.refresh(server, env_obj.reference)
+    else:
+        print_error('Environment was not found in the Engine: ' + env_name)
+
+
+def create_linux_env(server, jobs, env_name, host_user, ip_addr,
+                     toolkit_path, pw=None):
 
         hostEnvParams_obj = HostEnvironmentCreateParameters()
         hostEnvParams_obj.type = 'HostEnvironmentCreateParameters'
         hostEnvParams_obj.host_environment = { 'type': 'UnixHostEnvironment',
                                                 'name': env_name }
-        hostEnvParams_obj.primary_user = { 'type': 'EnvironmentUser',
-                                           'name': host_user,
-                                           'credential': { 
+
+        if pw == None:
+            print_debug('Creating the with SSH Keys')
+            hostEnvParams_obj.primary_user = { 'type': 'EnvironmentUser',
+                                               'name': host_user,
+                                               'credential': {                                                  'type': 'SystemKeyCredential' }}
+
+        else:
+            print_debug('Creating the with a password')
+            hostEnvParams_obj.primary_user = { 'type': 'EnvironmentUser',
+                                               'name': host_user,
+                                               'credential': { 
                                                   'type': 'PasswordCredential',
                                                   'password': pw }}
                                              
@@ -305,8 +323,6 @@ def main_workflow(engine):
         while (len(jobs) > 0 or len(thingstodo)> 0):
             if len(thingstodo)> 0:
 
-#### NEED TO MATCH THIS
-######################
                 if arguments['--type'] == 'linux':
                      pw = arguments['--pw']
                      ip_addr = arguments['--ip']
@@ -317,9 +333,13 @@ def main_workflow(engine):
                      ip_addr = arguments['--ip']
                      toolkit_path = arguments['--toolkit']
                      create_linux_env(server, jobs, env_name, host_user,
-                                     pw, ip_addr, toolkit_path)
+                                     ip_addr, toolkit_path, pw)
+
                 elif arguments['--delete']:
                     delete_env(server, arguments['--delete'])
+
+                elif arguments['--refresh']:
+                    refresh_env(server, arguments['--refresh'])
 
                 thingstodo.pop()
             #get all the jobs, then inspect them
