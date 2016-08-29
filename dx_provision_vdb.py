@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script provisions a vdb or dSource
+# Updated by Corey Brune Aug 2016
+# --- Create vFiles VDB
 #requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Provision VDB's
-
 Usage:
   dx_provision_db.py --source_grp <name> --source <name> --target_grp <name> --target <name>
                   (--db <name> | --vfiles_path <path>) [--no_truncate_log]
@@ -19,27 +20,30 @@ Usage:
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
+                  [--postrefresh <name>] [--prerefresh <name>]
   dx_provision_db.py -h | --help | -v | --version
-
 Provision VDB from a defined source on the defined target environment.
 
 Examples:
-  dx_provision_vdb.py -d landsharkengine --source_grp Sources --source "ASE pubs3 DB" --db \
-      vase --target testASE --target_grp Analytics --environment \
-      LINUXTARGET --type ase --envinst "LINUXTARGET"
-  dx_provision_vdb.py --source_grp Sources --source "Employee Oracle 11G DB" --instname \
-      autod --uniqname autoprod --db autoprod --target autoprod --target_grp \
-      Analytics --environment LINUXTARGET --type oracle --envinst \
-      "/u01/app/oracle/product/11.2.0/dbhome_1"
-  dx_provision_vdb.py --source_grp Sources --source "AdventureWorksLT2008R2" --db \
-      vAW --target testAW --target_grp Analytics --environment \
-      WINDOWSTARGET --type mssql --envinst MSSQLSERVER --all
+  dx_provision_vdb.py -d landsharkengine --source_grp Sources \
+                      --source "ASE pubs3 DB" --db vase --target testASE \
+                      --target_grp Analytics --environment LINUXTARGET \
+                      --type ase --envinst "LINUXTARGET"
 
+  dx_provision_vdb.py --source_grp Sources --source "Employee Oracle 11G DB" \
+                      --instname autod --uniqname autoprod --db autoprod \
+                      --target autoprod --target_grp Analytics \
+                      --environment LINUXTARGET --type oracle \
+                      --envinst "/u01/app/oracle/product/11.2.0/dbhome_1"
+
+  dx_provision_vdb.py --source_grp Sources --source "AdventureWorksLT2008R2" \
+                      --db vAW --target testAW --target_grp Analytics \
+                      --environment WINDOWSTARGET --type mssql \
+                      --envinst MSSQLSERVER --all
 
 Options:
   --source_grp <name>       The group where the source resides.
-  --source <name>           The name of the source object from which you are creating
-                            your vdb.
+  --source <name>           Name of the source object 
   --target_grp <name>       The group into which Delphix will place the VDB.
   --target <name>           The unique name that you want to call this object
                             in Delphix
@@ -50,6 +54,8 @@ Options:
   --environment <name>      The name of the Target environment in Delphix
   --type <type>             The type of VDB this is.
                             oracle | mssql | ase | vfiles
+  --prerefresh <name>       Pre-Hook commands
+  --postrefresh <name>      Post-Hook commands
   --envinst <name>          The identifier of the instance in Delphix.
                             ex. "/u01/app/oracle/product/11.2.0/dbhome_1"
                             ex. LINUXTARGET
@@ -87,7 +93,6 @@ Options:
                             [default: ./dx_provision_db.log]
   -h --help                 Show this screen.
   -v --version              Show version.
-
 """
 
 VERSION="v.0.0.007"
@@ -107,16 +112,31 @@ from time import sleep, time
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError, JobError
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, host, job, repository, snapshot, source, user
-from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer, OracleInstance, OracleProvisionParameters, OracleSIConfig, OracleVirtualSource, \
-TimeflowPointLocation, TimeflowPointSemantic, TimeflowPointTimestamp, ASEDBContainer, ASEInstanceConfig, ASEProvisionParameters, \
-ASESIConfig, ASEVirtualSource, MSSqlProvisionParameters, MSSqlDatabaseContainer, MSSqlVirtualSource, MSSqlInstanceConfig, MSSqlInstance, MSSqlSIConfig
+from delphixpy.v1_6_0.web import database, environment, group, host, job, \
+                                 repository, snapshot, source, sourceconfig, \
+                                 user
+from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer, OracleInstance, \
+                                    OracleProvisionParameters, OracleSIConfig, \
+                                    OracleVirtualSource, \
+                                    TimeflowPointLocation, \
+                                    TimeflowPointSemantic, \
+                                    TimeflowPointTimestamp, ASEDBContainer, \
+                                    ASEInstanceConfig, ASEProvisionParameters, \
+                                    ASESIConfig, ASEVirtualSource, \
+                                    MSSqlProvisionParameters, \
+                                    MSSqlDatabaseContainer, MSSqlVirtualSource,\
+                                    MSSqlInstanceConfig, MSSqlInstance, \
+                                    MSSqlSIConfig, AppDataVirtualSource, \
+                                    AppDataProvisionParameters
 
-def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, container_obj):
+
+def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 
+                   container_obj):
     '''
     Create a Sybase ASE VDB
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, server, vdb_group.name, vdb_name)
+    vdb_obj = find_database_by_name_and_group_name(engine, server, 
+                                                   vdb_group.name, vdb_name)
     if vdb_obj == None:
         vdb_params = ASEProvisionParameters()
         vdb_params.container = ASEDBContainer()
@@ -132,26 +152,37 @@ def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, c
         vdb_params.source_config.instance = ASEInstanceConfig()
         vdb_params.source_config.instance.host = environment_obj.host
 
-        vdb_repo = find_dbrepo_by_environment_ref_and_name(engine, server, "ASEInstance", environment_obj.reference, arguments['--envinst'])
-        vdb_params.source_config.repository = vdb_repo.reference
+        vdb_repo = find_dbrepo_by_environment_ref_and_name(engine, server, 
+                                                     "ASEInstance", 
+                                                     environment_obj.reference,
+                                                     arguments['--envinst'])
 
-        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, server, container_obj)
+        vdb_params.source_config.repository = vdb_repo.reference
+        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
+                                                                  server, 
+                                                                  container_obj)
+
         vdb_params.timeflow_point_parameters.container = container_obj.reference
         print_info("Provisioning " + vdb_name)
         database.provision(server, vdb_params)
+
         #Add the job into the jobs dictionary so we can track its progress
         jobs[engine["hostname"]] = server.last_job
-        #return the job object to the calling statement so that we can tell if a job was created or not (will return None, if no job)
+        #return the job object to the calling statement so that we can tell if 
+        # a job was created or not (will return None, if no job)
         return server.last_job
     else:
         print_info(engine["hostname"] + ": " + vdb_name + " already exists.")
         return vdb_obj.reference
 
-def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, container_obj):
+
+def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name, 
+                     environment_obj, container_obj):
     '''
     Create a MSSQL VDB
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, server, vdb_group.name, vdb_name)
+    vdb_obj = find_database_by_name_and_group_name(engine, server, 
+                                                   vdb_group.name, vdb_name)
     if vdb_obj == None:
         vdb_params = MSSqlProvisionParameters()
         vdb_params.container = MSSqlDatabaseContainer()
@@ -163,28 +194,98 @@ def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj,
         vdb_params.source_config.instance = MSSqlInstanceConfig()
         vdb_params.source_config.instance.host = environment_obj.host
 
-        vdb_repo = find_dbrepo_by_environment_ref_and_name(engine, server, "MSSqlInstance", environment_obj.reference, arguments['--envinst'])
+        vdb_repo = find_dbrepo_by_environment_ref_and_name(engine, server, 
+                                                     "MSSqlInstance", 
+                                                     environment_obj.reference,
+                                                     arguments['--envinst'])
         vdb_params.source_config.repository = vdb_repo.reference
 
-        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, server, container_obj)
+        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
+                                                                  server, 
+                                                                  container_obj)
         if not vdb_params.timeflow_point_parameters:
             return
-        vdb_params.timeflow_point_parameters.container = container_obj.reference
+        vdb_params.timeflow_point_parameters.container = \
+                                             container_obj.reference
         print_info(engine["hostname"] + ":Provisioning " + vdb_name)
         database.provision(server, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
         jobs[engine["hostname"]] = server.last_job
-        #return the job object to the calling statement so that we can tell if a job was created or not (will return None, if no job)
+        #return the job object to the calling statement so that we can tell if 
+        # a job was created or not (will return None, if no job)
         return server.last_job
     else:
         print_info(engine["hostname"] + ": " + vdb_name + " already exists.")
         return vdb_obj.reference
 
-def create_oracle_si_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, container_obj):
+
+def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name, 
+                      environment_obj, container_obj, pre_refresh=None,
+                      post_refresh=None):
+    '''
+    Create a Vfiles VDB
+    '''
+
+    vfiles_obj = find_database_by_name_and_group_name(engine, server, 
+                                                      vfiles_group.name, 
+                                                      vfiles_name)
+    if vfiles_obj == None:
+        vfiles_repo = find_uf_by_environment_ref(engine, server, 
+                                                 'Unstructured Files',
+                                                 environment_obj.reference)
+
+        vfiles_params = AppDataProvisionParameters()
+        vfiles_params.type = 'AppDataProvisionParameters'
+        vfiles_params.container = { 'type': 'AppDataContainer', 
+                                    'group': vfiles_group.reference,
+                                    'name': vfiles_name }
+
+        vfiles_params.source_config = { 'type': 'AppDataDirectSourceConfig',
+                             'name': arguments['--vfiles_path'],
+                             'path': arguments['--vfiles_path'],
+                             'environment_user': environment_obj.primary_user,
+                             'repository': vfiles_repo.reference }
+
+        vfiles_params.source = { 'type': 'AppDataVirtualSource',
+                                 'name': vfiles_name,
+                                 'operations': { 
+                                             'type': 'VirtualSourceOperations',
+                                             'preRefresh': [{ 'type':
+                                             'RunBashOnSourceOperation',
+                                             'command':
+                                             pre_refresh }],
+                                             'postRefresh': [{ 'type':
+                                             'RunBashOnSourceOperation',
+                                             'command': post_refresh
+                                             }]}}
+
+        vfiles_params.timeflow_point_parameters = { 
+                                     'type': 'TimeflowPointSemantic',
+                                     'container': container_obj.reference,
+                                     'location': 'LATEST_POINT'
+                                     }
+
+        print_info(engine["hostname"] + ": Provisioning " + vfiles_name)
+        database.provision(server, vfiles_params)
+
+        #Add the job into the jobs dictionary so we can track its progress
+        jobs[engine["hostname"]] = server.last_job
+
+        #return the job object to the calling statement so that we can tell if 
+        # a job was created or not (will return None, if no job)
+        return server.last_job
+    else:
+        print_info(engine["hostname"] + ":" + vfiles_name + " already exists.")
+        return vfiles_obj.reference
+
+
+def create_oracle_si_vdb(engine, server, jobs, vdb_group, vdb_name, 
+                         environment_obj, container_obj):
     '''
     Create an Oracle SI VDB
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, server, vdb_group.name, vdb_name)
+    vdb_obj = find_database_by_name_and_group_name(engine, server, 
+                                                   vdb_group.name, vdb_name)
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
         if arguments['--noopen']:
@@ -197,32 +298,43 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_group, vdb_name, environment_
         if arguments['--mapfile']:
             vdb_params.source.file_mapping_rules = arguments['--mapfile']
         if arguments['--template']:
-                template_obj = find_obj_by_name(engine, server, database.template, arguments['--template'])
+                template_obj = find_obj_by_name(engine, server, 
+                                                database.template, 
+                                                arguments['--template'])
                 vdb_params.source.config_template = template_obj.reference
         vdb_params.source_config = OracleSIConfig()
     
 
-        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, server, "OracleInstall", environment_obj.reference, arguments['--envinst'])
+        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
+                                                     server, "OracleInstall", 
+                                                     environment_obj.reference,
+                                                     arguments['--envinst'])
         vdb_params.source_config.database_name = arguments['--db']
         vdb_params.source_config.unique_name = arguments['--uniqname']
         vdb_params.source_config.instance = OracleInstance()
-        vdb_params.source_config.instance.instance_name = arguments['--instname']
+        vdb_params.source_config.instance.instance_name = \
+                                          arguments['--instname']
         vdb_params.source_config.instance.instance_number = 1
         vdb_params.source_config.repository = vdb_repo.reference
 
-        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, server, container_obj)
+        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
+                                                         server, container_obj)
         vdb_params.timeflow_point_parameters.container = container_obj.reference
         print_info(engine["hostname"] + ": Provisioning " + vdb_name)
+
         database.provision(server, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
         jobs[engine["hostname"]] = server.last_job
-        #return the job object to the calling statement so that we can tell if a job was created or not (will return None, if no job)
+        #return the job object to the calling statement so that we can tell if 
+        # a job was created or not (will return None, if no job)
         return server.last_job
     else:
         print_info(engine["hostname"] + ":" + vdb_name + " already exists.")
         return vdb_obj.reference
 
-def find_all_databases_by_group_name(engine, server, group_name, exclude_js_container=False):
+
+def find_all_databases_by_group_name(engine, server, group_name, 
+                                     exclude_js_container=False):
     """
     Easy way to quickly find databases by group name
     """
@@ -230,71 +342,143 @@ def find_all_databases_by_group_name(engine, server, group_name, exclude_js_cont
     #First search groups for the name specified and return its reference
     group_obj = find_obj_by_name(engine, server, group, group_name)
     if group_obj:
-        databases=database.get_all(server, group=group_obj.reference, no_js_container_data_source=exclude_js_container)
+        databases=database.get_all(server, group=group_obj.reference, 
+                           no_js_container_data_source=exclude_js_container)
         return databases
 
-def find_database_by_name_and_group_name(engine, server, group_name, database_name):
+
+def find_database_by_name_and_group_name(engine, server, group_name, 
+                                         database_name):
 
     databases = find_all_databases_by_group_name(engine, server, group_name)
 
     for each in databases:
         if each.name == database_name:
-            print_debug(engine["hostname"] + ": Found a match " + str(each.reference))
+            print_debug(engine["hostname"] + ": Found a match " + 
+                        str(each.reference))
             return each
-    print_info(engine["hostname"] + ": Unable to find \"" + database_name + "\" in " + group_name)
 
-def find_dbrepo_by_environment_ref_and_install_path(engine, server, install_type, f_environment_ref, f_install_path):
+    print_info(engine["hostname"] + ": Unable to find \"" + database_name + 
+               "\" in " + group_name)
+
+
+def find_dbrepo_by_environment_ref_and_install_path(engine, server, 
+                                                    install_type, 
+                                                    f_environment_ref, 
+                                                    f_install_path):
     '''
-    Function to find database repository objects by environment reference and install path, and return the object's reference as a string
+    Function to find database repository objects by environment reference and 
+    install path, and return the object's reference as a string
     You might use this function to find Oracle and PostGreSQL database repos.
     '''
-    print_debug(engine["hostname"] + ": Searching objects in the " + install_type + " class for one with the environment reference of \"" + f_environment_ref +"\"\n   and an install path of \"" + f_install_path + "\"")
+    print_debug(engine["hostname"] + ": Searching objects in the " + 
+                install_type + 
+                " class for one with the environment reference of \"" + 
+                f_environment_ref +"\"\n   and an install path of \"" + 
+                f_install_path + "\"")
+
     obj_ref = ''
     all_objs = repository.get_all(server, environment=f_environment_ref)
     for obj in all_objs:
-        if install_type == "PgSQLInstall":
-            if (obj.type == install_type and obj.installation_path == f_install_path):
-                print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
+        if install_type == 'PgSQLInstall':
+            if (obj.type == install_type and
+                obj.installation_path == f_install_path):
+                print_debug(engine['hostname'] + ': Found a match ' + 
+                            str(obj.reference))
                 return obj
-        elif install_type == "OracleInstall":
-            if (obj.type == install_type and obj.installation_home == f_install_path):
-                print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
-                return obj
-        elif install_type == "MySQLInstall":
-            if (obj.type == install_type and obj.installation_path == f_install_path):
-                print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
-                return obj
-        else:
-            print_error(engine["hostname"] + ": No Repo match found for type " + install_type)
+        elif install_type == 'OracleInstall':
+            if (obj.type == install_type and 
+                obj.installation_home == f_install_path):
 
-def find_dbrepo_by_environment_ref_and_name(engine, server, repo_type, f_environment_ref, f_name):
+                print_debug(engine['hostname'] + ': Found a match ' + 
+                            str(obj.reference))
+                return obj
+        elif install_type == 'MySQLInstall':
+            if (obj.type == install_type and 
+                obj.installation_path == f_install_path):
+
+                print_debug(engine['hostname'] + ': Found a match ' + 
+                            str(obj.reference))
+                return obj
+
+        else:
+            print_error(engine["hostname"] + 
+                        ": No Repo match found for type " + install_type)
+
+
+def find_uf_by_environment_ref(engine, server, repo_type, f_environment_ref):
     '''
-    Function to find database repository objects by environment reference and name, and return the object's reference as a string
+    Function to find unstructured file repository objects by environment 
+    reference and name, and return the object's reference as a string
+    You might use this function to find Unstructured File repos.
+    '''
+    print_debug(engine["hostname"] + ": Searching objects in the " + 
+                repo_type + 
+                " class for one with the environment reference of \"" + 
+                f_environment_ref +"\"\n ")
+
+    obj_ref = ''
+    all_objs = repository.get_all(server, environment=f_environment_ref)
+
+    for obj in all_objs:
+        if obj.name == 'Unstructured Files':
+             print_debug(engine['hostname'] + ': Found a match ' + 
+                        str(obj.reference))
+             return obj
+
+    print_error(engine["hostname"] + 
+                ": No Repo match found for type " + repo_type)
+
+
+def find_dbrepo_by_environment_ref_and_name(engine, server, repo_type, 
+                                            f_environment_ref, f_name):
+    '''
+    Function to find database repository objects by environment reference and 
+    name, and return the object's reference as a string
     You might use this function to find MSSQL database repos.
     '''
-    print_debug(engine["hostname"] + ": Searching objects in the " + repo_type + " class for one with the environment reference of \"" + f_environment_ref +"\"\n   and a name of \"" + f_name + "\"")
+    print_debug(engine["hostname"] + ": Searching objects in the " + 
+                repo_type + 
+                " class for one with the environment reference of \"" + 
+                f_environment_ref +"\"\n   and a name of \"" + f_name + "\"")
     obj_ref = ''
     all_objs = repository.get_all(server, environment=f_environment_ref)
+
     for obj in all_objs:
-        if repo_type == "MSSqlInstance" or repo_type == "ASEInstance":
+        if (repo_type == "MSSqlInstance" or repo_type == "ASEInstance"):
             if (obj.type == repo_type and obj.name == f_name):
-                print_debug(engine["hostname"] + ": Found a match: " + str(obj.reference))
+                print_debug(engine["hostname"] + ": Found a match: " + 
+                            str(obj.reference))
                 return obj
-    print_error(engine["hostname"] + ": No Repo match found for type " + repo_type)
+
+        elif repo_type == 'Unstructured Files':
+            if obj.value == install_type:
+                print_debug(engine['hostname'] + ': Found a match ' + 
+                            str(obj.reference))
+                return obj
+
+    print_error(engine["hostname"] + 
+                ": No Repo match found for type " + repo_type)
+
 
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
-    Function to find objects by name and object class, and return object's reference as a string
+    Function to find objects by name and object class, and return object's 
+    reference as a string
     You might use this function to find objects like groups.
     """
-    print_debug(engine["hostname"] + ": Searching objects in the " + f_class.__name__ + " class\n   for one named \"" + obj_name +"\"")
+    print_debug(engine["hostname"] + ": Searching objects in the " + 
+                f_class.__name__ + " class\n   for one named \"" + 
+                obj_name + "\"")
     obj_ref = ''
 
     all_objs = f_class.get_all(server)
     for obj in all_objs:
         if obj.name == obj_name:
-            print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
+            print_debug(engine["hostname"] + ": Found a match " + 
+                        str(obj.reference))
             return obj
+
 
 def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
     snapshots = snapshot.get_all(server, database=database_obj.reference)
@@ -321,27 +505,38 @@ def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
         if str(snapshot_obj.latest_change_point.timestamp).startswith(arguments['--timestamp']):
             matches.append(snapshot_obj)
     if len(matches) == 1:
-        print_debug(engine["hostname"] + ": Found one and only one match. This is good.")
+        print_debug(engine["hostname"] + ": Found one and only one match. " + 
+                    "This is good.")
         print_debug(matches[0])
         return matches[0]
     elif len(matches) > 1:
-        print_error(engine["hostname"] + ": The time specified was not specific enough. More than one match found.")
+        print_error(engine["hostname"] + 
+                    ": The time specified was not specific enough. More than " +
+                    "one match found.")
         print_debug(matches)
     else:
-        print_error(engine["hostname"] + ": No matches found for the time specified")
+        print_error(engine["hostname"] + 
+                    ": No matches found for the time specified")
+
 
 def find_source_by_database(engine, server, database_obj):
-    #The source tells us if the database is enabled/disables, virtual, vdb/dSource, or is a staging database.
+    #The source tells us if the database is enabled/disables, virtual, 
+    # vdb/dSource, or is a staging database.
     source_obj = source.get_all(server, database=database_obj.reference)
-    #We'll just do a little sanity check here to ensure we only have a 1:1 result.
+    #We'll just do a little sanity check here to ensure we only have a 1:1 
+    # result.
     if len(source_obj) == 0:
-        print_error(engine["hostname"] + ": Did not find a source for " + database_obj.name + ". Exiting")
+        print_error(engine["hostname"] + ": Did not find a source for " + 
+                    database_obj.name + ". Exiting")
         sys.exit(1)
     elif len(source_obj) > 1:
-        print_error(engine["hostname"] + ": More than one source returned for " + database_obj.name + ". Exiting")
+        print_error(engine["hostname"] + 
+                    ": More than one source returned for " + 
+                    database_obj.name + ". Exiting")
         print_error(source_obj)
         sys.exit(1)
     return source_obj
+
 
 def get_config(config_file_path):
     """
@@ -351,20 +546,26 @@ def get_config(config_file_path):
     try:
         config_file = open(config_file_path).read()
     except:
-        print_error("Was unable to open " + config_file_path + ". Please check the path and permissions, then try again.")
+        print_error("Was unable to open " + config_file_path + 
+                    ". Please check the path and permissions, then try again.")
         sys.exit(1)
-    #Now parse the file contents as json and turn them into a python dictionary, throw an error if it isn't proper json
+    #Now parse the file contents as json and turn them into a python 
+    # dictionary, throw an error if it isn't proper json
     try:
         config = json.loads(config_file)
     except:
-        print_error("Was unable to read " + config_file_path + " as json. Please check file in a json formatter and try again.")
+        print_error("Was unable to read " + config_file_path + 
+                    " as json. Please check file in a json formatter and " + 
+                    "try again.")
         sys.exit(1)
-    #Create a dictionary of engines (removing the data node from the dxtools.json, for easier parsing)
+    #Create a dictionary of engines (removing the data node from the 
+    # dxtools.json, for easier parsing)
     delphix_engines = {}
     for each in config['data']:
         delphix_engines[each['hostname']] = each
     print_debug(delphix_engines)
     return delphix_engines
+
 
 def logging_est(logfile_path):
     """
@@ -380,6 +581,7 @@ def logging_est(logfile_path):
         logger.setLevel(10)
         print_info("Debug Logging is enabled.")
 
+
 def job_mode(server):
     """
     This function tells Delphix how to execute jobs, based on the single_thread variable at the beginning of the file
@@ -394,6 +596,7 @@ def job_mode(server):
         print_debug("These jobs will be executed asynchronously")
     return job_m
 
+
 def job_wait():
     """
     This job stops all work in the thread/process until jobs are completed.
@@ -407,6 +610,7 @@ def job_wait():
             #If so, wait
             job_context.wait(server,jobobj.reference)
 
+
 def on_exit(sig, func=None):
     """
     This function helps us end cleanly and with exit codes
@@ -414,6 +618,7 @@ def on_exit(sig, func=None):
     print_info("Shutdown Command Received")
     print_info("Shutting down " + basename(__file__))
     sys.exit(0)
+
 
 def print_debug(print_obj):
     """
@@ -426,12 +631,14 @@ def print_debug(print_obj):
     except:
         pass
 
+
 def print_error(print_obj):
     """
     Call this function with a log message to prefix the message with ERROR
     """
     print "ERROR: " + str(print_obj)
     logging.error(str(print_obj))
+
 
 def print_info(print_obj):
     """
@@ -440,12 +647,14 @@ def print_info(print_obj):
     print "INFO: " + str(print_obj)
     logging.info(str(print_obj))
 
+
 def print_warning(print_obj):
     """
     Call this function with a log message to prefix the message with WARNING
     """
     print "WARNING: " + str(print_obj)
     logging.warning(str(print_obj))
+
 
 def run_async(func):
     """
@@ -454,16 +663,13 @@ def run_async(func):
             function decorator, intended to make "func" run in a separate
             thread (asynchronously).
             Returns the created Thread object
-
             E.g.:
             @run_async
             def task1():
                 do_something
-
             @run_async
             def task2():
                 do_something_too
-
             t1 = task1()
             t2 = task2()
             ...
@@ -480,6 +686,7 @@ def run_async(func):
         return func_hl
 
     return async_func
+
 
 @run_async
 def main_workflow(engine):
@@ -501,55 +708,82 @@ def main_workflow(engine):
     #Setup the connection to the Delphix Engine
     server = serversess(engine_address, engine_username, engine_password)
 
-    #Get the group by name
-    group_obj = find_obj_by_name(engine, server, group, arguments['--target_grp'])
+    group_obj = find_obj_by_name(engine, server, group, 
+                                 arguments['--target_grp'])
 
     #Get the reference of the target environment.
     print_debug("Getting environment for " + host_name)
+
     #Get the environment object by the hostname
     environment_obj = find_obj_by_name(engine, server, environment, host_name)
     if environment_obj == None:
-        print_error(engine["hostname"] + ":No environment found for " + host_name + ". Exiting")
+        print_error(engine["hostname"] + ":No environment found for " + 
+                    host_name + ". Exiting")
         sys.exit(1)
 
     #Get the database reference we are copying from the database name
-    database_obj = find_database_by_name_and_group_name(engine, server, arguments['--source_grp'], arguments['--source'])
+    database_obj = find_database_by_name_and_group_name(engine, server, 
+                                                   arguments['--source_grp'], 
+                                                   arguments['--source'])
     if database_obj == None:
         return
+
     thingstodo = ["thingtodo"]
     #reset the running job count before we begin
     i = 0
     with job_mode(server):
         while (len(jobs) > 0 or len(thingstodo)> 0):
+            arg_type = arguments['--type'].lower()
             if len(thingstodo)> 0:
-                if arguments['--type'].lower() == "oracle":
-                    create_oracle_si_vdb(engine, server, jobs, group_obj, database_name, environment_obj , database_obj)
-                elif arguments['--type'].lower() == "ase":
-                    create_ase_vdb(engine, server, jobs, group_obj, database_name, environment_obj , database_obj)
-                elif arguments['--type'].lower() == "mssql":
-                    create_mssql_vdb(engine, server, jobs, group_obj, database_name, environment_obj , database_obj)
+
+                if arg_type == "oracle":
+                    create_oracle_si_vdb(engine, server, jobs, group_obj, 
+                                         database_name, environment_obj, 
+                                         database_obj)
+
+                elif arg_type == "ase":
+                    create_ase_vdb(engine, server, jobs, group_obj, 
+                                   database_name, environment_obj, database_obj)
+
+                elif arg_type == "mssql":
+                    create_mssql_vdb(engine, server, jobs, group_obj, 
+                                     database_name, environment_obj, 
+                                     database_obj)
+
+                elif arg_type == "vfiles":
+                    create_vfiles_vdb(engine, server, jobs, group_obj, 
+                                      database_name, environment_obj, 
+                                      database_obj, arguments['--prerefresh'],
+                                      arguments['--postrefresh'])
+
                 thingstodo.pop()
             #get all the jobs, then inspect them
             i = 0
             for j in jobs.keys():
                 job_obj = job.get(server, jobs[j])
                 print_debug(job_obj)
-                print_info(engine["hostname"] + ": VDB Provision: " + job_obj.job_state)
+                print_info(engine["hostname"] + ": VDB Provision: " + 
+                           job_obj.job_state)
                 
                 if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the running jobs list.
+                    #If the job is in a non-running state, remove it from the 
+                    # running jobs list.
                     del jobs[j]
                 else:
-                    #If the job is in a running state, increment the running job count.
+                    #If the job is in a running state, increment the running 
+                    # job count.
                     i += 1
+
             print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
             #If we have running jobs, pause before repeating the checks.
             if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
 
+
 def run_job(engine):
     """
-    This function runs the main_workflow aynchronously against all the servers specified
+    This function runs the main_workflow aynchronously against all the servers 
+    specified
     """
     #Create an empty list to store threads we create.
     threads = []
@@ -562,22 +796,28 @@ def run_job(engine):
             #Create a new thread and add it to the list.
             threads.append(main_workflow(engine))
     else:
-        #Else if the --engine argument was given, test to see if the engine exists in dxtools.conf
+        #Else if the --engine argument was given, test to see if the engine 
+        # exists in dxtools.conf
         if arguments['--engine']:
             try:
                 engine = dxtools_objects[arguments['--engine']]
-                print_info("Executing against Delphix Engine: " + arguments['--engine'])
+                print_info("Executing against Delphix Engine: " + 
+                           arguments['--engine'])
             except:
-                print_error("Delphix Engine \"" + arguments['--engine'] + "\" cannot be found in " + config_file_path)
+                print_error("Delphix Engine \"" + arguments['--engine'] + 
+                            "\" cannot be found in " + config_file_path)
                 print_error("Please check your value and try again. Exiting")
                 sys.exit(1)
-        #Else if the -d argument was given, test to see if the engine exists in dxtools.conf
+        #Else if the -d argument was given, test to see if the engine exists 
+        # in dxtools.conf
         elif arguments['-d']:
             try:
                 engine = dxtools_objects[arguments['-d']]
-                print_info("Executing against Delphix Engine: " + arguments['-d'])
+                print_info("Executing against Delphix Engine: " + 
+                           arguments['-d'])
             except:
-                print_error("Delphix Engine \"" + arguments['-d'] + "\" cannot be found in " + config_file_path)
+                print_error("Delphix Engine \"" + arguments['-d'] + 
+                            "\" cannot be found in " + config_file_path)
                 print_error("Please check your value and try again. Exiting")
                 sys.exit(1)
         else:
@@ -585,8 +825,11 @@ def run_job(engine):
             for delphix_engine in dxtools_objects:
                 if dxtools_objects[delphix_engine]['default'] == 'true':
                     engine = dxtools_objects[delphix_engine]
-                    print_info("Executing against the default Delphix Engine in the dxtools.conf: " + dxtools_objects[delphix_engine]['hostname'])
+                    print_info("Executing against the default Delphix Engine "
+                               "in the dxtools.conf: " + 
+                               dxtools_objects[delphix_engine]['hostname'])
                     break
+
             if engine == None:
                 print_error("No default engine found. Exiting")
                 sys.exit(1)
@@ -595,21 +838,26 @@ def run_job(engine):
 
     #For each thread in the list...
     for each in threads:
-        #join them back together so that we wait for all threads to complete before moving on
+        #join them back together so that we wait for all threads to complete 
+        # before moving on
         each.join()
+
 
 def serversess(f_engine_address, f_engine_username, f_engine_password):
     """
     Function to setup the session with the Delphix Engine
     """
-    server_session= DelphixEngine(f_engine_address, f_engine_username, f_engine_password, "DOMAIN")
+    server_session= DelphixEngine(f_engine_address, f_engine_username, 
+                                  f_engine_password, "DOMAIN")
     return server_session
+
 
 def set_exit_handler(func):
     """
     This function helps us set the correct exit code
     """
     signal.signal(signal.SIGTERM, func)
+
 
 def set_timeflow_point(engine, server, container_obj):
     """
@@ -620,35 +868,55 @@ def set_timeflow_point(engine, server, container_obj):
             print_debug(engine["hostname"] + ": Using the latest Snapshot")
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_SNAPSHOT"
+
         elif arguments['--timestamp'].startswith("@"):
             print_debug(engine["hostname"] + ": Using a named snapshot")
-            snapshot_obj = find_snapshot_by_database_and_name(engine, server, container_obj, arguments['--timestamp'])
+            snapshot_obj = find_snapshot_by_database_and_name(engine, server, 
+                                                     container_obj, 
+                                                     arguments['--timestamp'])
+
             if snapshot_obj != None:
                 timeflow_point_parameters=TimeflowPointLocation()
                 timeflow_point_parameters.timeflow = snapshot_obj.timeflow
-                timeflow_point_parameters.location = snapshot_obj.latest_change_point.location
+                timeflow_point_parameters.location = \
+                               snapshot_obj.latest_change_point.location
+
             else:
-                print_error(engine["hostname"] + ": Was unable to use the specified snapshot\"" + arguments['--timestamp'] + "\" for database \"" + container_obj.name + "\"")
+                print_error(engine["hostname"] + 
+                            ": Was unable to use the specified snapshot\"" + 
+                            arguments['--timestamp'] + "\" for database \"" + 
+                            container_obj.name + "\"")
                 return
+
         else:
-            print_debug(engine["hostname"] + ": Using a time-designated snapshot")
-            snapshot_obj = find_snapshot_by_database_and_time(engine, server, container_obj, arguments['--timestamp'])
+            print_debug(engine["hostname"] + 
+                        ": Using a time-designated snapshot")
+            snapshot_obj = find_snapshot_by_database_and_time(engine, server, 
+                                                     container_obj, 
+                                                     arguments['--timestamp'])
             if snapshot_obj != None:
                 timeflow_point_parameters=TimeflowPointTimestamp()
                 timeflow_point_parameters.timeflow = snapshot_obj.timeflow
-                timeflow_point_parameters.timestamp = snapshot_obj.latest_change_point.timestamp
+                timeflow_point_parameters.timestamp = \
+                               snapshot_obj.latest_change_point.timestamp
             else:
-                print_error(engine["hostname"] + ": Was unable to find a suitable time for " + arguments['--timestamp'] + " for database " + container_obj.name)
+                print_error(engine["hostname"] + 
+                            ": Was unable to find a suitable time for " + 
+                            arguments['--timestamp'] + " for database " + 
+                            container_obj.name)
                 return
     elif arguments['--timestamp_type'].upper() == "TIME":
         if arguments['--timestamp'].upper() == "LATEST":
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_POINT"
         else:
-            print_error(engine["hostname"] + ": Only support a --timestamp value of \"latest\" when used with timestamp_type of time")
+            print_error(engine["hostname"] + 
+                        ": Only support a --timestamp value of \"latest\" "
+                        "when used with timestamp_type of time")
             return
     else:
-        print_error(arguments['--timestamp_type'] + " is not a valied timestamp_type. Exiting")
+        print_error(arguments['--timestamp_type'] + 
+                    " is not a valied timestamp_type. Exiting")
         sys.exit(1)
     timeflow_point_parameters.container = container_obj.reference
     return timeflow_point_parameters
@@ -663,10 +931,12 @@ def time_elapsed():
 
 def update_jobs_dictionary(engine, server, jobs):
     """
-    This function checks each job in the dictionary and updates its status or removes it if the job is complete.
+    This function checks each job in the dictionary and updates its status or 
+    removes it if the job is complete.
     Return the number of jobs still running.
     """
-    #Establish the running jobs counter, as we are about to update the count from the jobs report.
+    #Establish the running jobs counter, as we are about to update the count 
+    # from the jobs report.
     i = 0
     #get all the jobs, then inspect them
     for j in jobs.keys():
@@ -675,7 +945,8 @@ def update_jobs_dictionary(engine, server, jobs):
         print_info(engine["hostname"] + ": " + j.name + ": " + job_obj.job_state)
         
         if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-            #If the job is in a non-running state, remove it from the running jobs list.
+            #If the job is in a non-running state, remove it from the running 
+            # jobs list.
             del jobs[j]
         else:
             #If the job is in a running state, increment the running job count.
@@ -692,8 +963,6 @@ def main(argv):
     global host_name
     global dxtools_objects
 
-    
-
     try:
         logging_est(arguments['--logdir'])
         print_debug(arguments)
@@ -707,13 +976,13 @@ def main(argv):
         database_name = arguments['--target']
         host_name = arguments['--environment']
 
-
-        #This is the function that will handle processing main_workflow for all the servers.
+        #This is the function that will handle processing main_workflow for 
+        # all the servers.
         run_job(engine)
         
         elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) + " minutes to get this far.")
-
+        print_info("script took " + str(elapsed_minutes) + 
+                   " minutes to get this far.")
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
