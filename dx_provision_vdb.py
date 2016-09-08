@@ -10,17 +10,18 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Provision VDB's
 Usage:
-  dx_provision_db.py --source_grp <name> --source <name> --target_grp <name> --target <name>
+  dx_provision_db.py --source <name> --target_grp <name> --target <name>
                   (--db <name> | --vfiles_path <path>) [--no_truncate_log]
-                  (--environment <name> --type <type> --envinst <name>)
+                  (--environment <name> --type <type>) [ --envinst <name>]
                   [--sourcegroup <name>] [--template <name>] [--mapfile <file>]
                   [--timestamp_type <type>] [--timestamp <timepoint_semantic>]
                   [--instname <sid>] [--mntpoint <path>] [--noopen]
-                  [--uniqname <name>] 
+                  [--uniqname <name>][--source_grp <name>] 
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
                   [--postrefresh <name>] [--prerefresh <name>]
+                  [--configure-clone <name>]
   dx_provision_db.py -h | --help | -v | --version
 Provision VDB from a defined source on the defined target environment.
 
@@ -56,6 +57,7 @@ Options:
                             oracle | mssql | ase | vfiles
   --prerefresh <name>       Pre-Hook commands
   --postrefresh <name>      Post-Hook commands
+  --configure-clone <name>  Configure Clone commands
   --envinst <name>          The identifier of the instance in Delphix.
                             ex. "/u01/app/oracle/product/11.2.0/dbhome_1"
                             ex. LINUXTARGET
@@ -95,7 +97,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.007"
+VERSION="v.0.1.000"
 
 from docopt import docopt
 import logging
@@ -115,6 +117,7 @@ from delphixpy.v1_6_0 import job_context
 from delphixpy.v1_6_0.web import database, environment, group, host, job, \
                                  repository, snapshot, source, sourceconfig, \
                                  user
+from delphixpy.v1_6_0.web.database import template
 from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer, OracleInstance, \
                                     OracleProvisionParameters, OracleSIConfig, \
                                     OracleVirtualSource, \
@@ -221,7 +224,7 @@ def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name,
 
 def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name, 
                       environment_obj, container_obj, pre_refresh=None,
-                      post_refresh=None):
+                      post_refresh=None, configure_clone=None):
     '''
     Create a Vfiles VDB
     '''
@@ -243,21 +246,38 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
         vfiles_params.source_config = { 'type': 'AppDataDirectSourceConfig',
                              'name': arguments['--vfiles_path'],
                              'path': arguments['--vfiles_path'],
+                             'parameters': [],
                              'environment_user': environment_obj.primary_user,
                              'repository': vfiles_repo.reference }
 
         vfiles_params.source = { 'type': 'AppDataVirtualSource',
-                                 'name': vfiles_name,
-                                 'operations': { 
-                                             'type': 'VirtualSourceOperations',
-                                             'preRefresh': [{ 'type':
-                                             'RunBashOnSourceOperation',
-                                             'command':
-                                             pre_refresh }],
-                                             'postRefresh': [{ 'type':
-                                             'RunBashOnSourceOperation',
-                                             'command': post_refresh
-                                             }]}}
+                                 'parameters': [], 'name': vfiles_name,
+                                 'operations': {}}
+
+        if pre_refresh:
+            vfiles_params.source['operations'].update({ 'type': 
+                                              'VirtualSourceOperations'})
+
+            vfiles_params.source['operations'].update({ 'preRefresh': 
+                                               [{ 'type':
+                                                  'RunCommandOnSourceOperation',
+                                                  'command': pre_refresh }]})
+
+        if post_refresh:
+            vfiles_params.source['operations'].update({ 'type': 
+                                              'VirtualSourceOperations'})
+
+            vfiles_params.source['operations'].update({ 'postRefresh': 
+                                      [{ 'type': 'RunCommandOnSourceOperation',
+                                      'command': post_refresh }]})
+
+        if configure_clone:
+            vfiles_params.source['operations'].update({ 'type': 
+                                              'VirtualSourceOperations'})
+
+            vfiles_params.source['operations'].update({ 'configureClone': 
+                                      [{ 'type': 'RunCommandOnSourceOperation',
+                                      'command': configure_clone }]})
 
         vfiles_params.timeflow_point_parameters = { 
                                      'type': 'TimeflowPointSemantic',
@@ -279,54 +299,99 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
         return vfiles_obj.reference
 
 
-def create_oracle_si_vdb(engine, server, jobs, vdb_group, vdb_name, 
-                         environment_obj, container_obj):
+def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj, 
+                         environment_obj, container_obj, pre_refresh=None,
+                         post_refresh=None, configure_clone=None):
     '''
     Create an Oracle SI VDB
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, server, 
-                                                   vdb_group.name, vdb_name)
+    vdb_obj = find_obj_by_name(engine, server, database, vdb_name)
+
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
+
         if arguments['--noopen']:
             vdb_params.open_resetlogs = False
+
         vdb_params.container = OracleDatabaseContainer()
-        vdb_params.container.group = vdb_group.reference
+        vdb_params.container.group = vdb_group_obj.reference
         vdb_params.container.name = vdb_name
         vdb_params.source = OracleVirtualSource()
+#        print dir(vdb_params.source.operations)
+#        sys.exit(1)
+        vdb_params.source.operations = {}
+
+        if arguments['--instname']:
+            inst_name = arguments['--instname']
+        elif arguments['--instname'] == None:
+            inst_name = vdb_name
+
+        if arguments['--uniqname']:
+            unique_name = arguments['--uniqname']
+        elif arguments['--uniqname'] == None:
+            unique_name = vdb_name
+
         vdb_params.source.mount_base = arguments['--mntpoint']
+
         if arguments['--mapfile']:
             vdb_params.source.file_mapping_rules = arguments['--mapfile']
+
         if arguments['--template']:
                 template_obj = find_obj_by_name(engine, server, 
                                                 database.template, 
                                                 arguments['--template'])
                 vdb_params.source.config_template = template_obj.reference
+
         vdb_params.source_config = OracleSIConfig()
-    
+
+        if pre_refresh:
+            vdb_params.source.operations.update({ 'type': 
+                                                'VirtualSourceOperations'})
+
+            vdb_params.source.operations.update({ 'preRefresh': [{ 'type':
+                                                  'RunCommandOnSourceOperation',
+                                                  'command': pre_refresh }]})
+
+        if post_refresh:
+            vdb_params.source.operations.update({ 'type': 
+                                                  'VirtualSourceOperations'})
+
+            vdb_params.source.operations.update({ 'postRefresh': 
+                                      [{ 'type': 'RunCommandOnSourceOperation',
+                                      'command': post_refresh }]})
+
+        if configure_clone:
+            vdb_params.source.operations.update({ 'type': 
+                                                  'VirtualSourceOperations'})
+
+            vdb_params.source.operations.update({ 'configureClone': 
+                                      [{ 'type': 'RunCommandOnSourceOperation',
+                                      'command': configure_clone }]})
 
         vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
                                                      server, "OracleInstall", 
                                                      environment_obj.reference,
                                                      arguments['--envinst'])
+
         vdb_params.source_config.database_name = arguments['--db']
-        vdb_params.source_config.unique_name = arguments['--uniqname']
+        vdb_params.source_config.unique_name = unique_name
         vdb_params.source_config.instance = OracleInstance()
-        vdb_params.source_config.instance.instance_name = \
-                                          arguments['--instname']
+        vdb_params.source_config.instance.instance_name = inst_name
         vdb_params.source_config.instance.instance_number = 1
         vdb_params.source_config.repository = vdb_repo.reference
 
         vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
                                                          server, container_obj)
         vdb_params.timeflow_point_parameters.container = container_obj.reference
-        print_info(engine["hostname"] + ": Provisioning " + vdb_name)
 
+        print_info(engine["hostname"] + ": Provisioning " + vdb_name)
         database.provision(server, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
+
         jobs[engine["hostname"]] = server.last_job
         #return the job object to the calling statement so that we can tell if 
         # a job was created or not (will return None, if no job)
+
         return server.last_job
     else:
         print_info(engine["hostname"] + ":" + vdb_name + " already exists.")
@@ -350,6 +415,8 @@ def find_all_databases_by_group_name(engine, server, group_name,
 def find_database_by_name_and_group_name(engine, server, group_name, 
                                          database_name):
 
+    import pdb
+    pdb.set_trace()
     databases = find_all_databases_by_group_name(engine, server, group_name)
 
     for each in databases:
@@ -487,16 +554,21 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
         if str(snapshot_obj.name).startswith(arguments['--timestamp']):
             matches.append(snapshot_obj)
     if len(matches) == 1:
-        print_debug(engine["hostname"] + ": Found one and only one match. This is good.")
+        print_debug(engine["hostname"] + 
+                    ": Found one and only one match. This is good.")
         print_debug(matches[0])
         return matches[0]
     elif len(matches) > 1:
-        print_error(engine["hostname"] + ": The name specified was not specific enough. More than one match found.")
+        print_error(engine["hostname"] + 
+                    ": The name specified was not specific enough. " +
+                    "More than one match found.")
         for each in matches:
             print_debug(each.name)
     else:
-        print_error(engine["hostname"] + ": No matches found for the time specified")
+        print_error(engine["hostname"] + 
+                    ": No matches found for the time specified")
     print_error(engine["hostname"] + ": No matching snapshot found")
+
 
 def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
     snapshots = snapshot.get_all(server, database=database_obj.reference)
@@ -722,9 +794,8 @@ def main_workflow(engine):
         sys.exit(1)
 
     #Get the database reference we are copying from the database name
-    database_obj = find_database_by_name_and_group_name(engine, server, 
-                                                   arguments['--source_grp'], 
-                                                   arguments['--source'])
+    database_obj = find_obj_by_name(engine, server, database, 
+                                    arguments['--source'])
     if database_obj == None:
         return
 
@@ -737,9 +808,12 @@ def main_workflow(engine):
             if len(thingstodo)> 0:
 
                 if arg_type == "oracle":
-                    create_oracle_si_vdb(engine, server, jobs, group_obj, 
-                                         database_name, environment_obj, 
-                                         database_obj)
+                    create_oracle_si_vdb(engine, server, jobs, database_name, 
+                                         group_obj, environment_obj, 
+                                         database_obj,
+                                         arguments['--prerefresh'],
+                                         arguments['--postrefresh'],
+                                         arguments['--configure-clone'])
 
                 elif arg_type == "ase":
                     create_ase_vdb(engine, server, jobs, group_obj, 
@@ -754,7 +828,8 @@ def main_workflow(engine):
                     create_vfiles_vdb(engine, server, jobs, group_obj, 
                                       database_name, environment_obj, 
                                       database_obj, arguments['--prerefresh'],
-                                      arguments['--postrefresh'])
+                                      arguments['--postrefresh'],
+                                      arguments['--configure-clone'])
 
                 thingstodo.pop()
             #get all the jobs, then inspect them
