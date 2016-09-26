@@ -319,7 +319,7 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
         vdb_params.source = OracleVirtualSource()
 #        print dir(vdb_params.source.operations)
 #        sys.exit(1)
-        vdb_params.source.operations = {}
+#        vdb_params.source.operations = {}
 
         if arguments['--instname']:
             inst_name = arguments['--instname']
@@ -415,8 +415,6 @@ def find_all_databases_by_group_name(engine, server, group_name,
 def find_database_by_name_and_group_name(engine, server, group_name, 
                                          database_name):
 
-    import pdb
-    pdb.set_trace()
     databases = find_all_databases_by_group_name(engine, server, group_name)
 
     for each in databases:
