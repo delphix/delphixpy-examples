@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #Adam Bowen Sept 2016
-VERSION="v.0.0.001"
+VERSION="v.0.0.002"
 #just a quick and dirty example of executing a replication profile
 
-from delphixpy.delphix_engine import DelphixEngine
-from delphixpy.web import replication
-from delphixpy.web.vo import ReplicationSpec
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.web import replication
+from delphixpy.v1_6_0.web.vo import ReplicationSpec
 
 engine_address = "192.168.218.177"
 engine_username = "delphix_admin"
