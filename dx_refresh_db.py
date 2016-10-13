@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script refreshes a vdb
+# Updated by Corey Brune Oct 2016
 #requirements
 #pip install --upgrade setuptools pip docopt delphixpy
 
@@ -8,7 +9,7 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--group <name> [--name <name>] | --dsource <name> | --all_vdbs | --host <name> [--group <name>])
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name>)
                    [--timestamp_type <type>] [--timestamp <timepoint_semantic>]
                    [-d <identifier> | --engine <identifier> | --all]
                    [--debug] [--parallel <n>] [--poll <n>]
@@ -38,7 +39,7 @@ Options:
                             snapshot name: "@YYYY-MM-DDTHH24:MI:SS.ZZZ"
                             snapshot time from GUI: "YYYY-MM-DD HH24:MI"
                             [default: LATEST]
-   -d <identifier>          Identifier of Delphix engine in dxtools.conf.
+  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -47,13 +48,13 @@ Options:
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
-  --logdir <path_to_file>    The path to the logfile you want to use.
+  --logdir <path_to_file>   The path to the logfile you want to use.
                             [default: ./dx_refresh_db.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
 
-VERSION="v.0.0.007"
+VERSION="v.0.1.000"
 
 
 from docopt import docopt
@@ -68,17 +69,15 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_5_0.delphix_engine import DelphixEngine
-from delphixpy.v1_5_0.exceptions import HttpError, JobError
-from delphixpy.v1_5_0 import job_context
-from delphixpy.v1_5_0.web import database, environment, group, job, source, user
-from delphixpy.v1_5_0.web.vo import OracleRefreshParameters, RefreshParameters, TimeflowPointLocation, TimeflowPointSemantic, TimeflowPointTimestamp
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from delphixpy.v1_6_0 import job_context
+from delphixpy.v1_6_0.web import database, environment, group, job, source, user
+from delphixpy.v1_6_0.web.vo import OracleRefreshParameters, \
+                                    RefreshParameters, TimeflowPointLocation, \
+                                    TimeflowPointSemantic, \
+                                    TimeflowPointTimestamp
 
-#from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-#from delphixpy.v1_6_0.exceptions import HttpError, JobError
-#from delphixpy.v1_6_0 import job_context
-#from delphixpy.v1_6_0.web import database, environment, group, job, source, user
-#from delphixpy.v1_6_0.web.vo import OracleRefreshParameters, RefreshParameters, TimeflowPointLocation, TimeflowPointSemantic, TimeflowPointTimestamp
 
 def run_async(func):
     """
@@ -157,7 +156,8 @@ def find_database_by_name_and_group_name(engine, server, group_name,
 
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
-    Function to find objects by name and object class, and return object's reference as a string
+    Function to find objects by name and object class, and return object's 
+    reference as a string.
     You might use this function to find objects like groups.
     """
     print_debug(engine["hostname"] + ": Searching objects in the " + 
@@ -395,9 +395,9 @@ def main_workflow(engine):
     #If we specified a specific database by name....
     if arguments['--name']:
         #Get the database object from the name
-        database_obj = find_database_by_name_and_group_name(engine, server, 
-                                                       arguments['--group'], 
-                                                       arguments['--name'])
+
+        database_obj = find_obj_by_name(engine, server, database,
+                                        arguments['--name'])
         if database_obj:
             databases.append(database_obj)
 
@@ -772,8 +772,6 @@ def main(argv):
     global config_file_path
     global dxtools_objects
 
-    
-
     try:
         #Declare globals that will be used throughout the script.
         logging_est(arguments['--logdir'])
@@ -794,7 +792,6 @@ def main(argv):
         elapsed_minutes = time_elapsed()
         print_info("script took " + str(elapsed_minutes) + 
                    " minutes to get this far.")
-
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -845,5 +842,4 @@ if __name__ == "__main__":
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
 
     #Feed our arguments to the main function, and off we go!
-    print arguments
     main(arguments)

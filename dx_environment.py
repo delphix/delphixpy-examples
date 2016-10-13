@@ -13,6 +13,7 @@ Usage:
   dx_environment.py ( --type <name> --env_name <name> --host_user <username> --ip <address> --toolkit <path_to_the_toolkit> | --delete <env_name> | --refresh <env_name)
                     [--logdir <directory>] [--debug] [--config <filename>]
                     [--pw <password>] [-d <identifier> | --engine <identifier>]
+                    [--poll <n>]
    
   dx_environment.py -h | --help | -v | --version
 
@@ -20,6 +21,7 @@ Create a Delphix environment.
 
 Examples:
   dx_environment.py -d landsharkengine --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
+
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
 
 
@@ -32,6 +34,7 @@ Options:
   --delete <environment>    The name of the Delphix environment to delete
   --refresh <environment>   The name of the Delphix environment to refresh
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
+  --engine <identifier>     Identifier of Delphix engine in dxtools.conf.
   --pw <password>           Password of the user
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -47,7 +50,7 @@ Options:
 
 """
 
-VERSION="v.0.0.001"
+VERSION="v.0.1.100"
 
 from docopt import docopt
 import logging
@@ -61,33 +64,38 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_7_0.delphix_engine import DelphixEngine
-from delphixpy.v1_7_0.exceptions import HttpError, JobError
-from delphixpy.v1_7_0 import job_context
-from delphixpy.v1_7_0.web import database, environment, group, host, job, \
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from delphixpy.v1_6_0 import job_context
+from delphixpy.v1_6_0.web import database, environment, group, host, job, \
                                  repository, source, user
-from delphixpy.v1_7_0.web.vo import HostEnvironmentCreateParameters
+from delphixpy.v1_6_0.web.vo import HostEnvironmentCreateParameters
 
 
-def delete_env(server, env_name):
+def delete_env(server, engine, jobs, env_name):
     env_obj = getObjectReference(server, environment, env_name)
 
     if env_obj:
         environment.delete(server, env_obj.reference)
+        jobs[engine["hostname"]] = server.last_job
     else:
         print_error('Environment was not found in the Engine: ' + env_name)
+        sys.exit(1)
 
 
-def refresh_env(server, env_name):
+def refresh_env(server, engine, jobs, env_name):
     env_obj = getObjectReference(server, environment, env_name)
 
     if env_obj:
         environment.refresh(server, env_obj.reference)
+        jobs[engine['hostname']] = server.last_job
+
     else:
         print_error('Environment was not found in the Engine: ' + env_name)
+        sys.exit(1)
 
 
-def create_linux_env(server, jobs, env_name, host_user, ip_addr,
+def create_linux_env(server, engine, jobs, env_name, host_user, ip_addr,
                      toolkit_path, pw=None):
 
         hostEnvParams_obj = HostEnvironmentCreateParameters()
@@ -117,6 +125,7 @@ def create_linux_env(server, jobs, env_name, host_user, ip_addr,
                                               'toolkitPath': toolkit_path }}
 
         environment.create(server, hostEnvParams_obj)
+        jobs[engine['hostname']] = server.last_job
 
 
 def getObjectReference(engine, f_class, obj_name):
@@ -138,6 +147,7 @@ def get_config(config_file_path):
     """
     This function reads in the dxtools.conf file
     """
+
     #First test to see that the file is there and we can open it
     try:
         config_file = open(config_file_path).read()
@@ -317,6 +327,7 @@ def main_workflow(engine):
 #    print_debug("Getting environment for " + host_name)
 
     thingstodo = ["thingtodo"]
+
     #reset the running job count before we begin
     i = 0
     with job_mode(server):
@@ -332,33 +343,36 @@ def main_workflow(engine):
                      pw = arguments['--pw']
                      ip_addr = arguments['--ip']
                      toolkit_path = arguments['--toolkit']
-                     create_linux_env(server, jobs, env_name, host_user,
-                                     ip_addr, toolkit_path, pw)
+                     create_linux_env(server, engine, jobs, env_name, 
+                                      host_user, ip_addr, toolkit_path, pw)
 
                 elif arguments['--delete']:
-                    delete_env(server, arguments['--delete'])
+                    delete_env(server, engine, jobs, arguments['--delete'])
 
                 elif arguments['--refresh']:
-                    refresh_env(server, arguments['--refresh'])
+                    refresh_env(server, engine, jobs, arguments['--refresh'])
 
                 thingstodo.pop()
+
             #get all the jobs, then inspect them
             i = 0
             for j in jobs.keys():
                 job_obj = job.get(server, jobs[j])
                 print_debug(job_obj)
-                print_info(engine["hostname"] + ": VDB Provision: " + 
+                print_info(engine["hostname"] + ": Environment: " + 
                            job_obj.job_state)
                 
                 if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                     #If the job is in a non-running state, remove it from the 
                     # running jobs list.
+                    sys.exit(1)
                     del jobs[j]
                 else:
                     #If the job is in a running state, increment the running 
                     # job count.
                     i += 1
             print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
+
             #If we have running jobs, pause before repeating the checks.
             if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
@@ -371,6 +385,7 @@ def run_job(engine):
     """
     #Create an empty list to store threads we create.
     threads = []
+
     if arguments['--engine']:
         try:
             engine = dxtools_objects[arguments['--engine']]
@@ -406,7 +421,7 @@ def run_job(engine):
                 print_error("No default engine found. Exiting")
                 sys.exit(1)
         #run the job against the engine
-        threads.append(main_workflow(engine))
+    threads.append(main_workflow(engine))
 
     #For each thread in the list...
     for each in threads:
