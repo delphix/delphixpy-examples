@@ -9,8 +9,9 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name>)
-                   [--timestamp_type <type>] [--timestamp <timepoint_semantic>]
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name> | --list-timeflows | --list-snapshots)
+                   [--timestamp_type <type>]
+                   [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
                    [--debug] [--parallel <n>] [--poll <n>]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -26,6 +27,8 @@ Options:
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
   --group <name>            Name of group in Delphix to execute against.
   --dsource <name>          Name of dsource in Delphix to execute against.
+  --list-timeflows          List all timeflows
+  --list-snapshots          List all snapshots
   --host <name>             Name of environment in Delphix to execute against.
   --timestamp_type <type>   The type of timestamp you are specifying.
                             Acceptable Values: TIME, SNAPSHOT
@@ -39,6 +42,7 @@ Options:
                             snapshot name: "@YYYY-MM-DDTHH24:MI:SS.ZZZ"
                             snapshot time from GUI: "YYYY-MM-DD HH24:MI"
                             [default: LATEST]
+  --timeflow <name>         Name of the timeflow to refresh a VDB
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
@@ -54,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.1.000"
+VERSION="v.0.1.400"
 
 
 from docopt import docopt
@@ -70,13 +74,25 @@ from multiprocessing import Process
 from time import sleep, time
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from delphixpy.v1_6_0.exceptions import HttpError, JobError, RequestError
 from delphixpy.v1_6_0 import job_context
 from delphixpy.v1_6_0.web import database, environment, group, job, source, user
-from delphixpy.v1_6_0.web.vo import OracleRefreshParameters, \
-                                    RefreshParameters, TimeflowPointLocation, \
-                                    TimeflowPointSemantic, \
-                                    TimeflowPointTimestamp
+from delphixpy.v1_6_0.web import timeflow
+from delphixpy.v1_6_0.web.snapshot import snapshot
+from delphixpy.v1_6_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_6_0.web.vo import RefreshParameters
+from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
+
+class DlpxException(Exception):
+    """
+    Delphix Exception class. Exit signals are handled by calling method.
+    """
+
+
+    def __init__(self, message):
+        Exception.__init__(self, message)
 
 
 def run_async(func):
@@ -201,26 +217,36 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
 
 
 def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
+    """
+    Find snapshot object by database name and timetamp
+    :param engine: 
+    :param server: A Delphix engine object.
+    :param database_obj: The database reference to retrieve the snapshot
+    :param snap_time: timstamp of the snapshot
+    """
     snapshots = snapshot.get_all(server, database=database_obj.reference)
     matches = []
 
     for snapshot_obj in snapshots:
-        if str(snapshot_obj.latest_change_point.timestamp).startswith(arguments['--timestamp']):
+        if str(snapshot_obj.latest_change_point.timestamp) == snap_time \
+               or str(snapshot_obj.first_change_point.timestamp) == snap_time:
+
             matches.append(snapshot_obj)
 
     if len(matches) == 1:
-        print_debug(engine["hostname"] + 
-                    ": Found one and only one match. This is good.")
-        print_debug(engine["hostname"] + ": " + matches[0])
+        snap_match = get_obj_name(server, database, matches[0].container)
+        print_debug(engine['hostname'] + 
+                    ': Found one and only one match. This is good.')
+        print_debug(engine['hostname'] + ': ' + snap_match)
 
         return matches[0]
 
     elif len(matches) > 1:
-        print_error("The time specified was not specific enough. " \
-                    "More than one match found.")
         print_debug(engine["hostname"] + ": " + matches)
+        raise DlpxException('The time specified was not specific enough.'
+                    ' More than one match found.\n')
     else:
-        print_error("No matches found for the time specified")
+        raise DlpxException('No matches found for the time specified.\n')
 
 
 def find_source_by_database(engine, server, database_obj):
@@ -330,6 +356,44 @@ def job_wait():
             job_context.wait(server,jobobj.reference)
 
 
+def get_obj_name(server, f_object, obj_reference):
+    """
+    Return the object name from obj_reference
+                
+    :param engine: A Delphix engine object.
+    :param obj_reference: The object reference to retrieve the name
+    """
+
+    try:
+        obj_name = f_object.get(server, obj_reference)
+        return(obj_name.name)
+
+    except RequestError as e:
+        raise dlpxExceptionHandler(e)
+
+    except HttpError as e:
+        raise DlpxException(e)
+
+
+def list_snapshots(server):
+    """
+    List all snapshots with timestamps
+    """
+
+    header = 'Snapshot Name, First Change Point, Latest Change Point'
+    snapshots = snapshot.get_all(server)
+
+    print header
+    for snap in snapshots:
+        container_name = get_obj_name(server, database, snap.container)
+        snap_range = snapshot.timeflow_range(server, snap.reference)
+
+        print '%s, %s, %s, %s' % (str(snap.name),
+                                  container_name,
+                                  snap_range.start_point.timestamp,
+                                  snap_range.end_point.timestamp)
+
+
 @run_async
 def main_workflow(engine):
     """
@@ -420,13 +484,17 @@ def main_workflow(engine):
 
     #Else, if we said all vdbs ...
     elif arguments['--all_vdbs'] and not arguments['--host'] :
+        print_debug(engine['hostname'] + ':Getting all VDBs ')
+
         #Grab all databases, but filter out the database that are in JetStream 
         #containers, because we can't refresh those this way.
         databases = database.get_all(server, no_js_container_data_source=True)
 
-    if not databases or len(databases) == 0:
-        print_error("No databases found with the criterion specified")
-        return
+    elif arguments['--list-timeflows']:
+        list_timeflows(server)
+
+    elif arguments['--list-snapshots']:
+        list_snapshots(server)
 
     #reset the running job count before we begin
     i = 0
@@ -535,6 +603,11 @@ def print_warning(print_obj):
 def refresh_database(engine, server, jobs, source_obj, container_obj):
     """
     This function actually performs the refresh
+    :param engine:
+    :param server: Engine object
+    :param jobs: list containing running jobs
+    :param source_obj: source object used to refresh from snapshot or timeflow
+    :param container_obj: VDB container
     """
 
     #Sanity check to make sure our source object has a reference
@@ -569,14 +642,27 @@ def refresh_database(engine, server, jobs, source_obj, container_obj):
             else:
                 refresh_params = RefreshParameters()
             
-            refresh_params.timeflow_point_parameters = set_timeflow_point(
-                                                       engine, server, 
-                                                       source_db)
-            print_debug(engine["hostname"] + ":" + str(refresh_params))
+            try:
+                refresh_params.timeflow_point_parameters = set_timeflow_point(
+                                                           engine, server, 
+                                                           source_db)
+                print_debug(engine["hostname"] + ":" + str(refresh_params))
 
-            #Sync it
-            database.refresh(server, container_obj.reference, refresh_params)
-            jobs[container_obj] = server.last_job
+                #Sync it
+                database.refresh(server, container_obj.reference, 
+                                 refresh_params)
+                jobs[container_obj] = server.last_job
+
+            except RequestError as e:
+                print '\nERROR: Could not set timeflow point:\n%s\n' % (
+                      e.message.action)
+                sys.exit(1)
+
+            except DlpxException as e:
+                print 'ERROR: Could not set timeflow point:\n%s\n' % (e.message)
+                sys.exit(1)
+
+
             #return the job object to the calling statement so that we can 
             # tell if a job was created or not (will return None, if no job)
             return server.last_job
@@ -664,65 +750,105 @@ def serversess(f_engine_address, f_engine_username, f_engine_password):
     return server_session
 
 
-def set_exit_handler(func):
+def list_timeflows(server):
     """
-    This function helps us set the correct exit code
+    Retrieve and print all timeflows for a given engine
     """
-    signal.signal(signal.SIGTERM, func)
+
+    ret_timeflow_dct = {}
+    all_timeflows = timeflow.get_all(server)
+
+    print 'DB Name, Timeflow Name, Timestamp'
+
+    for tfbm_lst in all_timeflows:
+        try:
+
+            db_name = get_obj_name(server, database, tfbm_lst.container)
+            print '%s, %s, %s\n' % (str(db_name), str(tfbm_lst.name),
+                                    str(tfbm_lst.parent_point.timestamp))
+
+        except AttributeError:
+            print '%s, %s\n' % (str(tfbm_lst.name), str(db_name))
+
+        except TypeError as e:
+           raise DlpxException('Listing Timeflows encountered an error:\n%s' %
+                               (e.message))
+
+        except RequestError, e:
+            dlpx_err = e.message
+            raise DlpxException(dlpx_err.action)
 
 
 def set_timeflow_point(engine, server, container_obj):
     """
     This returns the reference of the timestamp specified.
+    :param engine:
+    :param server: Delphix Engine object
+    :param container_obj: VDB object
     """
+
     if arguments['--timestamp_type'].upper() == "SNAPSHOT":
         if arguments['--timestamp'].upper() == "LATEST":
             print_debug(engine["hostname"] + ": Using the latest Snapshot")
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_SNAPSHOT"
+
         elif arguments['--timestamp'].startswith("@"):
             print_debug(engine["hostname"] + ": Using a named snapshot")
             snapshot_obj = find_snapshot_by_database_and_name(engine, server, 
                                                      container_obj, 
                                                      arguments['--timestamp'])
-            if snapshot_obj != None:
+
+            if snapshot_obj:
                 timeflow_point_parameters=TimeflowPointLocation()
                 timeflow_point_parameters.timeflow = snapshot_obj.timeflow
                 timeflow_point_parameters.location = \
                                snapshot_obj.latest_change_point.location
+
             else:
-                print_error("Was unable to use the specified snapshot\"" + 
-                            arguments['--timestamp'] + "\" for database \"" + 
-                            container_obj.name + "\"")
-                return
-        else:
+                raise DlpxException('ERROR: Was unable to use the specified '
+                                    'snapshot %s for database %s.\n' %
+                                    (arguments['--timestamp'],
+                                    container_obj.name))
+
+        elif arguments['--timestamp']:
             print_debug(engine["hostname"] + 
                         ": Using a time-designated snapshot")
-            snapshot_obj = find_snapshot_by_database_and_time(engine, server, 
-                                                     container_obj, 
-                                                     arguments['--timestamp'])
-            if snapshot_obj != None:
+            snapshot_obj = find_snapshot_by_database_and_time(
+                           engine, server, container_obj, 
+                           arguments['--timestamp'])
+
+            if snapshot_obj:
                 timeflow_point_parameters=TimeflowPointTimestamp()
                 timeflow_point_parameters.timeflow = snapshot_obj.timeflow
                 timeflow_point_parameters.timestamp = \
                                snapshot_obj.latest_change_point.timestamp
+
             else:
-                print_error("Was unable to find a suitable time for " + 
-                            arguments['--timestamp'] + " for database " + 
-                            container_obj.name)
-                return
+                raise DlpxException('Was unable to find a suitable time'
+                                    '  for %s for database %s' %
+                                    (arguments['--timestamp'],
+                                    container_obj.name))
+
     elif arguments['--timestamp_type'].upper() == "TIME":
+
         if arguments['--timestamp'].upper() == "LATEST":
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_POINT"
-        else:
-            print_error("Only support a --timestamp value of \"latest\" " \
-                        "when used with timestamp_type of time")
-            return
+
+        elif arguments['--timestamp']:
+            timeflow_point_parameters = TimeflowPointTimestamp()
+            timeflow_point_parameters.type = 'TimeflowPointTimestamp'
+            timeflow_obj = find_obj_by_name(engine, server, timeflow, 
+                               arguments['--timeflow'])
+
+            timeflow_point_parameters.timeflow = timeflow_obj.reference
+            timeflow_point_parameters.timestamp = arguments['--timestamp']
+            return timeflow_point_parameters
     else:
-        print_error(arguments['--timestamp_type'] + 
+        raise DlpxException(arguments['--timestamp_type'] + 
                     " is not a valied timestamp_type. Exiting")
-        sys.exit(1)
+
     timeflow_point_parameters.container = container_obj.reference
     return timeflow_point_parameters
 
