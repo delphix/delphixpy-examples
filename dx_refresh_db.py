@@ -75,7 +75,7 @@ from time import sleep, time
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError, JobError
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, job, source, user
+from delphixpy.v1_6_0.web import database, environment, group, job, source, user, snapshot
 from delphixpy.v1_6_0.web.vo import OracleRefreshParameters, RefreshParameters, TimeflowPointLocation, TimeflowPointSemantic, TimeflowPointTimestamp
 
 def run_async(func):
@@ -156,7 +156,7 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
             matches.append(snapshot_obj)
     if len(matches) == 1:
         print_debug(engine["hostname"] + ": Found one and only one match. This is good.")
-        print_debug(engine["hostname"] + ": " + matches[0])
+        print_debug(engine["hostname"] + ": " + str(matches[0]))
         return matches[0]
     elif len(matches) > 1:
         print_error("The name specified was not specific enough. More than one match found.")
@@ -174,11 +174,11 @@ def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
             matches.append(snapshot_obj)
     if len(matches) == 1:
         print_debug(engine["hostname"] + ": Found one and only one match. This is good.")
-        print_debug(engine["hostname"] + ": " + matches[0])
+        print_debug(engine["hostname"] + ": " + str(matches[0]))
         return matches[0]
     elif len(matches) > 1:
         print_error("The time specified was not specific enough. More than one match found.")
-        print_debug(engine["hostname"] + ": " + matches)
+        print_debug(engine["hostname"] + ": " + str(matches))
     else:
         print_error("No matches found for the time specified")
 
