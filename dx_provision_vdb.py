@@ -104,7 +104,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.1.600'
+VERSION = 'v.0.1.601'
 
 from docopt import docopt
 import logging
@@ -119,7 +119,9 @@ from multiprocessing import Process
 from time import sleep, time
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
+from delphixpy.v1_6_0.exceptions import RequestError
 from delphixpy.v1_6_0 import job_context
 from delphixpy.v1_6_0.web import database
 from delphixpy.v1_6_0.web import environment
