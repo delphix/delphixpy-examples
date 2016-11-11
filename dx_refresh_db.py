@@ -11,7 +11,7 @@
 Usage:
   dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name> | --list-timeflows | --list-snapshots)
                    [--timestamp_type <type>]
-                   [--timestamp <timepoint_semantic> --timeflow <timeflow>]
+                   [--timestamp <timepoint_semantic>] [--timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
                    [--debug] [--parallel <n>] [--poll <n>]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -169,7 +169,6 @@ def find_database_by_name_and_group_name(engine, server, group_name,
     print_info(engine["hostname"] + ": Unable to find \"" + 
                database_name + "\" in " + group_name)
 
-
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
     Function to find objects by name and object class, and return object's 
@@ -219,10 +218,10 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
 def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
     """
     Find snapshot object by database name and timetamp
-    :param engine: 
-    :param server: A Delphix engine object.
-    :param database_obj: The database reference to retrieve the snapshot
-    :param snap_time: timstamp of the snapshot
+    engine: 
+    server: A Delphix engine object.
+    database_obj: The database reference to retrieve the snapshot
+    snap_time: timstamp of the snapshot
     """
     snapshots = snapshot.get_all(server, database=database_obj.reference)
     matches = []
@@ -360,8 +359,8 @@ def get_obj_name(server, f_object, obj_reference):
     """
     Return the object name from obj_reference
                 
-    :param engine: A Delphix engine object.
-    :param obj_reference: The object reference to retrieve the name
+    engine: A Delphix Virtualization Engine object.
+    obj_reference: The object reference to retrieve the name
     """
 
     try:
@@ -369,7 +368,7 @@ def get_obj_name(server, f_object, obj_reference):
         return(obj_name.name)
 
     except RequestError as e:
-        raise dlpxExceptionHandler(e)
+        raise DlpxException(e)
 
     except HttpError as e:
         raise DlpxException(e)
@@ -378,6 +377,7 @@ def get_obj_name(server, f_object, obj_reference):
 def list_snapshots(server):
     """
     List all snapshots with timestamps
+    server: Delphix Virtualization Engine session object
     """
 
     header = 'Snapshot Name, First Change Point, Latest Change Point'
@@ -603,11 +603,11 @@ def print_warning(print_obj):
 def refresh_database(engine, server, jobs, source_obj, container_obj):
     """
     This function actually performs the refresh
-    :param engine:
-    :param server: Engine object
-    :param jobs: list containing running jobs
-    :param source_obj: source object used to refresh from snapshot or timeflow
-    :param container_obj: VDB container
+    engine:
+    server: Engine object
+    jobs: list containing running jobs
+    source_obj: source object used to refresh from snapshot or timeflow
+    container_obj: VDB container
     """
 
     #Sanity check to make sure our source object has a reference
@@ -782,9 +782,9 @@ def list_timeflows(server):
 def set_timeflow_point(engine, server, container_obj):
     """
     This returns the reference of the timestamp specified.
-    :param engine:
-    :param server: Delphix Engine object
-    :param container_obj: VDB object
+    engine:
+    server: Delphix Engine object
+    container_obj: VDB object
     """
 
     if arguments['--timestamp_type'].upper() == "SNAPSHOT":

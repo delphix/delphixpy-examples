@@ -323,9 +323,6 @@ def main_workflow(engine):
     #Setup the connection to the Delphix Engine
     server = serversess(engine_address, engine_username, engine_password)
 
-    #Get the reference of the target environment.
-#    print_debug("Getting environment for " + host_name)
-
     thingstodo = ["thingtodo"]
 
     #reset the running job count before we begin

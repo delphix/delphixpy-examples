@@ -7,7 +7,12 @@
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use 
-#this doc to also define our arguments for the script. This thing is brilliant.
+#this doc to also define our arguments for the script.
+
+#TODO:
+# Refactor provisioning functions
+# Replace print_error with try/except clauses
+
 """Provision VDB's
 Usage:
   dx_provision_db.py --source <name> --target_grp <name> --target <name>
@@ -15,6 +20,7 @@ Usage:
                   (--environment <name> --type <type>) [ --envinst <name>]
                   [--sourcegroup <name>] [--template <name>] [--mapfile <file>]
                   [--timestamp_type <type>] [--timestamp <timepoint_semantic>]
+                  [--timeflow <name>]
                   [--instname <sid>] [--mntpoint <path>] [--noopen]
                   [--uniqname <name>][--source_grp <name>] 
                   [-d <identifier> | --engine <identifier> | --all]
@@ -63,6 +69,7 @@ Options:
                             ex. LINUXTARGET
   --sourcegroup <name>      The group the source from which you are creating
                             your vdb.
+  --timeflow <name>         Name of the timeflow from which you are provisioning
   --timestamp_type <type>   The type of timestamp you are specifying.
                             Acceptable Values: TIME, SNAPSHOT
                             [default: SNAPSHOT]
@@ -97,7 +104,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.1.000"
+VERSION = 'v.0.1.600'
 
 from docopt import docopt
 import logging
@@ -114,24 +121,40 @@ from time import sleep, time
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError, JobError
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, host, job, \
-                                 repository, snapshot, source, sourceconfig, \
-                                 user
+from delphixpy.v1_6_0.web import database
+from delphixpy.v1_6_0.web import environment
+from delphixpy.v1_6_0.web import group
+from delphixpy.v1_6_0.web import host
+from delphixpy.v1_6_0.web import job
+from delphixpy.v1_6_0.web import repository
+from delphixpy.v1_6_0.web import snapshot
+from delphixpy.v1_6_0.web import source
+from delphixpy.v1_6_0.web import sourceconfig
+from delphixpy.v1_6_0.web import user
 from delphixpy.v1_6_0.web.database import template
-from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer, OracleInstance, \
-                                    OracleProvisionParameters, OracleSIConfig, \
-                                    OracleVirtualSource, \
-                                    TimeflowPointLocation, \
-                                    TimeflowPointSemantic, \
-                                    TimeflowPointTimestamp, ASEDBContainer, \
-                                    ASEInstanceConfig, ASEProvisionParameters, \
-                                    ASESIConfig, ASEVirtualSource, \
-                                    MSSqlProvisionParameters, \
-                                    MSSqlDatabaseContainer, MSSqlVirtualSource,\
-                                    MSSqlInstanceConfig, MSSqlInstance, \
-                                    MSSqlSIConfig, AppDataVirtualSource, \
-                                    AppDataProvisionParameters
+from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer
+from delphixpy.v1_6_0.web.vo import OracleInstance
+from delphixpy.v1_6_0.web.vo import OracleProvisionParameters
+from delphixpy.v1_6_0.web.vo import OracleSIConfig
+from delphixpy.v1_6_0.web.vo import OracleVirtualSource
+from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_6_0.web.vo import ASEDBContainer
+from delphixpy.v1_6_0.web.vo import ASEInstanceConfig
+from delphixpy.v1_6_0.web.vo import ASEProvisionParameters
+from delphixpy.v1_6_0.web.vo import ASESIConfig
+from delphixpy.v1_6_0.web.vo import ASEVirtualSource
+from delphixpy.v1_6_0.web.vo import MSSqlProvisionParameters
+from delphixpy.v1_6_0.web.vo import MSSqlDatabaseContainer
+from delphixpy.v1_6_0.web.vo import MSSqlVirtualSource
+from delphixpy.v1_6_0.web.vo import MSSqlInstanceConfig
+from delphixpy.v1_6_0.web.vo import MSSqlInstance
+from delphixpy.v1_6_0.web.vo import MSSqlSIConfig
+from delphixpy.v1_6_0.web.vo import AppDataVirtualSource
+from delphixpy.v1_6_0.web.vo import AppDataProvisionParameters
 
+from lib.DxTimeflow import DxTimeflow
 
 def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 
                    container_obj):
@@ -233,7 +256,7 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
                                                       vfiles_group.name, 
                                                       vfiles_name)
     if vfiles_obj == None:
-        vfiles_repo = find_uf_by_environment_ref(engine, server, 
+        vfiles_repo = find_repo_by_environment_ref(engine, server, 
                                                  'Unstructured Files',
                                                  environment_obj.reference)
 
@@ -252,41 +275,61 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
 
         vfiles_params.source = { 'type': 'AppDataVirtualSource',
                                  'parameters': [], 'name': vfiles_name,
-                                 'operations': {}}
+                                 'operations': {'type':
+                                                'VirtualSourceOperations'}}
 
         if pre_refresh:
-            vfiles_params.source['operations'].update({ 'type': 
-                                              'VirtualSourceOperations'})
-
             vfiles_params.source['operations'].update({ 'preRefresh': 
                                                [{ 'type':
                                                   'RunCommandOnSourceOperation',
                                                   'command': pre_refresh }]})
 
         if post_refresh:
-            vfiles_params.source['operations'].update({ 'type': 
-                                              'VirtualSourceOperations'})
-
             vfiles_params.source['operations'].update({ 'postRefresh': 
                                       [{ 'type': 'RunCommandOnSourceOperation',
                                       'command': post_refresh }]})
 
         if configure_clone:
-            vfiles_params.source['operations'].update({ 'type': 
-                                              'VirtualSourceOperations'})
-
             vfiles_params.source['operations'].update({ 'configureClone': 
                                       [{ 'type': 'RunCommandOnSourceOperation',
                                       'command': configure_clone }]})
 
-        vfiles_params.timeflow_point_parameters = { 
-                                     'type': 'TimeflowPointSemantic',
-                                     'container': container_obj.reference,
-                                     'location': 'LATEST_POINT'
-                                     }
+ 
+        if arguments['--timestamp_type'] is None:
+            vfiles_params.timeflow_point_parameters = { 
+                                         'type': 'TimeflowPointSemantic',
+                                         'container': container_obj.reference,
+                                         'location': 'LATEST_POINT'}
+
+        elif arguments['--timestamp_type'].upper() == 'SNAPSHOT':
+            try:
+                dx_timeflow_obj = DxTimeflow(server)
+                dx_snap_params = dx_timeflow_obj.set_timeflow_point(
+                                                container_obj,
+                                                arguments['--timestamp_type'],
+                                                arguments['--timestamp'],
+                                                arguments['--timeflow'])
+
+            except RequestError as e:
+                raise DlpxException('Could not set the timeflow point:\n%s' 
+                                    % (e))
+
+            vfiles_params.timeflow_point_parameters = {'type':
+                                                       dx_snap_params.type,
+                                                       'timeflow':
+                                                       dx_snap_params.timeflow,
+                                                       'timestamp': 
+                                                       dx_snap_params.timestamp}
 
         print_info(engine["hostname"] + ": Provisioning " + vfiles_name)
-        database.provision(server, vfiles_params)
+
+        try:
+            database.provision(server, vfiles_params)
+
+        except RequestError as e:
+            raise DlpxException('Could not set the timeflow point:\n%s' 
+                                % (e))
+
 
         #Add the job into the jobs dictionary so we can track its progress
         jobs[engine["hostname"]] = server.last_job
@@ -301,7 +344,8 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
 
 def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj, 
                          environment_obj, container_obj, pre_refresh=None,
-                         post_refresh=None, configure_clone=None):
+                         post_refresh=None, configure_clone=None, 
+                         snapshot=None):
     '''
     Create an Oracle SI VDB
     '''
@@ -317,9 +361,6 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
         vdb_params.container.group = vdb_group_obj.reference
         vdb_params.container.name = vdb_name
         vdb_params.source = OracleVirtualSource()
-#        print dir(vdb_params.source.operations)
-#        sys.exit(1)
-#        vdb_params.source.operations = {}
 
         if arguments['--instname']:
             inst_name = arguments['--instname']
@@ -330,6 +371,11 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
             unique_name = arguments['--uniqname']
         elif arguments['--uniqname'] == None:
             unique_name = vdb_name
+
+        if arguments['--db']:
+            db = arguments['--db']
+        elif arguments['--db'] == None:
+            db = vdb_name
 
         vdb_params.source.mount_base = arguments['--mntpoint']
 
@@ -343,35 +389,26 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
                 vdb_params.source.config_template = template_obj.reference
 
         vdb_params.source_config = OracleSIConfig()
+        vdb_params.source.operations = {'type': 'VirtualSourceOperations'}
 
         if pre_refresh:
-            vdb_params.source.operations.update({ 'type': 
-                                                'VirtualSourceOperations'})
-
-            vdb_params.source.operations.update({ 'preRefresh': [{ 'type':
+            vdb_params.source.operations.update({'preRefresh': [{'type':
                                                   'RunCommandOnSourceOperation',
-                                                  'command': pre_refresh }]})
+                                                  'command': pre_refresh}]})
 
         if post_refresh:
-            vdb_params.source.operations.update({ 'type': 
-                                                  'VirtualSourceOperations'})
-
-            vdb_params.source.operations.update({ 'postRefresh': 
-                                      [{ 'type': 'RunCommandOnSourceOperation',
-                                      'command': post_refresh }]})
+            vdb_params.source.operations.update({'postRefresh': 
+                                      [{'type': 'RunCommandOnSourceOperation',
+                                      'command': post_refresh}]})
 
         if configure_clone:
-            vdb_params.source.operations.update({ 'type': 
-                                                  'VirtualSourceOperations'})
+            vdb_params.source.operations.update({'configureClone': 
+                                      [{'type': 'RunCommandOnSourceOperation',
+                                      'command': configure_clone}]})
 
-            vdb_params.source.operations.update({ 'configureClone': 
-                                      [{ 'type': 'RunCommandOnSourceOperation',
-                                      'command': configure_clone }]})
-
-        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
-                                                     server, "OracleInstall", 
-                                                     environment_obj.reference,
-                                                     arguments['--envinst'])
+        vdb_repo = find_repo_by_environment_ref(engine, server, 
+                                                 'OracleInstall',
+                                                 environment_obj.reference)
 
         vdb_params.source_config.database_name = arguments['--db']
         vdb_params.source_config.unique_name = unique_name
@@ -380,9 +417,11 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
         vdb_params.source_config.instance.instance_number = 1
         vdb_params.source_config.repository = vdb_repo.reference
 
-        vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
-                                                         server, container_obj)
-        vdb_params.timeflow_point_parameters.container = container_obj.reference
+        dx_timeflow_obj = DxTimeflow(server)
+        vdb_params.timeflow_point_parameters = \
+               dx_timeflow_obj.set_timeflow_point(container_obj,
+                                                  arguments['--timestamp_type'],
+                                                  arguments['--timestamp'])
 
         print_info(engine["hostname"] + ": Provisioning " + vdb_name)
         database.provision(server, vdb_params)
@@ -471,7 +510,7 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
                         ": No Repo match found for type " + install_type)
 
 
-def find_uf_by_environment_ref(engine, server, repo_type, f_environment_ref):
+def find_repo_by_environment_ref(engine, server, repo_type, f_environment_ref):
     '''
     Function to find unstructured file repository objects by environment 
     reference and name, and return the object's reference as a string
@@ -486,7 +525,12 @@ def find_uf_by_environment_ref(engine, server, repo_type, f_environment_ref):
     all_objs = repository.get_all(server, environment=f_environment_ref)
 
     for obj in all_objs:
-        if obj.name == 'Unstructured Files':
+        if obj.name == repo_type:
+             print_debug(engine['hostname'] + ': Found a match ' + 
+                        str(obj.reference))
+             return obj
+
+        elif obj.type == repo_type:
              print_debug(engine['hostname'] + ': Found a match ' + 
                         str(obj.reference))
              return obj
