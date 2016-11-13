@@ -104,7 +104,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.1.601'
+VERSION = 'v.0.1.602'
 
 from docopt import docopt
 import logging
@@ -157,6 +157,7 @@ from delphixpy.v1_6_0.web.vo import AppDataVirtualSource
 from delphixpy.v1_6_0.web.vo import AppDataProvisionParameters
 
 from lib.DxTimeflow import DxTimeflow
+from lib.DlpxException import DlpxException
 
 def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 
                    container_obj):
