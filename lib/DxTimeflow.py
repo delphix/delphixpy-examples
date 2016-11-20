@@ -19,13 +19,14 @@ from delphixpy.v1_6_0.web.vo import RefreshParameters
 from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
 from delphixpy.v1_6_0.web.vo import MSSqlTimeflowPoint
 from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
 
 from DlpxException import DlpxException
 from GetReferences import get_obj_reference
 from GetReferences import convert_timestamp
 from GetReferences import find_obj_by_name
 
-VERSION = 'v.0.0.100'
+VERSION = 'v.0.1.000'
 
 class DxTimeflow(object):
     """Shared methods for timeflows """
@@ -64,7 +65,6 @@ class DxTimeflow(object):
                 self.db_name = get_obj_reference(self.engine, database,
                                                  self.tfbm_lst.container)
 
-#### HERE
                 print '%s, %s, %s\n' % (str(self.db_name),
                                         str(self.tfbm_lst.name),
                                         str(self.tfbm_lst.parent_point.timestamp))
@@ -150,7 +150,6 @@ class DxTimeflow(object):
                 if self.tfbm_lst.timestamp is None:
                     self.converted_timestamp = None
 
-#### HERE
                 else:
                     self.converted_timestamp = \
                         convert_timestamp(self.engine,

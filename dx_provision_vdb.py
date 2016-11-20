@@ -104,7 +104,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.1.602'
+VERSION = 'v.0.1.700'
 
 from docopt import docopt
 import logging
@@ -317,21 +317,30 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
                 raise DlpxException('Could not set the timeflow point:\n%s' 
                                     % (e))
 
-            vfiles_params.timeflow_point_parameters = {'type':
-                                                       dx_snap_params.type,
-                                                       'timeflow':
-                                                       dx_snap_params.timeflow,
-                                                       'timestamp': 
-                                                       dx_snap_params.timestamp}
+            if dx_snap_params.type == 'TimeflowPointSemantic':
+                vfiles_params.timeflow_point_parameters = {'type':
+                                             dx_snap_params.type,
+                                             'container':
+                                             dx_snap_params.container,
+                                             'location': 
+                                             dx_snap_params.location}
+
+            elif dx_snap_params.type == 'TimeflowPointTimestamp':
+                vfiles_params.timeflow_point_parameters = {'type':
+                                             dx_snap_params.type,
+                                             'timeflow':
+                                             dx_snap_params.timeflow,
+                                             'timestamp': 
+                                             dx_snap_params.timestamp}
 
         print_info(engine["hostname"] + ": Provisioning " + vfiles_name)
 
         try:
             database.provision(server, vfiles_params)
 
-        except RequestError as e:
-            raise DlpxException('Could not set the timeflow point:\n%s' 
-                                % (e))
+        except (JobError, RequestError, HttpError) as e:
+            raise DlpxException('\nERROR: Could not provision the database:' 
+                                '\n%s' % (e))
 
 
         #Add the job into the jobs dictionary so we can track its progress
@@ -409,9 +418,11 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
                                       [{'type': 'RunCommandOnSourceOperation',
                                       'command': configure_clone}]})
 
-        vdb_repo = find_repo_by_environment_ref(engine, server, 
+        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
+                                                 server,
                                                  'OracleInstall',
-                                                 environment_obj.reference)
+                                                 environment_obj.reference,
+                                                 arguments['--envinst'])
 
         vdb_params.source_config.database_name = arguments['--db']
         vdb_params.source_config.unique_name = unique_name
@@ -513,7 +524,8 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
                         ": No Repo match found for type " + install_type)
 
 
-def find_repo_by_environment_ref(engine, server, repo_type, f_environment_ref):
+def find_repo_by_environment_ref(engine, server, repo_type, f_environment_ref,
+                                 f_install_path=None):
     '''
     Function to find unstructured file repository objects by environment 
     reference and name, and return the object's reference as a string
@@ -847,57 +859,64 @@ def main_workflow(engine):
     thingstodo = ["thingtodo"]
     #reset the running job count before we begin
     i = 0
-    with job_mode(server):
-        while (len(jobs) > 0 or len(thingstodo)> 0):
-            arg_type = arguments['--type'].lower()
-            if len(thingstodo)> 0:
 
-                if arg_type == "oracle":
-                    create_oracle_si_vdb(engine, server, jobs, database_name, 
-                                         group_obj, environment_obj, 
-                                         database_obj,
-                                         arguments['--prerefresh'],
-                                         arguments['--postrefresh'],
-                                         arguments['--configure-clone'])
+    try:
+        with job_mode(server):
+            while (len(jobs) > 0 or len(thingstodo)> 0):
+                arg_type = arguments['--type'].lower()
+                if len(thingstodo)> 0:
 
-                elif arg_type == "ase":
-                    create_ase_vdb(engine, server, jobs, group_obj, 
-                                   database_name, environment_obj, database_obj)
+                    if arg_type == "oracle":
+                        create_oracle_si_vdb(engine, server, jobs, database_name, 
+                                             group_obj, environment_obj, 
+                                             database_obj,
+                                             arguments['--prerefresh'],
+                                             arguments['--postrefresh'],
+                                             arguments['--configure-clone'])
 
-                elif arg_type == "mssql":
-                    create_mssql_vdb(engine, server, jobs, group_obj, 
-                                     database_name, environment_obj, 
-                                     database_obj)
+                    elif arg_type == "ase":
+                        create_ase_vdb(engine, server, jobs, group_obj, 
+                                       database_name, environment_obj, database_obj)
 
-                elif arg_type == "vfiles":
-                    create_vfiles_vdb(engine, server, jobs, group_obj, 
-                                      database_name, environment_obj, 
-                                      database_obj, arguments['--prerefresh'],
-                                      arguments['--postrefresh'],
-                                      arguments['--configure-clone'])
+                    elif arg_type == "mssql":
+                        create_mssql_vdb(engine, server, jobs, group_obj, 
+                                         database_name, environment_obj, 
+                                         database_obj)
+
+                    elif arg_type == "vfiles":
+                        create_vfiles_vdb(engine, server, jobs, group_obj, 
+                                          database_name, environment_obj, 
+                                          database_obj, arguments['--prerefresh'],
+                                          arguments['--postrefresh'],
+                                          arguments['--configure-clone'])
 
                 thingstodo.pop()
-            #get all the jobs, then inspect them
-            i = 0
-            for j in jobs.keys():
-                job_obj = job.get(server, jobs[j])
-                print_debug(job_obj)
-                print_info(engine["hostname"] + ": VDB Provision: " + 
-                           job_obj.job_state)
+
+                #get all the jobs, then inspect them 
+                i = 0
+                for j in jobs.keys():
+                    job_obj = job.get(server, jobs[j])
+                    print_debug(job_obj)
+                    print_info(engine["hostname"] + ": VDB Provision: " + 
+                               job_obj.job_state)
                 
-                if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the 
-                    # running jobs list.
-                    del jobs[j]
-                else:
-                    #If the job is in a running state, increment the running 
-                    # job count.
-                    i += 1
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
+                        #If the job is in a non-running state, remove it from the 
+                        # running jobs list.
+                        del jobs[j]
+                    else:
+                        #If the job is in a running state, increment the running 
+                        # job count.
+                        i += 1
 
             print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
             #If we have running jobs, pause before repeating the checks.
             if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
+
+    except (DlpxException, JobError) as e:
+        print '\nERROR while provisioning %s:\n%s' % (database_name, e.message)
+        sys.exit(1)
 
 
 def run_job(engine):
