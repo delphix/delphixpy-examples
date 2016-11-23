@@ -16,7 +16,7 @@ from delphixpy.v1_6_0.web import database
 from DlpxException import DlpxException
 
 
-VERSION = 'v.0.1.000'
+VERSION = 'v.0.1.200'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -42,7 +42,7 @@ def convert_timestamp(engine, timestamp):
     except TypeError:
         return None
 
-def find_obj_by_name(engine, f_class, obj_name):
+def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
     """
     Function to find objects by name and object class, and return object's 
     reference as a string
@@ -50,12 +50,27 @@ def find_obj_by_name(engine, f_class, obj_name):
     engine: A Delphix engine session object
     f_class: The objects class. I.E. database or timeflow.
     obj_name: The name of the object
+    active_branch: Default = False. If true, return list containing
+                   the object's reference and active_branch. Otherwise, return 
+                   the reference.
     """
+
     obj_ref = ''
+    return_list = []
 
     all_objs = f_class.get_all(engine)
     for obj in all_objs:
         if obj.name == obj_name:
+
+            if active_branch is False:
+                return(obj)
+
+            #This code is for JS objects only.
+            elif active_branch is True:
+                return_list.append(obj.reference)
+                return_list.append(obj.active_branch)
+                return(return_list)
+
             return obj
 
     #If the object isn't found, raise an exception.
@@ -63,7 +78,7 @@ def find_obj_by_name(engine, f_class, obj_name):
 
 
 def get_obj_reference(engine, obj_type, obj_name, search_str=None,
-                  container=False):
+                      container=False):
     """
     Return the reference for the provided object name
 

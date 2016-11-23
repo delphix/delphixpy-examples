@@ -11,7 +11,7 @@
 Usage:
   dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name> | --list-timeflows | --list-snapshots)
                    [--timestamp_type <type>]
-                   [--timestamp <timepoint_semantic>] [--timeflow <timeflow>]
+                   [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
                    [--debug] [--parallel <n>] [--poll <n>]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -74,9 +74,16 @@ from multiprocessing import Process
 from time import sleep, time
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError, RequestError
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
+from delphixpy.v1_6_0.exceptions import RequestError
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, job, source, user
+from delphixpy.v1_6_0.web import database
+from delphixpy.v1_6_0.web import environment
+from delphixpy.v1_6_0.web import group
+from delphixpy.v1_6_0.web import job
+from delphixpy.v1_6_0.web import source
+from delphixpy.v1_6_0.web import user
 from delphixpy.v1_6_0.web import timeflow
 from delphixpy.v1_6_0.web.snapshot import snapshot
 from delphixpy.v1_6_0.web.vo import OracleRefreshParameters
@@ -168,6 +175,7 @@ def find_database_by_name_and_group_name(engine, server, group_name,
 
     print_info(engine["hostname"] + ": Unable to find \"" + 
                database_name + "\" in " + group_name)
+
 
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
@@ -359,7 +367,7 @@ def get_obj_name(server, f_object, obj_reference):
     """
     Return the object name from obj_reference
                 
-    engine: A Delphix Virtualization Engine object.
+    engine: A Delphix engine object.
     obj_reference: The object reference to retrieve the name
     """
 
@@ -368,7 +376,7 @@ def get_obj_name(server, f_object, obj_reference):
         return(obj_name.name)
 
     except RequestError as e:
-        raise DlpxException(e)
+        raise dlpxExceptionHandler(e)
 
     except HttpError as e:
         raise DlpxException(e)
@@ -377,7 +385,6 @@ def get_obj_name(server, f_object, obj_reference):
 def list_snapshots(server):
     """
     List all snapshots with timestamps
-    server: Delphix Virtualization Engine session object
     """
 
     header = 'Snapshot Name, First Change Point, Latest Change Point'

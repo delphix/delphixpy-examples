@@ -18,8 +18,8 @@ Usage:
 
 Rewinds a Delphix VDB
 Examples:
-  dx_rewind_vdb.py --vdb oraTest1 --type oracle
-  dx_rewind_vdb.py --vdb mssqlTest1 --type mssql --bookmark mssql_bookmark
+  dx_rewind_vdb.py --vdb testVdbUF --timestamp_type snapshot --timestamp 2016-11-15T11:30:17.857Z
+  
 
 Options:
   --vdb <name>              Name of VDB to rewind
@@ -49,7 +49,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.0.001"
+VERSION = "v.0.0.005"
 
 
 from docopt import docopt
@@ -126,8 +126,9 @@ def main_workflow(engine):
         database_obj = find_obj_by_name(dx_session_obj.server_session,
                                         database, arguments['--vdb'])
 
-        rewind_job = rewind_database(engine, dx_session_obj.server_session,
-                                     jobs, database_obj)
+        rewind_database(engine, dx_session_obj.server_session, jobs, 
+                        database_obj)
+
     except DlpxException as e:
         raise DlpxException(e)
 
@@ -295,7 +296,6 @@ def main(argv):
     global host_name
     global database_name
     global config_file_path
-    global dxtools_objects
     global dx_session_obj
 
     try:

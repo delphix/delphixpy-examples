@@ -14,8 +14,11 @@ from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import RequestError
 from delphixpy.v1_6_0.exceptions import JobError
 from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0 import job_context
+from delphixpy.v1_6_0.web import job
 
 from lib.DlpxException import DlpxException
+from lib.DxLogging import print_debug
 
 
 VERSION = 'v.0.0.001'
@@ -93,3 +96,42 @@ class GetSession(object):
         except (HttpError, RequestError, JobError) as e:
             raise DlpxException('ERROR: An error occurred while authenticating'
                                 ' to %s:\n %s\n' % (f_engine_address, e))
+
+
+    def job_mode(self, engine, single_thread=True):
+        """
+        This method tells Delphix how to execute jobs, based on the
+        single_thread variable
+
+        engine: Delphix session object
+        """
+
+        #Synchronously (one at a time)
+        if single_thread is True:
+            print_debug("These jobs will be executed synchronously")
+            return job_context.sync(engine)
+
+        #Or asynchronously
+        elif single_thread is False:
+            print_debug("These jobs will be executed asynchronously")
+            return job_context.async(engine)
+
+
+    def job_wait(self):
+        """
+        This job stops all work in the thread/process until jobs are completed.
+
+        No arguments
+        """
+        #Grab all the jos on the server (the last 25, be default)
+        all_jobs = job.get_all(server)
+
+        #For each job in the list, check to see if it is running (not ended)
+        for jobobj in all_jobs:
+            if not (jobobj.job_state in ["CANCELED", "COMPLETED", "FAILED"]):
+                print_debug('\nDEBUG: Waiting for %s (currently: %s) to '
+                            'finish running against the container.\n' %
+                            (jobobj.reference, jobobj.job_state))
+
+                #If so, wait
+                job_context.wait(server, jobobj.reference)
