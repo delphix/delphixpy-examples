@@ -6,17 +6,17 @@ import re
 from datetime import datetime
 from dateutil import tz
 
-from delphixpy.v1_6_0.web.service import time
-from delphixpy.v1_6_0.exceptions import RequestError
-from delphixpy.v1_6_0.exceptions import HttpError
-from delphixpy.v1_6_0.exceptions import JobError
-from delphixpy.v1_6_0.web import timeflow
-from delphixpy.v1_6_0.web import database
+from delphixpy.web.service import time
+from delphixpy.exceptions import RequestError
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.web import timeflow
+from delphixpy.web import database
 
 from DlpxException import DlpxException
 
 
-VERSION = 'v.0.1.200'
+VERSION = 'v.0.2.000'
 
 def convert_timestamp(engine, timestamp):
     """

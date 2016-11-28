@@ -11,7 +11,7 @@
 
 #TODO:
 # Refactor provisioning functions
-# Replace print_error with try/except clauses
+# Documentation
 
 """Provision VDB's
 Usage:
@@ -23,7 +23,8 @@ Usage:
                   [--timeflow <name>]
                   [--instname <sid>] [--mntpoint <path>] [--noopen]
                   [--uniqname <name>][--source_grp <name>] 
-                  [-d <identifier> | --engine <identifier> | --all]
+                  [--engine <identifier> | --all]
+                  [--vdb_restart <bool> ]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
                   [--postrefresh <name>] [--prerefresh <name>]
@@ -33,21 +34,13 @@ Usage:
 Provision VDB from a defined source on the defined target environment.
 
 Examples:
-  dx_provision_vdb.py -d landsharkengine --source_grp Sources \
-                      --source "ASE pubs3 DB" --db vase --target testASE \
-                      --target_grp Analytics --environment LINUXTARGET \
-                      --type ase --envinst "LINUXTARGET"
+  dx_provision_vdb.py --engine landsharkengine --source_grp Sources --source "ASE pubs3 DB" --db vase --target testASE --target_grp Analytics --environment LINUXTARGET --type ase --envinst "LINUXTARGET"
 
-  dx_provision_vdb.py --source_grp Sources --source "Employee Oracle 11G DB" \
-                      --instname autod --uniqname autoprod --db autoprod \
-                      --target autoprod --target_grp Analytics \
-                      --environment LINUXTARGET --type oracle \
-                      --envinst "/u01/app/oracle/product/11.2.0/dbhome_1"
+  dx_provision_vdb.py --source_grp Sources --source "Employee Oracle 11G DB" --instname autod --uniqname autoprod --db autoprod --target autoprod --target_grp Analytics --environment LINUXTARGET --type oracle --envinst "/u01/app/oracle/product/11.2.0/dbhome_1"
 
-  dx_provision_vdb.py --source_grp Sources --source "AdventureWorksLT2008R2" \
-                      --db vAW --target testAW --target_grp Analytics \
-                      --environment WINDOWSTARGET --type mssql \
-                      --envinst MSSQLSERVER --all
+  dx_provision_vdb.py --source_grp Sources --source "AdventureWorksLT2008R2" --db vAW --target testAW --target_grp Analytics --environment WINDOWSTARGET --type mssql --envinst MSSQLSERVER --all
+
+./dx_provision_vdb.py --source UF_Source --target appDataVDB --target_grp Untitled --environment LinuxTarget --type vfiles --vfiles_path /mnt/provision/appDataVDB --prerollback "/u01/app/oracle/product/scripts/PreRollback.sh" --postrollback "/u01/app/oracle/product/scripts/PostRollback.sh" --vdb_restart true
 
 Options:
   --source_grp <name>       The group where the source resides.
@@ -67,6 +60,7 @@ Options:
   --prerollback <name>      Post-Hook commands
   --postrollback <name>     Post-Hook commands
   --configure-clone <name>  Configure Clone commands
+  --vdb_restart <bool>      Either True or False. Default: False
   --envinst <name>          The identifier of the instance in Delphix.
                             ex. "/u01/app/oracle/product/11.2.0/dbhome_1"
                             ex. LINUXTARGET
@@ -90,7 +84,6 @@ Options:
   --mntpoint <path>         Mount point for the VDB
                             [default: /mnt/provision]
   --noopen                  Don't open database after provision (Oracle Only)
-  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -107,58 +100,66 @@ Options:
 
 VERSION = 'v.0.2.000'
 
-from docopt import docopt
 import logging
-from os.path import basename
 import signal
 import sys
 import time
 import traceback
 import json
-
+import re
+from docopt import docopt
+from os.path import basename
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError
-from delphixpy.v1_6_0.exceptions import JobError
-from delphixpy.v1_6_0.exceptions import RequestError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database
-from delphixpy.v1_6_0.web import environment
-from delphixpy.v1_6_0.web import group
-from delphixpy.v1_6_0.web import host
-from delphixpy.v1_6_0.web import job
-from delphixpy.v1_6_0.web import repository
-from delphixpy.v1_6_0.web import snapshot
-from delphixpy.v1_6_0.web import source
-from delphixpy.v1_6_0.web import sourceconfig
-from delphixpy.v1_6_0.web import user
-from delphixpy.v1_6_0.web.database import template
-from delphixpy.v1_6_0.web.vo import OracleDatabaseContainer
-from delphixpy.v1_6_0.web.vo import OracleInstance
-from delphixpy.v1_6_0.web.vo import OracleProvisionParameters
-from delphixpy.v1_6_0.web.vo import OracleSIConfig
-from delphixpy.v1_6_0.web.vo import OracleVirtualSource
-from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
-from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
-from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
-from delphixpy.v1_6_0.web.vo import ASEDBContainer
-from delphixpy.v1_6_0.web.vo import ASEInstanceConfig
-from delphixpy.v1_6_0.web.vo import ASEProvisionParameters
-from delphixpy.v1_6_0.web.vo import ASESIConfig
-from delphixpy.v1_6_0.web.vo import ASEVirtualSource
-from delphixpy.v1_6_0.web.vo import MSSqlProvisionParameters
-from delphixpy.v1_6_0.web.vo import MSSqlDatabaseContainer
-from delphixpy.v1_6_0.web.vo import MSSqlVirtualSource
-from delphixpy.v1_6_0.web.vo import MSSqlInstanceConfig
-from delphixpy.v1_6_0.web.vo import MSSqlInstance
-from delphixpy.v1_6_0.web.vo import MSSqlSIConfig
-from delphixpy.v1_6_0.web.vo import AppDataVirtualSource
-from delphixpy.v1_6_0.web.vo import AppDataProvisionParameters
+from delphixpy.delphix_engine import DelphixEngine
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy import job_context
+from delphixpy.web import database
+from delphixpy.web import environment
+from delphixpy.web import group
+from delphixpy.web import host
+from delphixpy.web import job
+from delphixpy.web import repository
+from delphixpy.web import snapshot
+from delphixpy.web import source
+from delphixpy.web import sourceconfig
+from delphixpy.web import user
+from delphixpy.web.database import template
+from delphixpy.web.vo import VirtualSourceOperations
+from delphixpy.web.vo import OracleDatabaseContainer
+from delphixpy.web.vo import OracleInstance
+from delphixpy.web.vo import OracleProvisionParameters
+from delphixpy.web.vo import OracleSIConfig
+from delphixpy.web.vo import OracleVirtualSource
+from delphixpy.web.vo import TimeflowPointLocation
+from delphixpy.web.vo import TimeflowPointSemantic
+from delphixpy.web.vo import TimeflowPointTimestamp
+from delphixpy.web.vo import ASEDBContainer
+from delphixpy.web.vo import ASEInstanceConfig
+from delphixpy.web.vo import ASEProvisionParameters
+from delphixpy.web.vo import ASESIConfig
+from delphixpy.web.vo import ASEVirtualSource
+from delphixpy.web.vo import MSSqlProvisionParameters
+from delphixpy.web.vo import MSSqlDatabaseContainer
+from delphixpy.web.vo import MSSqlVirtualSource
+from delphixpy.web.vo import MSSqlInstance
+from delphixpy.web.vo import MSSqlSIConfig
+from delphixpy.web.vo import AppDataVirtualSource
+from delphixpy.web.vo import AppDataProvisionParameters
+from delphixpy.web.vo import AppDataDirectSourceConfig
 
 from lib.DxTimeflow import DxTimeflow
 from lib.DlpxException import DlpxException
+from lib.GetSession import GetSession
+from lib.GetReferences import find_obj_by_name
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_info
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_warning
+
 
 def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 
                    container_obj):
@@ -249,58 +250,74 @@ def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name,
         return vdb_obj.reference
 
 
-def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name, 
+def create_vfiles_vdb(engine, jobs, vfiles_group, vfiles_name, 
                       environment_obj, container_obj, pre_refresh=None,
-                      post_refresh=None, configure_clone=None):
+                      post_refresh=None, pre_rollback=None, 
+                      post_rollback=None, configure_clone=None):
     '''
     Create a Vfiles VDB
     '''
 
-    vfiles_obj = find_database_by_name_and_group_name(engine, server, 
-                                                      vfiles_group.name, 
-                                                      vfiles_name)
-    if vfiles_obj == None:
-        vfiles_repo = find_repo_by_environment_ref(engine, server, 
-                                                 'Unstructured Files',
-                                                 environment_obj.reference)
+    vfiles_obj = None
+
+    try:
+        vfiles_obj = find_obj_by_name(dx_session_obj.server_session,
+                                      database, vfiles_name)
+    except DlpxException:
+        pass
+
+    if vfiles_obj is None:
+        vfiles_repo = find_repo_by_environment_ref(engine,
+                                                   'Unstructured Files',
+                                                   environment_obj.reference)
 
         vfiles_params = AppDataProvisionParameters()
-        vfiles_params.type = 'AppDataProvisionParameters'
+        vfiles_params.source = AppDataVirtualSource()
+        vfiles_params.source_config = AppDataDirectSourceConfig()
+
+        vdb_restart_reobj = re.compile('true', re.IGNORECASE)
+
+        if vdb_restart_reobj.search(str(arguments['--vdb_restart'])):
+            vfiles_params.source.allow_auto_vdb_restart_on_host_reboot = True
+
+        elif vdb_restart_reobj.search(str(arguments['--vdb_restart'])) is None:
+            vfiles_params.source.allow_auto_vdb_restart_on_host_reboot = False
+
         vfiles_params.container = { 'type': 'AppDataContainer', 
                                     'group': vfiles_group.reference,
                                     'name': vfiles_name }
 
-        vfiles_params.source_config = { 'type': 'AppDataDirectSourceConfig',
-                             'name': arguments['--vfiles_path'],
-                             'path': arguments['--vfiles_path'],
-                             'parameters': [],
-                             'environment_user': environment_obj.primary_user,
-                             'repository': vfiles_repo.reference }
+        vfiles_params.source_config.name = arguments['--target']
+        vfiles_params.source_config.path = arguments['--vfiles_path']
+        vfiles_params.source_config.environment_user = \
+                                    environment_obj.primary_user
+        vfiles_params.source_config.repository = vfiles_repo.reference
 
-        vfiles_params.source = { 'type': 'AppDataVirtualSource',
-                                 'parameters': [], 'name': vfiles_name,
-                                 'operations': {'type':
-                                                'VirtualSourceOperations'}}
+        
+        vfiles_params.source.parameters = {}
+        vfiles_params.source.name = vfiles_name
+        vfiles_params.source.name = vfiles_name
+        vfiles_params.source.operations = VirtualSourceOperations()
 
         if pre_refresh:
-            vfiles_params.source['operations'].update({ 'preRefresh': 
+            vfiles_params.source.operations.update({ 'preRefresh': 
                                                [{ 'type':
                                                   'RunCommandOnSourceOperation',
                                                   'command': pre_refresh }]})
 
         if post_refresh:
-            vfiles_params.source['operations'].update({ 'postRefresh': 
+            vfiles_params.source.operations.update({ 'postRefresh': 
                                       [{ 'type': 'RunCommandOnSourceOperation',
                                       'command': post_refresh }]})
 
         if post_rollback:
-            vfiles_params.source['operations'].update({ 'postRollback': 
+            vfiles_params.source.operations.update({ 'postRollback': 
                                                [{ 'type':
                                                   'RunCommandOnSourceOperation',
                                                   'command': post_refresh }]})
 
         if configure_clone:
-            vfiles_params.source['operations'].update({ 'configureClone': 
+            vfiles_params.source.operations.update({ 'configureClone': 
                                       [{ 'type': 'RunCommandOnSourceOperation',
                                       'command': configure_clone }]})
 
@@ -312,8 +329,9 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
                                          'location': 'LATEST_POINT'}
 
         elif arguments['--timestamp_type'].upper() == 'SNAPSHOT':
+
             try:
-                dx_timeflow_obj = DxTimeflow(server)
+                dx_timeflow_obj = DxTimeflow(dx_session_obj.server_session)
                 dx_snap_params = dx_timeflow_obj.set_timeflow_point(
                                                 container_obj,
                                                 arguments['--timestamp_type'],
@@ -340,10 +358,11 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
                                              'timestamp': 
                                              dx_snap_params.timestamp}
 
-        print_info(engine["hostname"] + ": Provisioning " + vfiles_name)
+        print_info('%s: Provisioning %s\n' % (engine["hostname"],
+                                              vfiles_name))
 
         try:
-            database.provision(server, vfiles_params)
+            database.provision(dx_session_obj.server_session, vfiles_params)
 
         except (JobError, RequestError, HttpError) as e:
             raise DlpxException('\nERROR: Could not provision the database:' 
@@ -351,17 +370,18 @@ def create_vfiles_vdb(engine, server, jobs, vfiles_group, vfiles_name,
 
 
         #Add the job into the jobs dictionary so we can track its progress
-        jobs[engine["hostname"]] = server.last_job
+        jobs[engine['hostname']] = dx_session_obj.server_session.last_job
 
         #return the job object to the calling statement so that we can tell if 
         # a job was created or not (will return None, if no job)
-        return server.last_job
+        return dx_session_obj.server_session.last_job
     else:
-        print_info(engine["hostname"] + ":" + vfiles_name + " already exists.")
+        print_info('\nERROR %s: %s already exists. \n' % (engine['hostname'],
+                                                          vfiles_name))
         return vfiles_obj.reference
 
 
-def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj, 
+def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
                          environment_obj, container_obj, pre_refresh=None,
                          post_refresh=None, pre_rollback=None,
                          post_rollback=None, configure_clone=None, 
@@ -370,7 +390,14 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
     '''
     Create an Oracle SI VDB
     '''
-    vdb_obj = find_obj_by_name(engine, server, database, vdb_name)
+
+    vdb_obj = None
+
+    try:
+        vdb_obj = find_obj_by_name(dx_session_obj.server_session, database, 
+                                   vdb_name)
+    except DlpxException:
+        pass
 
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
@@ -382,6 +409,7 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
         vdb_params.container.group = vdb_group_obj.reference
         vdb_params.container.name = vdb_name
         vdb_params.source = OracleVirtualSource()
+        vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
 
         if arguments['--instname']:
             inst_name = arguments['--instname']
@@ -399,14 +427,16 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
             db = vdb_name
 
         vdb_params.source.mount_base = arguments['--mntpoint']
+        vdb_params.source.mount_base = arguments['--mntpoint']
 
         if arguments['--mapfile']:
             vdb_params.source.file_mapping_rules = arguments['--mapfile']
 
         if arguments['--template']:
-                template_obj = find_obj_by_name(engine, server, 
+                template_obj = find_obj_by_name(dx_session_obj.server_session,
                                                 database.template, 
                                                 arguments['--template'])
+
                 vdb_params.source.config_template = template_obj.reference
 
         vdb_params.source_config = OracleSIConfig()
@@ -414,8 +444,8 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
 
         if pre_refresh:
             vdb_params.source.operations.update({'preRefresh': [{'type':
-                                                  'RunCommandOnSourceOperation',
-                                                  'command': pre_refresh}]})
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': pre_refresh}]})
 
         if post_refresh:
             vdb_params.source.operations.update({'postRefresh': 
@@ -428,7 +458,7 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
                                       'command': configure_clone}]})
 
         vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
-                                                 server,
+                                                 dx_session_obj.server_session,
                                                  'OracleInstall',
                                                  environment_obj.reference,
                                                  arguments['--envinst'])
@@ -440,23 +470,25 @@ def create_oracle_si_vdb(engine, server, jobs, vdb_name, vdb_group_obj,
         vdb_params.source_config.instance.instance_number = 1
         vdb_params.source_config.repository = vdb_repo.reference
 
-        dx_timeflow_obj = DxTimeflow(server)
+        dx_timeflow_obj = DxTimeflow(dx_session_obj.server_session)
         vdb_params.timeflow_point_parameters = \
                dx_timeflow_obj.set_timeflow_point(container_obj,
                                                   arguments['--timestamp_type'],
                                                   arguments['--timestamp'])
 
         print_info(engine["hostname"] + ": Provisioning " + vdb_name)
-        database.provision(server, vdb_params)
+        database.provision(dx_session_obj.server_session, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
 
-        jobs[engine["hostname"]] = server.last_job
+        jobs[engine['hostname']] = dx_session_obj.server_session.last_job
         #return the job object to the calling statement so that we can tell if 
         # a job was created or not (will return None, if no job)
 
-        return server.last_job
+        return dx_session_obj.server_session.last_job
+
     else:
-        print_info(engine["hostname"] + ":" + vdb_name + " already exists.")
+        raise DlpxException('\nERROR: %s: %s alread exists\n' % 
+                            (engine['hostname'], vdb_name))
         return vdb_obj.reference
 
 
@@ -467,7 +499,8 @@ def find_all_databases_by_group_name(engine, server, group_name,
     """
 
     #First search groups for the name specified and return its reference
-    group_obj = find_obj_by_name(engine, server, group, group_name)
+    group_obj = find_obj_by_name(dx_session_obj.server_session, group, 
+                                 group_name)
     if group_obj:
         databases=database.get_all(server, group=group_obj.reference, 
                            no_js_container_data_source=exclude_js_container)
@@ -481,12 +514,12 @@ def find_database_by_name_and_group_name(engine, server, group_name,
 
     for each in databases:
         if each.name == database_name:
-            print_debug(engine["hostname"] + ": Found a match " + 
-                        str(each.reference))
+            print_debug('%s: Found a match %s' % (engine['hostname'],
+                        str(each.reference)))
             return each
 
-    print_info(engine["hostname"] + ": Unable to find \"" + database_name + 
-               "\" in " + group_name)
+    print_info('%s unable to find %s in %s' % (engine['hostname'],
+                                               database_name, group_name))
 
 
 def find_dbrepo_by_environment_ref_and_install_path(engine, server, 
@@ -498,11 +531,10 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
     install path, and return the object's reference as a string
     You might use this function to find Oracle and PostGreSQL database repos.
     '''
-    print_debug(engine["hostname"] + ": Searching objects in the " + 
-                install_type + 
-                " class for one with the environment reference of \"" + 
-                f_environment_ref +"\"\n   and an install path of \"" + 
-                f_install_path + "\"")
+    print_debug('%s: Searching objects in the %s class for one with the '
+                'environment reference of %s and an install path of %s' %
+                (engine['hostname'], install_type, f_environment_ref,
+                f_install_path), debug)
 
     obj_ref = ''
     all_objs = repository.get_all(server, environment=f_environment_ref)
@@ -510,43 +542,46 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
         if install_type == 'PgSQLInstall':
             if (obj.type == install_type and
                 obj.installation_path == f_install_path):
-                print_debug(engine['hostname'] + ': Found a match ' + 
-                            str(obj.reference))
+                print_debug('%s: Found a match %s' % (engine['hostname'],
+                            str(obj.reference)), debug)
                 return obj
+
         elif install_type == 'OracleInstall':
             if (obj.type == install_type and 
                 obj.installation_home == f_install_path):
 
-                print_debug(engine['hostname'] + ': Found a match ' + 
-                            str(obj.reference))
+                print_debug('%s: Fount a match %s' % (engine['hostname'],
+                            str(obj.reference)), debug)
                 return obj
+
         elif install_type == 'MySQLInstall':
             if (obj.type == install_type and 
                 obj.installation_path == f_install_path):
 
-                print_debug(engine['hostname'] + ': Found a match ' + 
-                            str(obj.reference))
+                print_debug('%s Found a match %s' % (engine['hostname'],
+                            str(obj.reference)), debug)
                 return obj
 
         else:
-            print_error(engine["hostname"] + 
-                        ": No Repo match found for type " + install_type)
+            raise DlpxException('%s: No Repo match found for type %s.\n' %
+                                (engine["hostname"], install_type))
 
 
-def find_repo_by_environment_ref(engine, server, repo_type, f_environment_ref,
+def find_repo_by_environment_ref(engine, repo_type, f_environment_ref,
                                  f_install_path=None):
     '''
     Function to find unstructured file repository objects by environment 
     reference and name, and return the object's reference as a string
     You might use this function to find Unstructured File repos.
     '''
-    print_debug(engine["hostname"] + ": Searching objects in the " + 
-                repo_type + 
-                " class for one with the environment reference of \"" + 
-                f_environment_ref +"\"\n ")
+
+    print_debug('\n%s: Searching objects in the %s class for one with the'
+                'environment reference of %s\n' % 
+                (engine['hostname'], repo_type, f_environment_ref), debug)
 
     obj_ref = ''
-    all_objs = repository.get_all(server, environment=f_environment_ref)
+    all_objs = repository.get_all(dx_session_obj.server_session,
+                                  environment=f_environment_ref)
 
     for obj in all_objs:
         if obj.name == repo_type:
@@ -555,243 +590,125 @@ def find_repo_by_environment_ref(engine, server, repo_type, f_environment_ref,
              return obj
 
         elif obj.type == repo_type:
-             print_debug(engine['hostname'] + ': Found a match ' + 
-                        str(obj.reference))
+             print_debug('%s Found a match %s' % (engine['hostname'],
+                         str(obj.reference)), debug)
              return obj
 
-    print_error(engine["hostname"] + 
-                ": No Repo match found for type " + repo_type)
+    raise DlpxException('%s: No Repo match found for type %s\n' % (
+                        engine['hostname'], repo_type))
 
 
-def find_dbrepo_by_environment_ref_and_name(engine, server, repo_type, 
+def find_dbrepo_by_environment_ref_and_name(engine, repo_type, 
                                             f_environment_ref, f_name):
     '''
     Function to find database repository objects by environment reference and 
     name, and return the object's reference as a string
     You might use this function to find MSSQL database repos.
     '''
-    print_debug(engine["hostname"] + ": Searching objects in the " + 
-                repo_type + 
-                " class for one with the environment reference of \"" + 
-                f_environment_ref +"\"\n   and a name of \"" + f_name + "\"")
+
+    print_debug('%s: Searching objects in the %s class for one with the '
+                'environment reference of %s and a name of %s.' %
+                (engine['hostname'], repo_type, f_environment_ref, f_name),
+                debug)
+
     obj_ref = ''
     all_objs = repository.get_all(server, environment=f_environment_ref)
 
     for obj in all_objs:
-        if (repo_type == "MSSqlInstance" or repo_type == "ASEInstance"):
+        if (repo_type == 'MSSqlInstance' or repo_type == 'ASEInstance'):
             if (obj.type == repo_type and obj.name == f_name):
-                print_debug(engine["hostname"] + ": Found a match: " + 
-                            str(obj.reference))
+                print_debug('%s: Found a match %s' % (engine['hostname'],
+                            str(obj.reference)), debug)
                 return obj
 
         elif repo_type == 'Unstructured Files':
             if obj.value == install_type:
-                print_debug(engine['hostname'] + ': Found a match ' + 
-                            str(obj.reference))
+                print_debug('%s: Found a match %s' % (engine['hostname'],
+                            str(obj.reference)), debug)
                 return obj
 
-    print_error(engine["hostname"] + 
-                ": No Repo match found for type " + repo_type)
+    raise DlpxException('%s: No Repo match found for type %s\n' %
+                        (engine['hostname'], repo_type))
 
 
-def find_obj_by_name(engine, server, f_class, obj_name):
+def find_snapshot_by_database_and_name(engine, database_obj, snap_name):
     """
-    Function to find objects by name and object class, and return object's 
-    reference as a string
-    You might use this function to find objects like groups.
+    Find snapshots by database and name. Return snapshot reference.
+
+    engine: Dictionary of engines from config file.
+    database_obj: Database object to find the snapshot against
+    snap_name: Name of the snapshot
     """
-    print_debug(engine["hostname"] + ": Searching objects in the " + 
-                f_class.__name__ + " class\n   for one named \"" + 
-                obj_name + "\"")
-    obj_ref = ''
 
-    all_objs = f_class.get_all(server)
-    for obj in all_objs:
-        if obj.name == obj_name:
-            print_debug(engine["hostname"] + ": Found a match " + 
-                        str(obj.reference))
-            return obj
-
-
-def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
-    snapshots = snapshot.get_all(server, database=database_obj.reference)
+    snapshots = snapshot.get_all(dx_session_obj.server_session,
+                                 database=database_obj.reference)
     matches = []
     for snapshot_obj in snapshots:
         if str(snapshot_obj.name).startswith(arguments['--timestamp']):
             matches.append(snapshot_obj)
+
     if len(matches) == 1:
-        print_debug(engine["hostname"] + 
-                    ": Found one and only one match. This is good.")
-        print_debug(matches[0])
+        print_debug('%s: Found one and only one match. This is good.\n %s' %
+                    (engine['hostname'], matches[0]), debug)
         return matches[0]
+
     elif len(matches) > 1:
-        print_error(engine["hostname"] + 
-                    ": The name specified was not specific enough. " +
-                    "More than one match found.")
+        raise DlpxException('%s: The name specified was not specific enough.'
+                            ' More than one match found.\n' %
+                            (engine['hostname'],))
+
         for each in matches:
-            print_debug(each.name)
+            print_debug(each.name, debug)
     else:
-        print_error(engine["hostname"] + 
-                    ": No matches found for the time specified")
-    print_error(engine["hostname"] + ": No matching snapshot found")
+        raise DlpxException('%s: No matches found for the time specified.\n'
+                            % (engine['hostname']))
+
+    raise DlpxException('%s: No matching snapshot found.\n' %
+                        (engine["hostname"]))
 
 
-def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
-    snapshots = snapshot.get_all(server, database=database_obj.reference)
+def find_snapshot_by_database_and_time(engine, database_obj, snap_time):
+    snapshots = snapshot.get_all(dx_session_obj.server_session,
+                                 database=database_obj.reference)
     matches = []
+
     for snapshot_obj in snapshots:
         if str(snapshot_obj.latest_change_point.timestamp).startswith(arguments['--timestamp']):
+
             matches.append(snapshot_obj)
+
     if len(matches) == 1:
-        print_debug(engine["hostname"] + ": Found one and only one match. " + 
-                    "This is good.")
-        print_debug(matches[0])
+        print_debug('%s": Found one and only one match. This is good.\n%s' %
+                    (engine['hostname'], matches[0]), debug)
+
         return matches[0]
+
     elif len(matches) > 1:
-        print_error(engine["hostname"] + 
-                    ": The time specified was not specific enough. More than " +
-                    "one match found.")
-        print_debug(matches)
+        raise DlpxException('%s: The time specified was not specific enough.'
+                            'More than one match found.\n' %
+                            (engine['hostname']))
+        print_debug(matches, debug)
     else:
-        print_error(engine["hostname"] + 
-                    ": No matches found for the time specified")
+        raise DlpxException('%s: No matches found for the time specified.\n'
+                            % (engine['hostname']))
 
 
-def find_source_by_database(engine, server, database_obj):
+def find_source_by_database(engine, database_obj):
     #The source tells us if the database is enabled/disables, virtual, 
     # vdb/dSource, or is a staging database.
     source_obj = source.get_all(server, database=database_obj.reference)
+
     #We'll just do a little sanity check here to ensure we only have a 1:1 
     # result.
     if len(source_obj) == 0:
-        print_error(engine["hostname"] + ": Did not find a source for " + 
-                    database_obj.name + ". Exiting")
-        sys.exit(1)
+        raise DlpxException('%s: Did not find a source for %s. Exiting.\n' % 
+                            (engine['hostname'], database_obj.name))
+
     elif len(source_obj) > 1:
-        print_error(engine["hostname"] + 
-                    ": More than one source returned for " + 
-                    database_obj.name + ". Exiting")
-        print_error(source_obj)
-        sys.exit(1)
+        raise DlpxException('%s: More than one source returned for %s. '
+                            'Exiting.\n' % (engine['hostname'],
+                                            database_obj.name + ". Exiting"))
     return source_obj
-
-
-def get_config(config_file_path):
-    """
-    This function reads in the dxtools.conf file
-    """
-    #First test to see that the file is there and we can open it
-    try:
-        config_file = open(config_file_path).read()
-    except:
-        print_error("Was unable to open " + config_file_path + 
-                    ". Please check the path and permissions, then try again.")
-        sys.exit(1)
-    #Now parse the file contents as json and turn them into a python 
-    # dictionary, throw an error if it isn't proper json
-    try:
-        config = json.loads(config_file)
-    except:
-        print_error("Was unable to read " + config_file_path + 
-                    " as json. Please check file in a json formatter and " + 
-                    "try again.")
-        sys.exit(1)
-    #Create a dictionary of engines (removing the data node from the 
-    # dxtools.json, for easier parsing)
-    delphix_engines = {}
-    for each in config['data']:
-        delphix_engines[each['hostname']] = each
-    print_debug(delphix_engines)
-    return delphix_engines
-
-
-def logging_est(logfile_path):
-    """
-    Establish Logging
-    """
-    global debug
-    logging.basicConfig(filename=logfile_path,format='%(levelname)s:%(asctime)s:%(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-    print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
-    global logger
-    debug = arguments['--debug']
-    logger = logging.getLogger()
-    if debug == True:
-        logger.setLevel(10)
-        print_info("Debug Logging is enabled.")
-
-
-def job_mode(server):
-    """
-    This function tells Delphix how to execute jobs, based on the single_thread variable at the beginning of the file
-    """
-    #Synchronously (one at a time)
-    if single_thread == True:
-        job_m = job_context.sync(server)
-        print_debug("These jobs will be executed synchronously")
-    #Or asynchronously
-    else:
-        job_m = job_context.async(server)
-        print_debug("These jobs will be executed asynchronously")
-    return job_m
-
-
-def job_wait():
-    """
-    This job stops all work in the thread/process until jobs are completed.
-    """
-    #Grab all the jos on the server (the last 25, be default)
-    all_jobs = job.get_all(server)
-    #For each job in the list, check to see if it is running (not ended)
-    for jobobj in all_jobs:
-        if not (jobobj.job_state in ["CANCELED", "COMPLETED", "FAILED"]):
-            print_debug("Waiting for " + jobobj.reference + " (currently: " + jobobj.job_state+ ") to finish running against the container")
-            #If so, wait
-            job_context.wait(server,jobobj.reference)
-
-
-def on_exit(sig, func=None):
-    """
-    This function helps us end cleanly and with exit codes
-    """
-    print_info("Shutdown Command Received")
-    print_info("Shutting down " + basename(__file__))
-    sys.exit(0)
-
-
-def print_debug(print_obj):
-    """
-    Call this function with a log message to prefix the message with DEBUG
-    """
-    try:
-        if debug == True:
-            print "DEBUG: " + str(print_obj)
-            logging.debug(str(print_obj))
-    except:
-        pass
-
-
-def print_error(print_obj):
-    """
-    Call this function with a log message to prefix the message with ERROR
-    """
-    print "ERROR: " + str(print_obj)
-    logging.error(str(print_obj))
-
-
-def print_info(print_obj):
-    """
-    Call this function with a log message to prefix the message with INFO
-    """
-    print "INFO: " + str(print_obj)
-    logging.info(str(print_obj))
-
-
-def print_warning(print_obj):
-    """
-    Call this function with a log message to prefix the message with WARNING
-    """
-    print "WARNING: " + str(print_obj)
-    logging.warning(str(print_obj))
 
 
 def run_async(func):
@@ -832,35 +749,39 @@ def main_workflow(engine):
     This function actually runs the jobs.
     Use the @run_async decorator to run this function asynchronously.
     This allows us to run against multiple Delphix Engine simultaneously
+
+    engine: Dictionary containing engine(s) and threads.
     """
 
-    #Pull out the values from the dictionary for this engine
-    engine_address = engine["ip_address"]
-    engine_username = engine["username"]
-    engine_password = engine["password"]
     #Establish these variables as empty for use later
     environment_obj = None
     source_objs = None
     jobs = {}
-    
-    #Setup the connection to the Delphix Engine
-    server = serversess(engine_address, engine_username, engine_password)
 
-    group_obj = find_obj_by_name(engine, server, group, 
-                                 arguments['--target_grp'])
+    try:
+       #Setup the connection to the Delphix Engine
+       dx_session_obj.serversess(engine['ip_address'], engine['username'],
+                                  engine['password'])
+
+       group_obj = find_obj_by_name(dx_session_obj.server_session, group, 
+                                    arguments['--target_grp'])
+
+    except DlpxException as e:
+        raise DlpxException(e)
+
 
     #Get the reference of the target environment.
-    print_debug("Getting environment for " + host_name)
+    print_debug('Getting environment for %s\n' % (host_name), debug)
 
     #Get the environment object by the hostname
-    environment_obj = find_obj_by_name(engine, server, environment, host_name)
-    if environment_obj == None:
-        print_error(engine["hostname"] + ":No environment found for " + 
-                    host_name + ". Exiting")
-        sys.exit(1)
+    environment_obj = find_obj_by_name(dx_session_obj.server_session, 
+                                       environment, host_name)
+    if environment_obj is None:
+        raise DlpxException('%s: No environment found for %s. Exiting.\n' %
+                            (engine['hostname'], host_name))
 
     #Get the database reference we are copying from the database name
-    database_obj = find_obj_by_name(engine, server, database, 
+    database_obj = find_obj_by_name(dx_session_obj.server_session, database, 
                                     arguments['--source'])
     if database_obj == None:
         return
@@ -870,15 +791,15 @@ def main_workflow(engine):
     i = 0
 
     try:
-        with job_mode(server):
-            while (len(jobs) > 0 or len(thingstodo)> 0):
+        with dx_session_obj.job_mode(single_thread):
+            while (len(jobs) > 0 or len(thingstodo) > 0):
                 arg_type = arguments['--type'].lower()
                 if len(thingstodo)> 0:
 
                     if arg_type == "oracle":
-                        create_oracle_si_vdb(engine, server, jobs, 
-                                             database_name, group_obj, 
-                                             environment_obj, database_obj,
+                        create_oracle_si_vdb(engine, jobs, database_name,
+                                             group_obj, environment_obj,
+                                             database_obj,
                                              arguments['--prerefresh'],
                                              arguments['--postrefresh'],
                                              arguments['--prerollback'],
@@ -896,7 +817,7 @@ def main_workflow(engine):
                                          database_obj)
 
                     elif arg_type == "vfiles":
-                        create_vfiles_vdb(engine, server, jobs, group_obj, 
+                        create_vfiles_vdb(engine, jobs, group_obj, 
                                           database_name, environment_obj, 
                                           database_obj, 
                                           arguments['--prerefresh'],
@@ -905,88 +826,88 @@ def main_workflow(engine):
                                           arguments['--postrollback'],
                                           arguments['--configure-clone'])
 
-                thingstodo.pop()
+                    thingstodo.pop()
 
                 #get all the jobs, then inspect them 
                 i = 0
                 for j in jobs.keys():
-                    job_obj = job.get(server, jobs[j])
-                    print_debug(job_obj)
+                    job_obj = job.get(dx_session_obj.server_session, jobs[j])
+                    print_debug(job_obj, debug)
                     print_info(engine["hostname"] + ": VDB Provision: " + 
                                job_obj.job_state)
                 
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                        #If the job is in a non-running state, remove it from the 
-                        # running jobs list.
+                        #If the job is in a non-running state, remove it from 
+                        # the running jobs list.
                         del jobs[j]
                     else:
-                        #If the job is in a running state, increment the running 
-                        # job count.
+                        #If the job is in a running state, increment the 
+                        # running job count.
                         i += 1
 
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
-            #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
-                sleep(float(arguments['--poll']))
+                print_info('%s: %s jobs running.' % (engine['hostname'],
+                           str(i)))
+
+                #If we have running jobs, pause before repeating the checks.
+                if len(jobs) > 0:
+                    sleep(float(arguments['--poll']))
 
     except (DlpxException, JobError) as e:
-        print '\nERROR while provisioning %s:\n%s' % (database_name, e.message)
+        print '\nError while provisioning %s:\n%s' % (database_name, e.message)
         sys.exit(1)
 
 
-def run_job(engine):
+def run_job():
     """
     This function runs the main_workflow aynchronously against all the servers 
     specified
+
+    No arguments required for run_job().
     """
     #Create an empty list to store threads we create.
     threads = []
+
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
         print_info("Executing against all Delphix Engines in the dxtools.conf")
+
         #For each server in the dxtools.conf...
-        for delphix_engine in dxtools_objects:
-            engine = dxtools_objects[delphix_engine]
+        for delphix_engine in dx_session_obj.dlpx_engines:
+            engine = dx_session_obj[delphix_engine]
             #Create a new thread and add it to the list.
             threads.append(main_workflow(engine))
-    else:
+
+    elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine 
         # exists in dxtools.conf
         if arguments['--engine']:
             try:
-                engine = dxtools_objects[arguments['--engine']]
-                print_info("Executing against Delphix Engine: " + 
-                           arguments['--engine'])
-            except:
-                print_error("Delphix Engine \"" + arguments['--engine'] + 
-                            "\" cannot be found in " + config_file_path)
-                print_error("Please check your value and try again. Exiting")
-                sys.exit(1)
-        #Else if the -d argument was given, test to see if the engine exists 
-        # in dxtools.conf
-        elif arguments['-d']:
-            try:
-                engine = dxtools_objects[arguments['-d']]
-                print_info("Executing against Delphix Engine: " + 
-                           arguments['-d'])
-            except:
-                print_error("Delphix Engine \"" + arguments['-d'] + 
-                            "\" cannot be found in " + config_file_path)
-                print_error("Please check your value and try again. Exiting")
-                sys.exit(1)
+                engine = dx_session_obj.dlpx_engines[arguments['--engine']]
+                print_info('Executing against Delphix Engine: %s\n' %
+                           (arguments['--engine']))
+
+            except (DlpxException, RequestError, KeyError) as e:
+                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
+                                    'and try again. Exiting.\n' % (
+                                    arguments['--engine'], config_file_path))
+
         else:
             #Else search for a default engine in the dxtools.conf
-            for delphix_engine in dxtools_objects:
-                if dxtools_objects[delphix_engine]['default'] == 'true':
-                    engine = dxtools_objects[delphix_engine]
-                    print_info("Executing against the default Delphix Engine "
-                               "in the dxtools.conf: " + 
-                               dxtools_objects[delphix_engine]['hostname'])
-                    break
+            for delphix_engine in dx_session_obj.dlpx_engines:
+                if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
+                    'true':
+
+                    engine = dx_session_obj.dlpx_engines[delphix_engine]
+                    print_info('Executing against the default Delphix Engine '
+                       'in the dxtools.conf: %s' % (
+                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+
+                break
+
 
             if engine == None:
-                print_error("No default engine found. Exiting")
-                sys.exit(1)
+                raise DlpxException("\nERROR: No default engine found. Exiting")
+
         #run the job against the engine
         threads.append(main_workflow(engine))
 
@@ -1019,12 +940,16 @@ def set_timeflow_point(engine, server, container_obj):
     """
     if arguments['--timestamp_type'].upper() == "SNAPSHOT":
         if arguments['--timestamp'].upper() == "LATEST":
-            print_debug(engine["hostname"] + ": Using the latest Snapshot")
+            print_debug('%s: Using the latest Snapshot.' % 
+                        (engine['hostname']), debug)
+
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_SNAPSHOT"
 
         elif arguments['--timestamp'].startswith("@"):
-            print_debug(engine["hostname"] + ": Using a named snapshot")
+            print_debug('%s: Using a named snapshot' % (engine['hostname']),
+                        debug)
+
             snapshot_obj = find_snapshot_by_database_and_name(engine, server, 
                                                      container_obj, 
                                                      arguments['--timestamp'])
@@ -1036,15 +961,17 @@ def set_timeflow_point(engine, server, container_obj):
                                snapshot_obj.latest_change_point.location
 
             else:
-                print_error(engine["hostname"] + 
-                            ": Was unable to use the specified snapshot\"" + 
-                            arguments['--timestamp'] + "\" for database \"" + 
-                            container_obj.name + "\"")
+                raise DlpxException('%s: Was unable to use the specified '
+                                    'snapshot %s for database %s\n' % 
+                                    (engine['hostname'],
+                                    arguments['--timestamp'],
+                                    container_obj.name))
                 return
 
         else:
-            print_debug(engine["hostname"] + 
-                        ": Using a time-designated snapshot")
+            print_debug('%s: Using a time-designated snapshot' %
+                        (engine['hostname']), debug)
+
             snapshot_obj = find_snapshot_by_database_and_time(engine, server, 
                                                      container_obj, 
                                                      arguments['--timestamp'])
@@ -1054,24 +981,25 @@ def set_timeflow_point(engine, server, container_obj):
                 timeflow_point_parameters.timestamp = \
                                snapshot_obj.latest_change_point.timestamp
             else:
-                print_error(engine["hostname"] + 
-                            ": Was unable to find a suitable time for " + 
-                            arguments['--timestamp'] + " for database " + 
-                            container_obj.name)
-                return
+                raise DlpxException('%s: Was unable to find a suitable time '
+                                    ' for %s for database %s.\n' %
+                                    (engine['hostname'],
+                                    arguments['--timestamp'],
+                                    container_obj.name))
+
     elif arguments['--timestamp_type'].upper() == "TIME":
         if arguments['--timestamp'].upper() == "LATEST":
             timeflow_point_parameters = TimeflowPointSemantic()
             timeflow_point_parameters.location = "LATEST_POINT"
         else:
-            print_error(engine["hostname"] + 
-                        ": Only support a --timestamp value of \"latest\" "
-                        "when used with timestamp_type of time")
-            return
+            raise DlpxException('%s: Only support a --timestamp value of '
+                                '"latest" when used with timestamp_type '
+                                'of time' %s (engine['hostname']))
+
     else:
-        print_error(arguments['--timestamp_type'] + 
-                    " is not a valied timestamp_type. Exiting")
-        sys.exit(1)
+        raise DlpxException('%s is not a valied timestamp_type. Exiting\n' %
+                            (arguments['--timestamp_type']))
+
     timeflow_point_parameters.container = container_obj.reference
     return timeflow_point_parameters
 
@@ -1095,8 +1023,9 @@ def update_jobs_dictionary(engine, server, jobs):
     #get all the jobs, then inspect them
     for j in jobs.keys():
         job_obj = job.get(server, jobs[j])
-        print_debug(engine["hostname"] + ": " + str(job_obj))
-        print_info(engine["hostname"] + ": " + j.name + ": " + job_obj.job_state)
+        print_debug('%s: %s' % (engine['hostname'], str(job_obj)), debug)
+        print_info('%s: %s: %s' % (engine['hostname'], j.name,
+                   job_obj.job_state))
         
         if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
             #If the job is in a non-running state, remove it from the running 
@@ -1115,28 +1044,35 @@ def main(argv):
     global config_file_path
     global database_name
     global host_name
-    global dxtools_objects
+    global dx_session_obj
+    global debug
 
     try:
-        logging_est(arguments['--logdir'])
-        print_debug(arguments)
+        dx_session_obj = GetSession()
+        debug = arguments['--debug']
+        logging_est(arguments['--logdir'], debug)
+        print_debug(arguments, debug)
         time_start = time()
-        engine = None
         single_thread = False
         config_file_path = arguments['--config']
+
+        print_info('Welcome to %s version %s' % (basename(__file__), 
+                   VERSION))
+
         #Parse the dxtools.conf and put it into a dictionary
-        dxtools_objects = get_config(config_file_path)
+        dx_session_obj.get_config(config_file_path)
+
 
         database_name = arguments['--target']
         host_name = arguments['--environment']
 
         #This is the function that will handle processing main_workflow for 
         # all the servers.
-        run_job(engine)
+        run_job()
         
         elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) + 
-                   " minutes to get this far.")
+        print_info('script took %s minutes to get this far. ' %
+                   (str(elapsed_minutes)))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -1144,38 +1080,44 @@ def main(argv):
         This is what we use to handle our sys.exit(#)
         """
         sys.exit(e)
+
     except HttpError as e:
         """
         We use this exception handler when our connection to Delphix fails
         """
-        print_error("Connection failed to the Delphix Engine")
-        print_error( "Please check the ERROR message below")
-        print_error(e.message)
+        print('\nERROR: Connection failed to the Delphix Engine. Please '
+              'check the ERROR message below:\n%s' % (e.message))
         sys.exit(2)
+
     except JobError as e:
         """
-        We use this exception handler when a job fails in Delphix so that we have actionable data
+        We use this exception handler when a job fails in Delphix so 
+        that we have actionable data
         """
-        print_error("A job failed in the Delphix Engine")
-        print_error(e.job)
+        print 'A job failed in the Delphix Engine:\n%s' (e.job)
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_info('%s took %s minutes to get this far' % (basename(__file__),
+                   str(elapsed_minutes)))
         sys.exit(3)
+
     except KeyboardInterrupt:
         """
         We use this exception handler to gracefully handle ctrl+c exits
         """
-        print_debug("You sent a CTRL+C to interrupt the process")
+        print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_info('%s took %s minutes to get this far' % (basename(__file__),
+                   str(elapsed_minutes)))
+
     except:
         """
         Everything else gets caught here
         """
-        print_error(sys.exc_info()[0])
-        print_error(traceback.format_exc())
+        print(sys.exc_info()[0])
+        print(traceback.format_exc())
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_info('%s took %s minutes to get this far' % (basename(__file__),
+                   str(elapsed_minutes)))
         sys.exit(1)
 
 if __name__ == "__main__":

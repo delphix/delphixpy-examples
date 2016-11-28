@@ -64,43 +64,27 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.exceptions import HttpError
-from delphixpy.v1_6_0.exceptions import JobError
-from delphixpy.v1_6_0.exceptions import RequestError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database
-from delphixpy.v1_6_0.web import environment
-from delphixpy.v1_6_0.web import group
-from delphixpy.v1_6_0.web import job
-from delphixpy.v1_6_0.web import source
-from delphixpy.v1_6_0.web import user
-from delphixpy.v1_6_0.web.vo import RollbackParameters
-from delphixpy.v1_6_0.web.vo import OracleRollbackParameters
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy import job_context
+from delphixpy.web import database
+from delphixpy.web import environment
+from delphixpy.web import group
+from delphixpy.web import job
+from delphixpy.web import source
+from delphixpy.web import user
+from delphixpy.web.vo import RollbackParameters
+from delphixpy.web.vo import OracleRollbackParameters
 
 from lib.DlpxException import DlpxException
 from lib.DxTimeflow import DxTimeflow
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
-
-
-def logging_est(logfile_path):
-    """
-    Establish Logging
-    """
-    global debug
-    logging.basicConfig(filename=logfile_path,
-                        format='%(levelname)s:%(asctime)s:%(message)s',
-                        level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-
-    print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
-
-    global logger
-    debug = arguments['--debug']
-    logger = logging.getLogger()
-
-    if debug == True:
-        logger.setLevel(10)
-        print_info("Debug Logging is enabled.")
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_info
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_warning
 
 
 def main_workflow(engine):
@@ -131,34 +115,6 @@ def main_workflow(engine):
 
     except DlpxException as e:
         raise DlpxException(e)
-
-
-def print_debug(print_obj):
-    """
-    Call this function with a log message to prefix the message with DEBUG
-    """
-    try:
-        if debug == True:
-            print "DEBUG: " + str(print_obj)
-            logging.debug(str(print_obj))
-    except:
-        pass
-
-
-def print_info(print_obj):
-    """
-    Call this function with a log message to prefix the message with INFO
-    """
-    print "INFO: " + str(print_obj)
-    logging.info(str(print_obj))
-
-
-def print_warning(print_obj):
-    """
-    Call this function with a log message to prefix the message with WARNING
-    """
-    print "WARNING: " + str(print_obj)
-    logging.warning(str(print_obj))
 
 
 def rewind_database(engine, server, jobs, container_obj):
@@ -242,6 +198,7 @@ def run_job():
     This function runs the main_workflow aynchronously against all the
     servers specified
 
+    No arguments required for run_job().
     """
 
     #Create an empty list to store threads we create.
@@ -275,7 +232,7 @@ def run_job():
                 break
 
         if engine == None:
-            raise DlpxException("\nNo default engine found. Exiting.\n")
+            raise DlpxException("\nERROR: No default engine found. Exiting.\n")
 
         #run the job against the engine
         main_workflow(engine)
