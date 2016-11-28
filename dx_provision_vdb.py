@@ -40,7 +40,7 @@ Examples:
 
   dx_provision_vdb.py --source_grp Sources --source "AdventureWorksLT2008R2" --db vAW --target testAW --target_grp Analytics --environment WINDOWSTARGET --type mssql --envinst MSSQLSERVER --all
 
-./dx_provision_vdb.py --source UF_Source --target appDataVDB --target_grp Untitled --environment LinuxTarget --type vfiles --vfiles_path /mnt/provision/appDataVDB --prerollback "/u01/app/oracle/product/scripts/PreRollback.sh" --postrollback "/u01/app/oracle/product/scripts/PostRollback.sh" --vdb_restart true
+  dx_provision_vdb.py --source UF_Source --target appDataVDB --target_grp Untitled --environment LinuxTarget --type vfiles --vfiles_path /mnt/provision/appDataVDB --prerollback "/u01/app/oracle/product/scripts/PreRollback.sh" --postrollback "/u01/app/oracle/product/scripts/PostRollback.sh" --vdb_restart true
 
 Options:
   --source_grp <name>       The group where the source resides.
@@ -93,7 +93,7 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_provision_db.log]
+                            [default: ./dx_provision_vdb.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
@@ -780,9 +780,13 @@ def main_workflow(engine):
         raise DlpxException('%s: No environment found for %s. Exiting.\n' %
                             (engine['hostname'], host_name))
 
-    #Get the database reference we are copying from the database name
-    database_obj = find_obj_by_name(dx_session_obj.server_session, database, 
-                                    arguments['--source'])
+    try:
+        #Get the database reference we are copying from the database name
+        database_obj = find_obj_by_name(dx_session_obj.server_session,
+                                        database, arguments['--source'])
+    except DlpxException as e:
+        raise DlpxException(e)
+
     if database_obj == None:
         return
 

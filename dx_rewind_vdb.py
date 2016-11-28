@@ -49,7 +49,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.0.005"
+VERSION = "v.0.2.000"
 
 
 from docopt import docopt
