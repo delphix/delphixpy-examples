@@ -33,6 +33,7 @@ class GetSession(object):
     def __init__(self):
         self.server_session = None
         self.dlpx_engines = {}
+        self.jobs = {}
 
 
     def get_config(self, config_file_path='./dxtools.conf'):

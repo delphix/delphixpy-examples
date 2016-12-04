@@ -98,7 +98,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.000'
+VERSION = 'v.0.2.300'
 
 import logging
 import signal
@@ -158,7 +158,6 @@ from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
-from lib.DxLogging import print_warning
 
 
 def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 
@@ -300,27 +299,29 @@ def create_vfiles_vdb(engine, jobs, vfiles_group, vfiles_name,
         vfiles_params.source.operations = VirtualSourceOperations()
 
         if pre_refresh:
-            vfiles_params.source.operations.update({ 'preRefresh': 
-                                               [{ 'type':
-                                                  'RunCommandOnSourceOperation',
-                                                  'command': pre_refresh }]})
+            vfiles_params.source.operations.pre_refresh = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': pre_refresh }]
 
         if post_refresh:
-            vfiles_params.source.operations.update({ 'postRefresh': 
-                                      [{ 'type': 'RunCommandOnSourceOperation',
-                                      'command': post_refresh }]})
+            vfiles_params.source.operations.post_refresh = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': post_refresh }]
+
+        if pre_rollback:
+            vfiles_params.source.operations.pre_rollback = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': pre_rollback }]
 
         if post_rollback:
-            vfiles_params.source.operations.update({ 'postRollback': 
-                                               [{ 'type':
-                                                  'RunCommandOnSourceOperation',
-                                                  'command': post_refresh }]})
+            vfiles_params.source.operations.post_rollback = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': post_rollback }]
 
         if configure_clone:
-            vfiles_params.source.operations.update({ 'configureClone': 
-                                      [{ 'type': 'RunCommandOnSourceOperation',
-                                      'command': configure_clone }]})
-
+            vfiles_params.source.operations.configure_clone = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': configure_clone }]
  
         if arguments['--timestamp_type'] is None:
             vfiles_params.timeflow_point_parameters = { 
@@ -427,7 +428,6 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
             db = vdb_name
 
         vdb_params.source.mount_base = arguments['--mntpoint']
-        vdb_params.source.mount_base = arguments['--mntpoint']
 
         if arguments['--mapfile']:
             vdb_params.source.file_mapping_rules = arguments['--mapfile']
@@ -440,23 +440,60 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
                 vdb_params.source.config_template = template_obj.reference
 
         vdb_params.source_config = OracleSIConfig()
-        vdb_params.source.operations = {'type': 'VirtualSourceOperations'}
+        vdb_params.source.operations = VirtualSourceOperations()
 
         if pre_refresh:
-            vdb_params.source.operations.update({'preRefresh': [{'type':
+            vdb_params.source.operations.pre_refresh = [{ 'type':
                                                  'RunCommandOnSourceOperation',
-                                                 'command': pre_refresh}]})
+                                                 'command': pre_refresh }]
 
         if post_refresh:
-            vdb_params.source.operations.update({'postRefresh': 
-                                      [{'type': 'RunCommandOnSourceOperation',
-                                      'command': post_refresh}]})
+            vdb_params.source.operations.post_refresh = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': post_refresh }]
+
+        if pre_rollback:
+            vdb_params.source.operations.pre_rollback = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': pre_rollback }]
+
+        if post_rollback:
+            vdb_params.source.operations.post_rollback = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': post_rollback }]
 
         if configure_clone:
-            vdb_params.source.operations.update({'configureClone': 
-                                      [{'type': 'RunCommandOnSourceOperation',
-                                      'command': configure_clone}]})
-
+            vdb_params.source.operations.configure_clone = [{ 'type':
+                                                 'RunCommandOnSourceOperation',
+                                                 'command': configure_clone }]
+ 
+#        vdb_params.source.operations = {'type': 'VirtualSourceOperations'}
+#
+#        if pre_refresh:
+#            vdb_params.source.operations.update({'preRefresh': [{'type':
+#                                                 'RunCommandOnSourceOperation',
+#                                                 'command': pre_refresh}]})
+#
+#        if post_refresh:
+#            vdb_params.source.operations.update({'postRefresh': 
+#                                      [{'type': 'RunCommandOnSourceOperation',
+#                                      'command': post_refresh}]})
+#
+#        if pre_rollback:
+#            vdb_params.source.operations.update({'preRollback': [{'type':
+#                                                 'RunCommandOnSourceOperation',
+#                                                 'command': pre_rollback}]})
+#
+#        if post_rollback:
+#            vdb_params.source.operations.update({'postRollback': 
+#                                      [{'type': 'RunCommandOnSourceOperation',
+#                                      'command': post_rollback}]})
+#
+#        if configure_clone:
+#            vdb_params.source.operations.update({'configureClone': 
+#                                      [{'type': 'RunCommandOnSourceOperation',
+#                                      'command': configure_clone}]})
+#
         vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
                                                  dx_session_obj.server_session,
                                                  'OracleInstall',
@@ -750,7 +787,7 @@ def main_workflow(engine):
     Use the @run_async decorator to run this function asynchronously.
     This allows us to run against multiple Delphix Engine simultaneously
 
-    engine: Dictionary containing engine(s) and threads.
+    engine: Dictionary containing engine information
     """
 
     #Establish these variables as empty for use later
@@ -759,35 +796,32 @@ def main_workflow(engine):
     jobs = {}
 
     try:
-       #Setup the connection to the Delphix Engine
-       dx_session_obj.serversess(engine['ip_address'], engine['username'],
+        #Setup the connection to the Delphix Engine
+        dx_session_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
 
-       group_obj = find_obj_by_name(dx_session_obj.server_session, group, 
-                                    arguments['--target_grp'])
+        group_obj = find_obj_by_name(dx_session_obj.server_session, group, 
+                                     arguments['--target_grp'])
+
+        #Get the reference of the target environment.
+        print_debug('Getting environment for %s\n' % (host_name), debug)
+
+        #Get the environment object by the hostname
+        environment_obj = find_obj_by_name(dx_session_obj.server_session, 
+                                           environment, host_name)
 
     except DlpxException as e:
-        raise DlpxException(e)
+        print('\nERROR: Engine %s encountered an error while provisioning '
+              '%s:\n%s\n' % (engine['hostname'], arguments['--target'], e))
+        sys.exit(1)
 
-
-    #Get the reference of the target environment.
-    print_debug('Getting environment for %s\n' % (host_name), debug)
-
-    #Get the environment object by the hostname
-    environment_obj = find_obj_by_name(dx_session_obj.server_session, 
-                                       environment, host_name)
-    if environment_obj is None:
-        raise DlpxException('%s: No environment found for %s. Exiting.\n' %
-                            (engine['hostname'], host_name))
-
+    print_debug('Getting database information for %s\n' %
+                (arguments['--source']), debug)
     try:
         #Get the database reference we are copying from the database name
         database_obj = find_obj_by_name(dx_session_obj.server_session,
                                         database, arguments['--source'])
-    except DlpxException as e:
-        raise DlpxException(e)
-
-    if database_obj == None:
+    except DlpxException:
         return
 
     thingstodo = ["thingtodo"]
@@ -875,11 +909,16 @@ def run_job():
     if arguments['--all']:
         print_info("Executing against all Delphix Engines in the dxtools.conf")
 
-        #For each server in the dxtools.conf...
-        for delphix_engine in dx_session_obj.dlpx_engines:
-            engine = dx_session_obj[delphix_engine]
-            #Create a new thread and add it to the list.
-            threads.append(main_workflow(engine))
+        try:
+            #For each server in the dxtools.conf...
+            for delphix_engine in dx_session_obj.dlpx_engines:
+                engine = dx_session_obj[delphix_engine]
+                #Create a new thread and add it to the list.
+                threads.append(main_workflow(engine))
+
+        except DlpxException as e:
+            print 'Error encountered in main_workflow:\n%s' % (e)
+            sys.exit(1)
 
     elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine 
@@ -1084,6 +1123,15 @@ def main(argv):
         This is what we use to handle our sys.exit(#)
         """
         sys.exit(e)
+
+    except DlpxException as e:
+        """
+        We use this exception handler when an error occurs in a function call.
+        """
+
+        print('\nERROR: Please check the ERROR message below:\n%s' %
+              (e.message))
+        sys.exit(2)
 
     except HttpError as e:
         """

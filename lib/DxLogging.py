@@ -22,7 +22,7 @@ def logging_est(logfile_path, debug=False):
 
     if debug is True:
         logger.setLevel(10)
-        print_info("Debug Logging is enabled.")
+        print_info('Debug Logging is enabled.')
 
 
 def print_debug(print_obj, debug=False):
@@ -34,7 +34,7 @@ def print_debug(print_obj, debug=False):
     """
     try:
         if debug is True:
-            print "DEBUG: " + str(print_obj)
+            print 'DEBUG: ' + str(print_obj)
             logging.debug(str(print_obj))
     except:
         pass
@@ -44,13 +44,12 @@ def print_info(print_obj):
     """
     Call this function with a log message to prefix the message with INFO
     """
-    print "INFO: %s" % (str(print_obj))
+    print 'INFO: %s' % (str(print_obj))
     logging.info(str(print_obj))
 
 
-def print_warning(print_obj):
+def print_exception(print_obj):
     """
-    Call this function with a log message to prefix the message with WARNING
+    Call this function with a log message to prefix the message with EXCEPTION
     """
-    print "WARNING: " + str(print_obj)
-    logging.warning(str(print_obj))
+    logging.exception('EXCEPTION: %s' % (str(print_obj)))
