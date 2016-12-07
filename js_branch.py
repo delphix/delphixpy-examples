@@ -53,7 +53,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.001"
+VERSION="v.0.0.002"
 
 from docopt import docopt
 import logging
@@ -142,9 +142,8 @@ def list_branches():
         print '\n'
 
     except (DlpxException, HttpError, RequestError) as e:
-        raise DlpxException('\nERROR: The branches on engine %s could not '
-                            'be listed. The error was:\n\n%s' %
-                            (engine['hostname'], e), debug)
+        raise DlpxException('\nERROR: JS Branches could not be listed. The '
+                            'error was:\n\n%s' % (e))
 
 
 def update_branch(branch_name):
