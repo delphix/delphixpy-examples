@@ -20,7 +20,7 @@
 #   Refactor
 """Create, delete, refresh and list JS containers.
 Usage:
-  js_container.py (--create_container <name> --template_name <name> --database <name> | --list_containers | --delete_container <name> | --refresh_container <name> | --add_owner <name> --container_name <name> | --remove_owner <name> --container_name <name> | --restore_container <name> --bookmark_name <name>)
+  js_container.py (--create_container <name> --template_name <name> --database <name> | --list_containers | --delete_container <name> [--keep_vdbs]| --refresh_container <name> | --add_owner <name> --container_name <name> | --remove_owner <name> --container_name <name> | --restore_container <name> --bookmark_name <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -48,6 +48,8 @@ Options:
   --add_owner <name>         Name of the JS Owner for the container
   --remove_owner <name>      Name of the JS Owner to remove
   --bookmark_name <name>     Name of the JS Bookmark to restore the container
+  --keep_vdbs                If set, deleting the container will not remove
+                             the underlying VDB(s)
   --delete_container <name>  Delete the JS Container
   --database <name>          Name of the child database(s) to use for the
                                 JS Container
@@ -66,7 +68,7 @@ Options:
   -v --version               Show version.
 """
 
-VERSION="v.0.0.002"
+VERSION="v.0.0.003"
 
 from docopt import docopt
 from os.path import basename
@@ -88,6 +90,7 @@ from delphixpy.web.vo import JSDataContainerCreateParameters
 from delphixpy.web.vo import JSDataSourceCreateParameters
 from delphixpy.web.vo import JSTimelinePointBookmarkInput
 from delphixpy.web.vo import JSDataContainerModifyOwnerParameters
+from delphixpy.web.vo import JSDataContainerDeleteParameters
 from delphixpy.exceptions import RequestError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import HttpError
@@ -231,9 +234,21 @@ def delete_container(container_name):
     """
 
     try:
-        container.delete(dx_session_obj.server_session,
-                         get_obj_reference(dx_session_obj.server_session,
-                                           container, container_name).pop())
+        if arguments['--keep_vdbs']:
+            js_container_params = JSDataContainerDeleteParameters()
+            js_container_params.delete_data_sources = False
+    
+            container.delete(dx_session_obj.server_session,
+                             get_obj_reference(dx_session_obj.server_session,
+                                               container,
+                                               container_name).pop(),
+                              js_container_params)
+
+        elif not arguments['--keep_vdbs']:
+            container.delete(dx_session_obj.server_session,
+                             get_obj_reference(dx_session_obj.server_session,
+                                               container,
+                                               container_name).pop())
 
     except (DlpxException, RequestError, HttpError) as e:
         print('\nContainer %s was not deleted. The error was:\n%s\n' %
@@ -248,7 +263,7 @@ def list_containers():
     No args required for list_containers
     """
 
-    header = '\nName\tActive Branch\tOwner\tReference\tContainer\tLast Updated'
+    header = '\nName\tActive Branch\tOwner\tReference\tTemplate\tLast Updated'
 
     js_containers = container.get_all(dx_session_obj.server_session)
 

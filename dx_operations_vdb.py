@@ -42,7 +42,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.002"
+VERSION="v.0.1.000"
 
 from docopt import docopt
 import logging
@@ -56,11 +56,15 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, host, job, source
-from delphixpy.v1_6_0.exceptions import RequestError, JobError, HttpError
+from delphixpy.delphix_engine import DelphixEngine
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy.exceptions import HttpError
+from delphixpy import job_context
+from delphixpy.web import database
+from delphixpy.web import host
+from delphixpy.web import job
+from delphixpy.web import source
 
 
 class dlpxException(Exception):
@@ -98,18 +102,25 @@ def list_databases(engine, server, jobs):
     """
     Function to list all databases for a given engine
     """
+    database_size = ''
 
     try:
         databases = database.get_all(server)
+        source_dbs = source.get_all(server)
 
         for db in databases:
+            for source_db in source_dbs:
+                if source_db.name == db.name:
+                    db_size_gb = source_db.runtime.database_size/1024/1024/1024
+                    break
+
             if db.provision_container == None:
                 db.provision_container = 'dSource'
 
-            print 'name = ', str(db.name), '\n', 'current timeflow = ', \
-                  str(db.current_timeflow), '\n', 'provision container = ', \
-                  str(db.provision_container), '\n', 'processor = ', \
-                  str(db.processor), '\n'
+            print('name = %s\ncurrent timeflow = %s\nprovision container'
+                  '= %s\ndatabase disk usage: %d GB\n' % (str(db.name),
+                  str(db.current_timeflow), str(db.provision_container),
+                  db_size_gb))
 
     except (RequestError, HttpError, JobError, AttributeError), e:
         print 'An error occurred while listing databases on ' + \
