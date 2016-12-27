@@ -1,4 +1,4 @@
-#!/home/delphix/landshark/bin/python
+#!/usr/bin/env python
 '''
 Adam Bowen - Jan 2016
 This script configures the delphix_admin user after domain0 is configured
@@ -44,7 +44,7 @@ def logging_est():
     Establish Logging
     '''
     global debug
-    logging.basicConfig(filename='/home/delphix/landshark_setup.log',format='%(levelname)s:%(asctime)s:%(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(filename='landshark_setup.log',format='%(levelname)s:%(asctime)s:%(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
     print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
     global logger
     debug = True
