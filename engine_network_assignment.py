@@ -4,7 +4,6 @@ Adam Bowen - Jan 2016
 This script configures the Delphix Engine networking.
 '''
 VERSION="v.2.3.001"
-CONTENTDIR="/u02/app/content"
 
 import getopt
 import logging
