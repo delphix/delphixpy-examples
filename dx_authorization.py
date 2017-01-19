@@ -8,17 +8,18 @@
 #this doc to also define our arguments for the script.
 """List, create or remove authorizations for a Virtualization Engine
 Usage:
-  dx_authorization.py --create --role <name> --target_type <name> --target <name> --user <name> | --list
+  dx_authorization.py --create --role <name> --target_type <name> --target <name> --user <name> | --list | --delete --role <name> --target_type <name> --target <name> --user <name>
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_authorization.py -h | --help | -v | --version
-List and create authentication objects
+List, delete and create authentication objects
 
 Examples:
   dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type database --target test_vdb
   dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type group --target Sources
   dx_authorization.py --list
+  dx_authorization.py --delete --role Data --user dev_user --target_type database --target test_vdb
 
 Options:
   --create                  Create an authorization
@@ -29,6 +30,7 @@ Options:
                              group, database
   --user <name>             User for the authorization
   --list                    List all authorizations
+  --delete                  Delete authorization
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -43,7 +45,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.002'
 
 from docopt import docopt
 import logging
@@ -98,19 +100,7 @@ def create_authorization(role_name, target_type, target_name, user_name):
     role_obj = find_obj_by_name(dx_session_obj.server_session, role,
                                 role_name)
 
-    if target_type.lower() == 'group':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      group, target_name)
-    elif target_type.lower() == 'database':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      database, target_name)
-    elif target_type.lower() == 'snapshot':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      snapshot, target_name)
-
-    if not target_obj:
-        raise DlpxException('Could not find target type %s' % (target_type))
-
+    target_obj = find_target_type(target_type, target_name)
     user_obj = find_obj_by_name(dx_session_obj.server_session, user,
                                 user_name)
 
@@ -126,6 +116,62 @@ def create_authorization(role_name, target_type, target_name, user_name):
         raise DlpxException('An error occurred while creating an '
                             'authorization on %s.:%s\n' % (target_name, e))
 
+
+def delete_authorization(role_name, target_type, target_name, user_name):
+    """
+    Function to delete a given authorization
+
+    role_name: Name of the role
+    target_type: Supports snapshot, group and database target types
+    target_name: Name of the target
+    user_name: User for the authorization
+    """
+
+    try:
+        target_obj = find_target_type(target_type, target_name)
+        user_obj = find_obj_by_name(dx_session_obj.server_session, user,
+                                    user_name)
+        role_obj = find_obj_by_name(dx_session_obj.server_session, role,
+                                    role_name)
+
+        auth_objs = authorization.get_all(dx_session_obj.server_session)
+
+    except DlpxException as e:
+        print 'ERROR: Could not delete authorization:\n%s\n' % (e)
+
+    del_auth_str = '(%s, %s, %s)' % (user_obj.reference, role_obj.reference,
+                                     target_obj.reference)
+    for auth_obj in auth_objs:
+        if auth_obj.name == del_auth_str:
+            authorization.delete(dx_session_obj.server_session,
+                                 auth_obj.reference)
+
+
+def find_target_type(target_type, target_name):
+    """
+    Function to find the target authorization
+
+    target_type: Type of target for authorization
+    target_name: Name of the target
+    """
+
+
+    if target_type.lower() == 'group':
+        target_obj = find_obj_by_name(dx_session_obj.server_session,
+                                      group, target_name)
+    elif target_type.lower() == 'database':
+        target_obj = find_obj_by_name(dx_session_obj.server_session,
+                                      database, target_name)
+    elif target_type.lower() == 'snapshot':
+        target_obj = find_obj_by_name(dx_session_obj.server_session,
+                                      snapshot, target_name)
+
+    if not target_obj:
+        raise DlpxException('Could not find target type %s' % (target_type))
+
+    return target_obj
+
+
 def list_authorization(username=None):
     """
     Function to list authorizations for a given engine
@@ -133,7 +179,7 @@ def list_authorization(username=None):
     username: Filter list results by user
     """
 
-    print 'USER,\t ROLE,\t TARGET'
+    print 'User,\t Role,\t Target,\tReference'
 
     try:
         auth_objs = authorization.get_all(dx_session_obj.server_session)
@@ -154,8 +200,8 @@ def list_authorization(username=None):
                  target_obj = User()
                  target_obj.name = 'DOMAIN'
 
-             print '%s, %s, %s' % (user_obj.name, role_obj.name,
-                                   target_obj.name)
+             print '%s, %s, %s, %s' % (user_obj.name, role_obj.name,
+                                   target_obj.name, auth_obj.reference)
 
     except (RequestError, HttpError, JobError, AttributeError) as e:
         print('An error occurred while listing authorizations.:\n%s\n' %
@@ -225,6 +271,12 @@ def main_workflow(engine):
                 try:
                     if arguments['--create']:
                         create_authorization(arguments['--role'],
+                                             arguments['--target_type'],
+                                             arguments['--target'],
+                                             arguments['--user'])
+
+                    elif arguments['--delete']:
+                        delete_authorization(arguments['--role'],
                                              arguments['--target_type'],
                                              arguments['--target'],
                                              arguments['--user'])
