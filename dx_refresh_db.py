@@ -18,10 +18,10 @@ Usage:
   dx_refresh_db.py -h | --help | -v | --version
 Refresh a Delphix VDB
 Examples:
-  dx_refresh_db.py --name "aseTest" --group "Analytics"
+  dx_refresh_db.py --name "aseTest" --group_name "Analytics"
   dx_refresh_db.py --dsource "dlpxdb1"
   dx_refresh_db.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
-  dx_refresh_db.py --all_vdbs --group "Analytics" --all
+  dx_refresh_db.py --all_vdbs --group_name "Analytics" --all
 Options:
   --name <name>             Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.1.600"
+VERSION = 'v.0.1.601'
 
 
 from docopt import docopt
