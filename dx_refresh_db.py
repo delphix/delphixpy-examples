@@ -9,7 +9,7 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name> | --list-timeflows | --list-snapshots)
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list-timeflows | --list-snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
@@ -25,8 +25,8 @@ Examples:
 Options:
   --name <name>             Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
-  --group <name>            Name of group in Delphix to execute against.
   --dsource <name>          Name of dsource in Delphix to execute against.
+  --group_name <name>       Name of the group to execute against.
   --list-timeflows          List all timeflows
   --list-snapshots          List all snapshots
   --host <name>             Name of environment in Delphix to execute against.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.1.501"
+VERSION="v.0.1.600"
 
 
 from docopt import docopt
@@ -444,7 +444,7 @@ def main_workflow(engine):
 
             #If we are only filtering by the server, then put those objects in 
             # the main list for processing
-            if not(arguments['--group'] and database_name):
+            if not(arguments['--group_name'] and database_name):
                 source_objs = env_source_objs
                 all_dbs = database.get_all(server, 
                                            no_js_container_data_source=True)
@@ -473,12 +473,12 @@ def main_workflow(engine):
             databases.append(database_obj)
 
     #Else if we specified a group to filter by....
-    elif arguments['--group']:
+    elif arguments['--group_name']:
         print_debug(engine["hostname"] + ":Getting databases in group " + 
-                    arguments['--group'])
+                    arguments['--group_name'])
         #Get all the database objects in a group.
         databases = find_all_databases_by_group_name(engine, server, 
-                                                     arguments['--group'])
+                                                     arguments['--group_name'])
 
     #Else if we specified a dSource to filter by....
     elif arguments['--dsource']:
@@ -523,7 +523,7 @@ def main_workflow(engine):
 
                #If we applied the environment/server filter AND group filter, 
                # find the intersecting matches
-                if environment_obj != None and (arguments['--group']):
+                if environment_obj != None and (arguments['--group_name']):
                     match = False
 
                     for env_source_obj in env_source_objs:
