@@ -8,7 +8,7 @@
 #this doc to also define our arguments for the script.
 """List all VDBs or Start, stop, enable, disable a VDB
 Usage:
-  dx_operations_vdb.py (--vdb <name [--stop | --start | --enable | --disable] | --list)
+  dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
@@ -16,14 +16,17 @@ Usage:
 List all VDBs, start, stop, enable, disable a VDB
 
 Examples:
-  dx_operations_vdb.py -d landsharkengine --vdb testvdb --stop
-
-  dx_operations_vdb.py --vdb --start
+  dx_operations_vdb.py --engine landsharkengine --vdb testvdb --stop
+  dx_operations_vdb.py --vdb testvdb --start
+  dx_operations_vdb.py --all_dbs enable
+  dx_operations_vdb.py --all_dbs disable
+  dx_operations_vdb.py --list
 
 Options:
   --vdb <name>              Name of the VDB to stop or start
   --start                   Stop the VDB
   --stop                    Stop the VDB
+  --all_dbs <name>          Enable or disable all dSources and VDBs
   --list                    List all databases from an engine
   --enable                  Enable the VDB
   --disable                 Disable the VDB
@@ -42,38 +45,28 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.100'
+VERSION = 'v.0.2.108'
 
-from docopt import docopt
-import logging
-from os.path import basename
 import sys
-import time
-import traceback
-import json
-from multiprocessing import Process
+from os.path import basename
 from time import sleep, time
 
-from delphixpy.delphix_engine import DelphixEngine
+from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
-from delphixpy.exceptions import HttpError
-from delphixpy import job_context
 from delphixpy.web import database
-from delphixpy.web import source
-from delphixpy.web import host
 from delphixpy.web import job
+from delphixpy.web import source
 from delphixpy.web.capacity import consumer
+from docopt import docopt
 
-from lib.DxTimeflow import DxTimeflow
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import convert_timestamp
-from lib.GetReferences import get_obj_reference
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
+from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetSession import GetSession
 
 
 def vdb_operation(vdb_name, operation):
@@ -87,17 +80,33 @@ def vdb_operation(vdb_name, operation):
     try:
         if vdb_obj:
             if operation == 'start':
-                source.start(server, vdb_obj.reference)
+                source.start(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'stop':
-                source.stop(server, vdb_obj.reference)
+                source.stop(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'enable':
-                source.enable(server, vdb_obj.reference)
+                source.enable(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'disable':
-                source.disable(server, vdb_obj.reference)
+                source.disable(dx_session_obj.server_session,
+                               vdb_obj.reference)
 
     except (RequestError, HttpError, JobError, AttributeError), e:
-        raise dlpxException('An error occurred while performing ' +
+        raise DlpxException('An error occurred while performing ' +
                             operation + ' on ' + vdb_name + '.:%s\n' % (e))
+
+
+def all_databases(operation):
+    """
+    Enable or disable all dSources and VDBs on an engine
+
+    operation: enable or disable dSources and VDBs
+    """
+
+    for db in database.get_all(dx_session_obj.server_session):
+     #   assert isinstance(db.name, object)
+        print '%s %s\n' % (operation, db.name)
+        vdb_operation(db.name, operation)
+        sleep(2)
+
 
 def list_databases():
     """
@@ -109,15 +118,18 @@ def list_databases():
         for db_stats in consumer.get_all(dx_session_obj.server_session):
             active_space = db_stats.breakdown.active_space/1024/1024/1024
             sync_space = db_stats.breakdown.sync_space/1024/1024/1024
+            source_stats = find_obj_by_name(dx_session_obj.server_session,
+                                            source, db_stats.name)
             
             if db_stats.parent == None:
                 db_stats.parent = 'dSource'
 
             print('name = %s\nprovision container= %s\ndatabase disk usage: '
-                  '%.2f GB\nSize of Snapshots: %.2f GB\n' %
-                  (str(db_stats.name), str(db_stats.parent),
+                  '%.2f GB\nSize of Snapshots: %.2f GB\nEnabled: %s\n'
+                  'Status:%s\n' % (str(db_stats.name), str(db_stats.parent),
                   db_stats.breakdown.active_space / 1024 / 1024 / 1024,
-                  db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
+                  db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
+                  source_stats.runtime.enabled, source_stats.runtime.status))
 
     except (RequestError, HttpError, JobError, AttributeError) as e:
         print 'An error occurred while listing databases on ' + \
@@ -174,8 +186,9 @@ def main_workflow(engine):
 
         if arguments['--vdb']:
             #Get the database reference we are copying from the database name
-            database_obj = find_obj_by_name(engine, server, database,
-                                            arguments['--vdb'])
+            database_obj = find_obj_by_name(engine,
+                                            dx_session_obj.server_session,
+                                            database, arguments['--vdb'])
 
     except DlpxException as e:
         print_exception('\nERROR: Engine %s encountered an error while' 
@@ -205,12 +218,23 @@ def main_workflow(engine):
                 elif arguments['--list']:
                     list_databases()
 
+                elif arguments['--all_dbs']:
+                    try:
+                        assert arguments['--all_dbs'] in 'disable' or \
+                        arguments['--all_dbs'] in 'enable', \
+                        '--all_dbs should be either enable or disable'
+                        all_databases(arguments['--all_dbs'])
+
+                    except AssertionError as e:
+                        print 'ERROR:\n%s\n' % (e)
+                        sys.exit(1)
+
                 thingstodo.pop()
 
             #get all the jobs, then inspect them
             i = 0
             for j in jobs.keys():
-                job_obj = job.get(server, jobs[j])
+                job_obj = job.get(dx_session_obj.server_session, jobs[j])
                 print_debug(job_obj)
                 print_info(engine["hostname"] + ": VDB Operations: " +
                            job_obj.job_state)
