@@ -1,36 +1,28 @@
 #!/usr/bin/env python
-# Corey Brune - Oct 2016
-#Creates an authorization object
-#requirements
+# Corey Brune - Feb 2017
+#Description:
+# Update Environment
+#
+#Requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
-"""List, create or remove authorizations for a Virtualization Engine
+"""Description
 Usage:
-  dx_authorization.py --create --role <name> --target_type <name> --target <name> --user <name> | --list | --delete --role <name> --target_type <name> --target <name> --user <name>
+  dx_update_env.py (--pw <name> --env_name <name>)
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_authorization.py -h | --help | -v | --version
-List, delete and create authentication objects
+  dx_update_env.py -h | --help | -v | --version
+Description
 
 Examples:
-  dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type database --target test_vdb
-  dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type group --target Sources
-  dx_authorization.py --list
-  dx_authorization.py --delete --role Data --user dev_user --target_type database --target test_vdb
+
 
 Options:
-  --create                  Create an authorization
-  --role <name>             Role for authorization. Valid Roles are Data,
-                             Read, Jet Stream User, OWNER, PROVISIONER
-  --target <name>           Target object for authorization
-  --target_type <name>      Target type. Valid target types are snapshot,
-                             group, database
-  --user <name>             User for the authorization
-  --list                    List all authorizations
-  --delete                  Delete authorization
+  --pw <name>               Password
+  --env_name <name>         Name of the environment
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -40,165 +32,51 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_authorization.log]
+                            [default: ./dx_operations_vdb.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.003'
+VERSION = 'v.0.0.001'
 
-from docopt import docopt
-from os.path import basename
 import sys
-import time
+from os.path import basename
 from time import sleep, time
+from docopt import docopt
 
+from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
-from delphixpy.exceptions import HttpError
-from delphixpy.web import database
 from delphixpy.web import job
-from delphixpy.web import role
-from delphixpy.web import authorization
-from delphixpy.web import user
-from delphixpy.web import snapshot
-from delphixpy.web import group
-from delphixpy.web.vo import User
-from delphixpy.web.vo import Authorization
+from delphixpy.web import environment
+from delphixpy.web.vo import ASEHostEnvironmentParameters
+from delphixpy.web.vo import UnixHostEnvironment
+
 
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetSession import GetSession
 
+def update_ase_db_pw():
 
-def create_authorization(role_name, target_type, target_name, user_name):
-    """
-    Function to start, stop, enable or disable a VDB
-
-    role_name: Name of the role
-    target_type: Supports snapshot, group and database target types
-    target_name: Name of the target
-    user_name: User for the authorization
-    """
-    target_obj = None
-    authorization_obj = Authorization()
-
-    print_debug('Searching for %s, %s and %s references.\n' %
-                (role_name, target_name, user_name))
-
-    role_obj = find_obj_by_name(dx_session_obj.server_session, role,
-                                role_name)
-
-    target_obj = find_target_type(target_type, target_name)
-    user_obj = find_obj_by_name(dx_session_obj.server_session, user,
-                                user_name)
+    env_obj = UnixHostEnvironment()
+    env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
+    env_obj.ase_host_environment_parameters.credentials = {'type':
+                                            'PasswordCredential',
+                                                'password': arguments['--pw']}
 
     try:
-        authorization_obj.role = role_obj.reference
-        authorization_obj.target = target_obj.reference
-        authorization_obj.user = user_obj.reference
+        environment.update(dx_session_obj.server_session, find_obj_by_name(
+            dx_session_obj.server_session, environment,
+            arguments['--env_name'], env_obj).reference, env_obj)
 
-        authorization.create(dx_session_obj.server_session,
-                             authorization_obj)
-
-    except (RequestError, HttpError, JobError, AttributeError) as e:
-        raise DlpxException('An error occurred while creating an '
-                            'authorization on %s.:%s\n' % (target_name, e))
-
-
-def delete_authorization(role_name, target_type, target_name, user_name):
-    """
-    Function to delete a given authorization
-
-    role_name: Name of the role
-    target_type: Supports snapshot, group and database target types
-    target_name: Name of the target
-    user_name: User for the authorization
-    """
-
-    try:
-        target_obj = find_target_type(target_type, target_name)
-        user_obj = find_obj_by_name(dx_session_obj.server_session, user,
-                                    user_name)
-        role_obj = find_obj_by_name(dx_session_obj.server_session, role,
-                                    role_name)
-
-        auth_objs = authorization.get_all(dx_session_obj.server_session)
-
-    except DlpxException as e:
-        print 'ERROR: Could not delete authorization:\n%s\n' % (e)
-
-    del_auth_str = '(%s, %s, %s)' % (user_obj.reference, role_obj.reference,
-                                     target_obj.reference)
-    for auth_obj in auth_objs:
-        if auth_obj.name == del_auth_str:
-            authorization.delete(dx_session_obj.server_session,
-                                 auth_obj.reference)
-
-
-def find_target_type(target_type, target_name):
-    """
-    Function to find the target authorization
-
-    target_type: Type of target for authorization
-    target_name: Name of the target
-    """
-
-
-    if target_type.lower() == 'group':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      group, target_name)
-    elif target_type.lower() == 'database':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      database, target_name)
-    elif target_type.lower() == 'snapshot':
-        target_obj = find_obj_by_name(dx_session_obj.server_session,
-                                      snapshot, target_name)
-
-    if not target_obj:
-        raise DlpxException('Could not find target type %s' % (target_type))
-
-    return target_obj
-
-
-def list_authorization(username=None):
-    """
-    Function to list authorizations for a given engine
-
-    username: Filter list results by user
-    """
-    target_obj = None
-    print 'User,\t Role,\t Target,\tReference'
-
-    try:
-        auth_objs = authorization.get_all(dx_session_obj.server_session)
-
-        for auth_obj in auth_objs:
-             role_obj = role.get(dx_session_obj.server_session, auth_obj.role)
-             user_obj = user.get(dx_session_obj.server_session, auth_obj.user)
-
-             if auth_obj.target.startswith('USER'):
-                 target_obj = user.get(dx_session_obj.server_session,
-                                       auth_obj.target)
-
-             elif auth_obj.target.startswith('GROUP'):
-                 target_obj = group.get(dx_session_obj.server_session,
-                                       auth_obj.target)
-
-             elif auth_obj.target.startswith('DOMAIN'):
-                 target_obj = User()
-                 target_obj.name = 'DOMAIN'
-
-             print '{}, {}, {}, {}'.format(user_obj.name, role_obj.name,
-                                   target_obj.name, auth_obj.reference)
-
-    except (RequestError, HttpError, JobError, AttributeError) as e:
-        print_exception('An error occurred while listing authorizations.:\n'
-                        '{}\n'.format((e)))
+    except (HttpError, RequestError) as e:
+        print_exception('Could not update ASE DB Password:\n{}'.format(e))
+        sys.exit(1)
 
 
 def run_async(func):
@@ -250,8 +128,9 @@ def main_workflow(engine):
                                   engine['password'])
 
     except DlpxException as e:
-        print('\nERROR: Engine %s encountered an error' 
-              '%s\n' % (dx_session_obj.engine['hostname'], e))
+        print_exception('\nERROR: Engine %s encountered an error while' 
+                        '%s:\n%s\n' % (engine['hostname'],
+                        arguments['--target'], e))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
@@ -260,27 +139,11 @@ def main_workflow(engine):
     with dx_session_obj.job_mode(single_thread):
         while (len(jobs) > 0 or len(thingstodo)> 0):
             if len(thingstodo)> 0:
+                if arguments['--pw']:
+                    update_ase_db_pw()
 
-                try:
-                    if arguments['--create']:
-                        create_authorization(arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
-
-                    elif arguments['--delete']:
-                        delete_authorization(arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
-
-                    elif arguments['--list']:
-                        list_authorization()
-
-                except DlpxException as e:
-                    print('\nERROR: Encountered an error with ' 
-                          'authorizations:\n%s\n'% (e))
-                    sys.exit(1)
+                #elif OPERATION:
+                #    method_call
 
                 thingstodo.pop()
 
@@ -309,8 +172,8 @@ def main_workflow(engine):
 
 def run_job():
     """
-    This function runs the main_workflow aynchronously against all the 
-    servers specified
+    This function runs the main_workflow aynchronously against all the servers
+    specified
     """
     #Create an empty list to store threads we create.
     threads = []
@@ -340,9 +203,10 @@ def run_job():
                            (arguments['--engine']))
 
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
-                                    'and try again. Exiting.\n' % (
-                                    arguments['--engine'], config_file_path))
+                raise DlpxException('\nERROR: Delphix Engine %s cannot be '
+                                    'found in %s. Please check your value '
+                                    'and try again. Exiting.\n%s\n' % (
+                                    arguments['--engine'], config_file_path, e))
 
       else:
           #Else search for a default engine in the dxtools.conf
@@ -392,13 +256,11 @@ def main(argv):
     if arguments['--debug']:
         debug = True
 
-#    import pdb;pdb.set_trace()
     try:
         dx_session_obj = GetSession()
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
-        engine = None
         single_thread = False
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
@@ -423,8 +285,8 @@ def main(argv):
         """
         We use this exception handler when our connection to Delphix fails
         """
-        print('Connection failed to the Delphix Engine Please check the '
-              'ERROR message below')
+        print_exception('Connection failed to the Delphix Engine'
+                        'Please check the ERROR message below')
         sys.exit(1)
 
     except JobError as e:
@@ -433,7 +295,7 @@ def main(argv):
         we have actionable data
         """
         elapsed_minutes = time_elapsed()
-        print('A job failed in the Delphix Engine')
+        print_exception('A job failed in the Delphix Engine')
         print_info('%s took %s minutes to get this far\n' %
                    (basename(__file__), str(elapsed_minutes)))
         sys.exit(3)
@@ -451,7 +313,7 @@ def main(argv):
         """
         Everything else gets caught here
         """
-        print(sys.exc_info()[0])
+        print_exception(sys.exc_info()[0])
         elapsed_minutes = time_elapsed()
         print_info('%s took %s minutes to get this far\n' %
                    (basename(__file__), str(elapsed_minutes)))

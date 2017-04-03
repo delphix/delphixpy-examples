@@ -1,36 +1,27 @@
 #!/usr/bin/env python
-# Corey Brune - Oct 2016
-#This script starts or stops a VDB
-#requirements
+# Corey Brune - Feb 2017
+#Description:
+# This is a skeleton script which has all of the common functionality.
+# The developer will only need to add the necessary arguments and functions
+# then make the function calls in main_workflow().
+#Requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
-"""List all VDBs or Start, stop, enable, disable a VDB
+"""Description
 Usage:
-  dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
-                  [-d <identifier> | --engine <identifier> | --all]
+  dx_skel.py ()
+                  [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_operations_vdb.py -h | --help | -v | --version
-List all VDBs, start, stop, enable, disable a VDB
+  dx_skel.py -h | --help | -v | --version
+Description
 
 Examples:
-  dx_operations_vdb.py --engine landsharkengine --vdb testvdb --stop
-  dx_operations_vdb.py --vdb testvdb --start
-  dx_operations_vdb.py --all_dbs enable
-  dx_operations_vdb.py --all_dbs disable
-  dx_operations_vdb.py --list
+
 
 Options:
-  --vdb <name>              Name of the VDB to stop or start
-  --start                   Stop the VDB
-  --stop                    Stop the VDB
-  --all_dbs <name>          Enable or disable all dSources and VDBs
-  --list                    List all databases from an engine
-  --enable                  Enable the VDB
-  --disable                 Disable the VDB
-  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -45,20 +36,17 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.0.000'
 
 import sys
 from os.path import basename
 from time import sleep, time
+from docopt import docopt
 
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
-from delphixpy.web import database
 from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web.capacity import consumer
-from docopt import docopt
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
@@ -66,92 +54,7 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_all_objects
-from lib.GetReferences import find_obj_list
 from lib.GetSession import GetSession
-
-
-def vdb_operation(vdb_name, operation):
-    """
-    Function to start, stop, enable or disable a VDB
-    """
-    print_debug('Searching for {} reference.\n'.format(vdb_name))
-
-    vdb_obj = find_obj_by_name(dx_session_obj.server_session, source, vdb_name)
-    try:
-        if vdb_obj:
-            if operation == 'start':
-                source.start(dx_session_obj.server_session, vdb_obj.reference)
-            elif operation == 'stop':
-                source.stop(dx_session_obj.server_session, vdb_obj.reference)
-            elif operation == 'enable':
-                source.enable(dx_session_obj.server_session, vdb_obj.reference)
-            elif operation == 'disable':
-                source.disable(dx_session_obj.server_session,
-                               vdb_obj.reference)
-            dx_session_obj.jobs[dx_session_obj.server_session.address] = \
-                dx_session_obj.server_session.last_job
-
-    except (RequestError, HttpError, JobError, AttributeError), e:
-        print('An error occurred while performing {} on {}.:'
-             '{}\n'.format(operation, vdb_name, e))
-
-
-def all_databases(operation):
-    """
-    Enable or disable all dSources and VDBs on an engine
-
-    operation: enable or disable dSources and VDBs
-    """
-
-    for db in database.get_all(dx_session_obj.server_session):
-        print '{} {}\n'.format(operation, db.name)
-        vdb_operation(db.name, operation)
-        sleep(2)
-
-
-def list_databases():
-    """
-    Function to list all databases for a given engine
-    """
-
-    source_stats_lst = find_all_objects(dx_session_obj.server_session, source)
-    is_dSource = None
-
-    try:
-        for db_stats in find_all_objects(dx_session_obj.server_session,
-                                         consumer):
-
-            source_stats = find_obj_list(source_stats_lst, db_stats.name)
-
-            if source_stats is not None:
-                if source_stats.virtual is False:
-                    is_dSource = 'dSource'
-
-                elif source_stats.virtual is True:
-                    is_dSource = db_stats.parent
-
-                print('name = {}\nprovision container= {}\ndatabase disk '
-                      'usage: {:.2f} GB\nSize of Snapshots: {:.2f} GB\n'
-                      'Enabled: {}\nStatus:{}\n'.format(str(db_stats.name),
-                      str(is_dSource),
-                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
-                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
-                      source_stats.runtime.enabled,
-                      source_stats.runtime.status))
-
-            elif source_stats is None:
-                print('name = {}\nprovision container= {}\ndatabase disk '
-                      'usage: {:.2f} GB\nSize of Snapshots: {:.2f} GB\n'
-                      'Could not find source information. This could be a '
-                      'result of an unlinked object.\n'.format(
-                      str(db_stats.name), str(db_stats.parent),
-                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
-                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
-
-
-    except (RequestError, JobError, AttributeError, DlpxException) as e:
-        print 'An error occurred while listing databases: {}'.format((e))
 
 
 def run_async(func):
@@ -195,12 +98,15 @@ def main_workflow(engine):
 
     engine: Dictionary of engines
     """
-    jobs = {}
-
     try:
         #Setup the connection to the Delphix Engine
         dx_session_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
+
+        if arguments['--vdb']:
+            #Get the database reference we are copying from the database name
+            database_obj = find_obj_by_name(dx_session_obj.server_session,
+                                            database, arguments['--vdb'])
 
     except DlpxException as e:
         print_exception('\nERROR: Engine {} encountered an error while' 
@@ -209,61 +115,43 @@ def main_workflow(engine):
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
-    with dx_session_obj.job_mode(single_thread):
-        while len(dx_session_obj.jobs) > 0 or len(thingstodo) > 0:
-            if len(thingstodo)> 0:
+    try:
+        with dx_session_obj.job_mode(single_thread):
+            while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+                if len(thingstodo) > 0:
+                    if OPERATION:
+                        method_call
 
-                if arguments['--start']:
-                    vdb_operation(arguments['--vdb'], 'start')
+                    elif OPERATION:
+                        method_call
+                    thingstodo.pop()
+                # get all the jobs, then inspect them
+                i = 0
+                for j in dx_session_obj.jobs.keys():
+                    job_obj = job.get(dx_session_obj.server_session,
+                                      dx_session_obj.jobs[j])
+                    print_debug(job_obj)
+                    print_info('{}: Replication operations: {}'.format(
+                        engine['hostname'], job_obj.job_state))
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
+                        # If the job is in a non-running state, remove it
+                        # from the
+                        # running jobs list.
+                        del dx_session_obj.jobs[j]
+                    elif job_obj.job_state in 'RUNNING':
+                        # If the job is in a running state, increment the
+                        # running job count.
+                        i += 1
+                    print_info('{}: {:d} jobs running.'.format(
+                               engine['hostname'], i))
+                    # If we have running jobs, pause before repeating the
+                    # checks.
+                    if len(dx_session_obj.jobs) > 0:
+                        sleep(float(arguments['--poll']))
 
-                elif arguments['--stop']:
-                    vdb_operation(arguments['--vdb'], 'stop')
-
-                elif arguments['--enable']:
-                    vdb_operation(arguments['--vdb'], 'enable')
-
-                elif arguments['--disable']:
-                    vdb_operation(arguments['--vdb'], 'disable')
-
-                elif arguments['--list']:
-                    list_databases()
-
-                elif arguments['--all_dbs']:
-                    try:
-                        assert arguments['--all_dbs'] in 'disable' or \
-                        arguments['--all_dbs'] in 'enable', \
-                        '--all_dbs should be either enable or disable'
-                        all_databases(arguments['--all_dbs'])
-
-                    except AssertionError as e:
-                        print 'ERROR:\n{}\n'.format(e)
-                        sys.exit(1)
-
-                thingstodo.pop()
-
-            #get all the jobs, then inspect them
-            i = 0
-            for j in dx_session_obj.jobs.keys():
-                job_obj = job.get(dx_session_obj.server_session,
-                                  dx_session_obj.jobs[j])
-                print_debug(job_obj)
-                print_info('{}: Operations: {}'.format(engine['hostname'],
-                                                       job_obj.job_state))
-                if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the
-                    # running jobs list.
-                    del dx_session_obj.jobs[j]
-                elif job_obj.job_state in 'RUNNING':
-                    #If the job is in a running state, increment the running
-                    # job count.
-                    i += 1
-
-                print_info('{}: {:d} jobs running.'.format(
-                    engine['hostname'], i))
-
-            #If we have running jobs, pause before repeating the checks.
-            if len(dx_session_obj.jobs) > 0:
-                sleep(float(arguments['--poll']))
+    except (HttpError, RequestError, JobError, DlpxException) as e:
+        print_exception('ERROR: Could not complete replication '
+                        'operation:{}'.format(e))
 
 
 def run_job():
@@ -315,6 +203,7 @@ def run_job():
                   print_info('Executing against the default Delphix Engine '
                        'in the dxtools.conf: {}'.format(
                        dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+
               break
 
           if engine == None:
@@ -357,7 +246,6 @@ def main(arguments):
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
-        engine = None
         single_thread = False
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
@@ -367,9 +255,9 @@ def main(arguments):
         # all the servers.
         run_job()
 
-        #elapsed_minutes = time_elapsed()
-        print_info('script took {:.2f} minutes to get this far.'.format(
-            time_elapsed()))
+        elapsed_minutes = time_elapsed()
+        print_info('script took {:d} minutes to get this far.'.format(
+            elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -383,7 +271,7 @@ def main(arguments):
         We use this exception handler when our connection to Delphix fails
         """
         print_exception('Connection failed to the Delphix Engine'
-                        'Please check the ERROR message:\n{}\n').format(e)
+                        'Please check the ERROR message:\n{}'.format(e))
         sys.exit(1)
 
     except JobError as e:
@@ -393,7 +281,7 @@ def main(arguments):
         """
         elapsed_minutes = time_elapsed()
         print_exception('A job failed in the Delphix Engine')
-        print_info('{} took {:.2f} minutes to get this far:\n{}\n'.format(
+        print_info('{} took {:.2f} minutes to get this far\n{}'.format(
                    basename(__file__), elapsed_minutes, e))
         sys.exit(3)
 
@@ -412,7 +300,7 @@ def main(arguments):
         """
         print_exception(sys.exc_info()[0])
         elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far\n'.format(
+        print_info('{} took {.2f} minutes to get this far\n'.format(
                    basename(__file__), elapsed_minutes))
         sys.exit(1)
 

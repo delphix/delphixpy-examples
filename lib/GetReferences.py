@@ -10,13 +10,14 @@ from delphixpy.web.service import time
 from delphixpy.exceptions import RequestError
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
-from delphixpy.web import timeflow
+from delphixpy.web import repository
 from delphixpy.web import database
 
 from DlpxException import DlpxException
+from DxLogging import print_debug
+from DxLogging import print_exception
 
-
-VERSION = 'v.0.2.000'
+VERSION = 'v.0.2.0011'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -34,13 +35,59 @@ def convert_timestamp(engine, timestamp):
         utc = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
         utc = utc.replace(tzinfo=default_tz)
         converted_tz = utc.astimezone(convert_tz)
-        engine_local_tz = str(converted_tz.date()) + ' ' + \
-                          str(converted_tz.time()) + ' ' + \
-                          str(converted_tz.tzname())
+        engine_local_tz = '{} {} {}'.format(str(converted_tz.date()),
+                                            str(converted_tz.time()),
+                                            str(converted_tz.tzname()))
 
         return engine_local_tz
     except TypeError:
         return None
+
+
+def find_all_objects(engine, f_class):
+    """
+    Return all objects from a given class
+
+    engine: A Delphix engine session object
+    f_class: The objects class. I.E. database or timeflow.
+    :return: List of objects
+    """
+
+    return_lst = []
+
+    try:
+        return f_class.get_all(engine)
+
+    except (JobError, HttpError) as e:
+        raise DlpxException('{} Error encountered in {}: {}\n'.format(
+            engine.address, f_class, e))
+
+
+def find_obj_specs(engine, obj_lst):
+    """
+    Function to find objects for replication
+    :param engine: Delphix Virtualization session object
+    :param obj_lst: List of names for replication
+    :return: List of references for the given object names
+    """
+    rep_lst = []
+    for obj in obj_lst:
+        rep_lst.append(find_obj_by_name(engine, database, obj).reference)
+    return rep_lst
+
+
+def find_obj_list(obj_lst, obj_name):
+    """
+    Function to find an object in a list of objects
+    obj_lst: List containing objects from the get_all() method
+    obj_name: Name of the object to match
+    :return: The named object. None is returned if no match is found.`
+    """
+    for obj in obj_lst:
+        if obj_name == obj.name:
+            return obj
+    return None
+
 
 def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
     """
@@ -55,10 +102,13 @@ def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
                    the reference.
     """
 
-    obj_ref = ''
     return_list = []
 
-    all_objs = f_class.get_all(engine)
+    try:
+        all_objs = f_class.get_all(engine)
+    except AttributeError as e:
+        raise DlpxException('Could not find reference for object class'
+                            '{}.\n'.format(e))
     for obj in all_objs:
         if obj.name == obj_name:
 
@@ -74,7 +124,8 @@ def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
             return obj
 
     #If the object isn't found, raise an exception.
-    raise DlpxException('%s not found.\n' % (obj_name))
+    raise DlpxException('{} was not found on engine {}.\n'.format(
+        obj_name, engine.address))
 
 
 def get_obj_reference(engine, obj_type, obj_name, search_str=None,
@@ -110,7 +161,7 @@ def get_obj_reference(engine, obj_type, obj_name, search_str=None,
 
                 return ret_lst
 
-    raise DlpxException('Reference not found for %s' % obj_name)
+    raise DlpxException('Reference not found for {}'.format(obj_name))
 
 
 def get_db_name(engine, db_reference):
@@ -130,3 +181,42 @@ def get_db_name(engine, db_reference):
 
     except (JobError, HttpError) as e:
         raise DlpxException(e.message)
+
+
+def find_dbrepo(engine, install_type, f_environment_ref, f_install_path):
+    """
+    Function to find database repository objects by environment reference and
+    install path, and return the object's reference as a string
+    You might use this function to find Oracle and PostGreSQL database repos.
+
+    engine: Virtualization Engine Session object
+    install_type: Type of install - Oracle, ASE, SQL
+    f_environment_ref: Reference of the environment for the repository
+    f_install_path: Path to the installation directory.
+
+    return: delphixpy.web.vo.SourceRepository object
+    """
+
+    print_debug('Searching objects in the %s class for one with the '
+                'environment reference of %s and an install path of %s' %
+                (install_type, f_environment_ref, f_install_path))
+    #import pdb;pdb.set_trace()
+    all_objs = repository.get_all(engine, environment=f_environment_ref)
+    for obj in all_objs:
+        if 'OracleInstall' == install_type:
+            if (obj.type == install_type and
+                obj.installation_home == f_install_path):
+
+                print_debug('Found a match %s'.format(obj.reference))
+                return obj
+
+        elif 'MSSqlInstance' == install_type:
+            if (obj.type == install_type and
+                obj.instance_name == f_install_path):
+
+                print_debug('Found a match {}'.format(obj.reference))
+                return obj
+
+        else:
+            raise DlpxException('No Repo match found for type {}.\n'.format(
+                install_type))
