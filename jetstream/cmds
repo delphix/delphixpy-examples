@@ -1,9 +1,0 @@
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --list-template
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --delete-template --template myCLITemplate
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --create-template --database JSTest1 --template testtemplate1
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --delete-container --container testcontainer1
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --create-branch --branch testbranch20 --template testtemplate1 --container testssss
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --create-bookmark --template testtemplate1 --bookmark testbookmark2
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --create-container --container testssss --database JSC2 --template testtemplate1
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --activate-branch --branch testbranch40
-./jetstream.py  --user delphix_admin --password landshark --engine 172.16.172.137  --update-bookmark --bookmark testbookmark1

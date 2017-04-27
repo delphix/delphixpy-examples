@@ -9,7 +9,7 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs | --host <name> | --list-timeflows | --list-snapshots)
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list-timeflows | --list-snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
@@ -18,15 +18,15 @@ Usage:
   dx_refresh_db.py -h | --help | -v | --version
 Refresh a Delphix VDB
 Examples:
-  dx_refresh_db.py --name "aseTest" --group "Analytics"
+  dx_refresh_db.py --name "aseTest" --group_name "Analytics"
   dx_refresh_db.py --dsource "dlpxdb1"
   dx_refresh_db.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
-  dx_refresh_db.py --all_vdbs --group "Analytics" --all
+  dx_refresh_db.py --all_vdbs --group_name "Analytics" --all
 Options:
   --name <name>             Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
-  --group <name>            Name of group in Delphix to execute against.
   --dsource <name>          Name of dsource in Delphix to execute against.
+  --group_name <name>       Name of the group to execute against.
   --list-timeflows          List all timeflows
   --list-snapshots          List all snapshots
   --host <name>             Name of environment in Delphix to execute against.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.1.400"
+VERSION = 'v.0.1.601'
 
 
 from docopt import docopt
@@ -73,25 +73,24 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError
-from delphixpy.v1_6_0.exceptions import JobError
-from delphixpy.v1_6_0.exceptions import RequestError
-from delphixpy.v1_6_0 import job_context
-
-from delphixpy.v1_6_0.web import database
-from delphixpy.v1_6_0.web import environment
-from delphixpy.v1_6_0.web import group
-from delphixpy.v1_6_0.web import job
-from delphixpy.v1_6_0.web import source
-from delphixpy.v1_6_0.web import user
-from delphixpy.v1_6_0.web import timeflow
-from delphixpy.v1_6_0.web.snapshot import snapshot
-from delphixpy.v1_6_0.web.vo import OracleRefreshParameters
-from delphixpy.v1_6_0.web.vo import RefreshParameters
-from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
-from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
-from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
+from delphixpy.delphix_engine import DelphixEngine
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy import job_context
+from delphixpy.web import database
+from delphixpy.web import environment
+from delphixpy.web import group
+from delphixpy.web import job
+from delphixpy.web import source
+from delphixpy.web import user
+from delphixpy.web import timeflow
+from delphixpy.web.snapshot import snapshot
+from delphixpy.web.vo import OracleRefreshParameters
+from delphixpy.web.vo import RefreshParameters
+from delphixpy.web.vo import TimeflowPointLocation
+from delphixpy.web.vo import TimeflowPointSemantic
+from delphixpy.web.vo import TimeflowPointTimestamp
 
 class DlpxException(Exception):
     """
@@ -446,7 +445,7 @@ def main_workflow(engine):
 
             #If we are only filtering by the server, then put those objects in 
             # the main list for processing
-            if not(arguments['--group'] and database_name):
+            if not(arguments['--group_name'] and database_name):
                 source_objs = env_source_objs
                 all_dbs = database.get_all(server, 
                                            no_js_container_data_source=True)
@@ -475,12 +474,12 @@ def main_workflow(engine):
             databases.append(database_obj)
 
     #Else if we specified a group to filter by....
-    elif arguments['--group']:
+    elif arguments['--group_name']:
         print_debug(engine["hostname"] + ":Getting databases in group " + 
-                    arguments['--group'])
+                    arguments['--group_name'])
         #Get all the database objects in a group.
         databases = find_all_databases_by_group_name(engine, server, 
-                                                     arguments['--group'])
+                                                     arguments['--group_name'])
 
     #Else if we specified a dSource to filter by....
     elif arguments['--dsource']:
@@ -525,7 +524,7 @@ def main_workflow(engine):
 
                #If we applied the environment/server filter AND group filter, 
                # find the intersecting matches
-                if environment_obj != None and (arguments['--group']):
+                if environment_obj != None and (arguments['--group_name']):
                     match = False
 
                     for env_source_obj in env_source_objs:

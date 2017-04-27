@@ -11,5 +11,5 @@ class DlpxException(Exception):
 
 
     def __init__(self, message):
-        print_exception(message)
+#        print_exception(message)
         Exception.__init__(self, message)

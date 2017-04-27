@@ -9,6 +9,7 @@
 """
 
 import json
+import ssl
 
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.exceptions import RequestError
@@ -21,7 +22,7 @@ from lib.DlpxException import DlpxException
 from lib.DxLogging import print_debug
 
 
-VERSION = 'v.0.2.000'
+VERSION = 'v.0.2.06'
 
 
 class GetSession(object):
@@ -36,6 +37,10 @@ class GetSession(object):
         self.jobs = {}
 
 
+    def __getitem__(self, key):
+        return self.data[key]
+
+
     def get_config(self, config_file_path='./dxtools.conf'):
         """
         This method reads in the dxtools.conf file
@@ -44,27 +49,27 @@ class GetSession(object):
                           Default: ./dxtools.conf
         """
 
-        config_file_path = config_file_path
+        #config_file_path = config_file_path
+        #config_file = None
 
         #First test to see that the file is there and we can open it
         try:
-            config_file = open(config_file_path).read()
+            with open(config_file_path) as config_file:
 
-            #Now parse the file contents as json and turn them into a
-            #python dictionary, throw an error if it isn't proper json
-            config = json.loads(config_file)
+                #Now parse the file contents as json and turn them into a
+                #python dictionary, throw an error if it isn't proper json
+                config = json.loads(config_file.read())
 
         except IOError:
-            raise DlpxException('\nERROR: Was unable to open %s  Please '
+            raise DlpxException('\nERROR: Was unable to open {}. Please '
                                 'check the path and permissions, and try '
-                                'again.\n' %
-                                (config_file_path))
+                                'again.\n'.format(config_file_path))
 
-        except (ValueError, TypeError) as e:
-            raise DlpxException('\nERROR: Was unable to read %s as json. '
+        except (ValueError, TypeError, AttributeError) as e:
+            raise DlpxException('\nERROR: Was unable to read {} as json. '
                                 'Please check if the file is in a json format'
-                                ' and try again.\n %s' %
-                                (config_file, e))
+                                ' and try again.\n {}'.format(config_file_path,
+                                                              e))
 
         #Create a dictionary of engines (removing the data node from the
         # dxtools.json, for easier parsing)
@@ -83,6 +88,11 @@ class GetSession(object):
         f_engine_namespace: Namespace to use for this session. Default: DOMAIN
         """
 
+#        if use_https:
+#            if hasattr(ssl, '_create_unverified_context'):
+#                ssl._create_default_https_context = \
+#                    ssl._create_unverified_context
+
         try:
             if f_engine_password:
                 self.server_session = DelphixEngine(f_engine_address,
@@ -96,7 +106,7 @@ class GetSession(object):
 
         except (HttpError, RequestError, JobError) as e:
             raise DlpxException('ERROR: An error occurred while authenticating'
-                                ' to %s:\n %s\n' % (f_engine_address, e))
+                                ' to {}:\n {}\n'.format(f_engine_address, e))
 
 
     def job_mode(self, single_thread=True):

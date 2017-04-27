@@ -8,7 +8,7 @@
 #this doc to also define our arguments for the script.
 """List all VDBs or Start, stop, enable, disable a VDB
 Usage:
-  dx_operations_vdb.py (--vdb <name [--stop | --start | --enable | --disable] | --list)
+  dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
                   [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
@@ -16,14 +16,17 @@ Usage:
 List all VDBs, start, stop, enable, disable a VDB
 
 Examples:
-  dx_operations_vdb.py -d landsharkengine --vdb testvdb --stop
-
-  dx_operations_vdb.py --vdb --start
+  dx_operations_vdb.py --engine landsharkengine --vdb testvdb --stop
+  dx_operations_vdb.py --vdb testvdb --start
+  dx_operations_vdb.py --all_dbs enable
+  dx_operations_vdb.py --all_dbs disable
+  dx_operations_vdb.py --list
 
 Options:
   --vdb <name>              Name of the VDB to stop or start
   --start                   Stop the VDB
   --stop                    Stop the VDB
+  --all_dbs <name>          Enable or disable all dSources and VDBs
   --list                    List all databases from an engine
   --enable                  Enable the VDB
   --disable                 Disable the VDB
@@ -42,230 +45,113 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.002"
+VERSION = 'v.0.3.001'
 
-from docopt import docopt
-import logging
-from os.path import basename
-import signal
 import sys
-import time
-import traceback
-import json
-
-from multiprocessing import Process
+from os.path import basename
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, host, job, source
-from delphixpy.v1_6_0.exceptions import RequestError, JobError, HttpError
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy.web import database
+from delphixpy.web import job
+from delphixpy.web import source
+from delphixpy.web.capacity import consumer
+from docopt import docopt
+
+from lib.DlpxException import DlpxException
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
+from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_all_objects
+from lib.GetReferences import find_obj_list
+from lib.GetSession import GetSession
 
 
-class dlpxException(Exception):
-    def __init__(self, message):
-        self.message = message
-
-
-def vdb_operation(engine, server, jobs, vdb_name, operation):
+def vdb_operation(vdb_name, operation):
     """
     Function to start, stop, enable or disable a VDB
     """
-    print_debug(engine['hostname'] + ': Searching for ' + vdb_name +
-                ' reference.\n')
+    print_debug('Searching for {} reference.\n'.format(vdb_name))
 
-    vdb_obj = find_obj_by_name(engine, server, source, vdb_name)
-
+    vdb_obj = find_obj_by_name(dx_session_obj.server_session, source, vdb_name)
     try:
         if vdb_obj:
             if operation == 'start':
-                source.start(server, vdb_obj.reference)
+                source.start(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'stop':
-                source.stop(server, vdb_obj.reference)
+                source.stop(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'enable':
-                source.enable(server, vdb_obj.reference)
+                source.enable(dx_session_obj.server_session, vdb_obj.reference)
             elif operation == 'disable':
-                source.disable(server, vdb_obj.reference)
-
-            jobs[engine['hostname']] = server.last_job
+                source.disable(dx_session_obj.server_session,
+                               vdb_obj.reference)
+            dx_session_obj.jobs[dx_session_obj.server_session.address] = \
+                dx_session_obj.server_session.last_job
 
     except (RequestError, HttpError, JobError, AttributeError), e:
-        raise dlpxException('An error occurred while performing ' +
-                            operation + ' on ' + vdb_name + '.:%s\n' % (e))
+        print('An error occurred while performing {} on {}.:'
+             '{}\n'.format(operation, vdb_name, e))
 
-def list_databases(engine, server, jobs):
+
+def all_databases(operation):
+    """
+    Enable or disable all dSources and VDBs on an engine
+
+    operation: enable or disable dSources and VDBs
+    """
+
+    for db in database.get_all(dx_session_obj.server_session):
+        print '{} {}\n'.format(operation, db.name)
+        vdb_operation(db.name, operation)
+        sleep(2)
+
+
+def list_databases():
     """
     Function to list all databases for a given engine
     """
 
+    source_stats_lst = find_all_objects(dx_session_obj.server_session, source)
+    is_dSource = None
+
     try:
-        databases = database.get_all(server)
+        for db_stats in find_all_objects(dx_session_obj.server_session,
+                                         consumer):
 
-        for db in databases:
-            if db.provision_container == None:
-                db.provision_container = 'dSource'
+            source_stats = find_obj_list(source_stats_lst, db_stats.name)
 
-            print 'name = ', str(db.name), '\n', 'current timeflow = ', \
-                  str(db.current_timeflow), '\n', 'provision container = ', \
-                  str(db.provision_container), '\n', 'processor = ', \
-                  str(db.processor), '\n'
+            if source_stats is not None:
+                if source_stats.virtual is False:
+                    is_dSource = 'dSource'
 
-    except (RequestError, HttpError, JobError, AttributeError), e:
-        print 'An error occurred while listing databases on ' + \
-              engine['ip_address'] + '.:%s\n' % (e)
+                elif source_stats.virtual is True:
+                    is_dSource = db_stats.parent
 
+                print('name = {}\nprovision container= {}\ndatabase disk '
+                      'usage: {:.2f} GB\nSize of Snapshots: {:.2f} GB\n'
+                      'Enabled: {}\nStatus:{}\n'.format(str(db_stats.name),
+                      str(is_dSource),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
+                      source_stats.runtime.enabled,
+                      source_stats.runtime.status))
 
-def find_obj_by_name(engine, server, f_class, obj_name):
-    """
-    Function to find objects by name and object class, and return object's
-    reference as a string
-    You might use this function to find objects like groups.
-    """
-    print_debug(engine["hostname"] + ": Searching objects in the " +
-                f_class.__name__ + " class\n   for one named \"" +
-                obj_name + "\"")
-    obj_ref = ''
-
-    all_objs = f_class.get_all(server)
-    try:
-        for obj in all_objs:
-            if obj.name == obj_name:
-                print_debug(engine["hostname"] + ": Found a match " +
-                            str(obj.reference))
-                return obj
-
-        #If the code reaches here, the object was not found.
-        raise dlpxException('Object %s not found in %s\n' % (obj_name,
-                            engine['ip_address']))
-
-    except (RequestError, HttpError, JobError, AttributeError), e:
-        raise dlpxException('Object %s not found in %s' % (obj_name, 
-                            engine['ip_address']))
+            elif source_stats is None:
+                print('name = {}\nprovision container= {}\ndatabase disk '
+                      'usage: {:.2f} GB\nSize of Snapshots: {:.2f} GB\n'
+                      'Could not find source information. This could be a '
+                      'result of an unlinked object.\n'.format(
+                      str(db_stats.name), str(db_stats.parent),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
 
 
-def get_config(config_file_path):
-    """
-    This function reads in the dxtools.conf file
-    """
-    #First test to see that the file is there and we can open it
-    try:
-        config_file = open(config_file_path).read()
-    except:
-        print_error("Was unable to open " + config_file_path +
-                    ". Please check the path and permissions, then try again.")
-        sys.exit(1)
-
-    #Now parse the file contents as json and turn them into a python
-    # dictionary, throw an error if it isn't proper json
-    try:
-        config = json.loads(config_file)
-    except:
-        print_error("Was unable to read " + config_file_path +
-                    " as json. Please check file in a json formatter and " +
-                    "try again.")
-        sys.exit(1)
-
-    #Create a dictionary of engines (removing the data node from the
-    # dxtools.json, for easier parsing)
-    delphix_engines = {}
-    for each in config['data']:
-        delphix_engines[each['hostname']] = each
-    print_debug(delphix_engines)
-    return delphix_engines
-
-
-def logging_est(logfile_path):
-    """
-    Establish Logging
-    """
-    global debug
-    logging.basicConfig(filename=logfile_path,format='%(levelname)s:%(asctime)s:%(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-    print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
-    global logger
-    debug = arguments['--debug']
-    logger = logging.getLogger()
-    if debug == True:
-        logger.setLevel(10)
-        print_info("Debug Logging is enabled.")
-
-
-def job_mode(server):
-    """
-    This function tells Delphix how to execute jobs, based on the
-    single_thread variable at the beginning of the file
-    """
-    #Synchronously (one at a time)
-    if single_thread == True:
-        job_m = job_context.sync(server)
-        print_debug("These jobs will be executed synchronously")
-    #Or asynchronously
-    else:
-        job_m = job_context.async(server)
-        print_debug("These jobs will be executed asynchronously")
-    return job_m
-
-
-def job_wait():
-    """
-    This job stops all work in the thread/process until jobs are completed.
-    """
-    #Grab all the jos on the server (the last 25, be default)
-    all_jobs = job.get_all(server)
-    #For each job in the list, check to see if it is running (not ended)
-    for jobobj in all_jobs:
-        if not (jobobj.job_state in ["CANCELED", "COMPLETED", "FAILED"]):
-            print_debug("Waiting for " + jobobj.reference + " (currently: " +
-                        jobobj.job_state +
-                        ") to finish running against the container")
-            #If so, wait
-            job_context.wait(server,jobobj.reference)
-
-
-
-def on_exit(sig, func=None):
-    """
-    This function helps us end cleanly and with exit codes
-    """
-    print_info("Shutdown Command Received")
-    print_info("Shutting down " + basename(__file__))
-    sys.exit(0)
-
-
-def print_debug(print_obj):
-    """
-    Call this function with a log message to prefix the message with DEBUG
-    """
-    try:
-        if debug == True:
-            print "DEBUG: " + str(print_obj)
-            logging.debug(str(print_obj))
-    except:
-        pass
-
-
-def print_error(print_obj):
-    """
-    Call this function with a log message to prefix the message with ERROR
-    """
-    print "ERROR: " + str(print_obj)
-    logging.error(str(print_obj))
-
-
-def print_info(print_obj):
-    """
-    Call this function with a log message to prefix the message with INFO
-    """
-    print "INFO: " + str(print_obj)
-    logging.info(str(print_obj))
-
-
-def print_warning(print_obj):
-    """
-    Call this function with a log message to prefix the message with WARNING
-    """
-    print "WARNING: " + str(print_obj)
-    logging.warning(str(print_obj))
+    except (RequestError, JobError, AttributeError, DlpxException) as e:
+        print 'An error occurred while listing databases: {}'.format((e))
 
 
 def run_async(func):
@@ -306,138 +192,136 @@ def main_workflow(engine):
     This function actually runs the jobs.
     Use the @run_async decorator to run this function asynchronously.
     This allows us to run against multiple Delphix Engine simultaneously
-    """
 
-    #Pull out the values from the dictionary for this engine
-    engine_address = engine["ip_address"]
-    engine_username = engine["username"]
-    engine_password = engine["password"]
-    #Establish these variables as empty for use later
+    engine: Dictionary of engines
+    """
     jobs = {}
 
-    #Setup the connection to the Delphix Engine
-    server = serversess(engine_address, engine_username, engine_password)
-
     try:
-        if arguments['--vdb']:
-            #Get the database reference we are copying from the database name
-            database_obj = find_obj_by_name(engine, server, database,
-                                            arguments['--vdb'])
+        #Setup the connection to the Delphix Engine
+        dx_session_obj.serversess(engine['ip_address'], engine['username'],
+                                  engine['password'])
 
-    except dlpxException, e:
-        print '\nERROR: %s\n' % (e.message)
+    except DlpxException as e:
+        print_exception('\nERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
+                        arguments['--target'], e))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
-    #reset the running job count before we begin
-    i = 0
-    with job_mode(server):
-        while (len(jobs) > 0 or len(thingstodo)> 0):
+    with dx_session_obj.job_mode(single_thread):
+        while len(dx_session_obj.jobs) > 0 or len(thingstodo) > 0:
             if len(thingstodo)> 0:
 
                 if arguments['--start']:
-                    vdb_operation(engine, server, jobs, database_name, 'start')
+                    vdb_operation(arguments['--vdb'], 'start')
 
                 elif arguments['--stop']:
-                    vdb_operation(engine, server, jobs, database_name, 'stop')
+                    vdb_operation(arguments['--vdb'], 'stop')
 
                 elif arguments['--enable']:
-                    vdb_operation(engine, server, jobs, database_name,
-                                  'enable')
+                    vdb_operation(arguments['--vdb'], 'enable')
 
                 elif arguments['--disable']:
-                    vdb_operation(engine, server, jobs, database_name,
-                                  'disable')
+                    vdb_operation(arguments['--vdb'], 'disable')
 
                 elif arguments['--list']:
-                    list_databases(engine, server, jobs)
+                    list_databases()
+
+                elif arguments['--all_dbs']:
+                    try:
+                        assert arguments['--all_dbs'] in 'disable' or \
+                        arguments['--all_dbs'] in 'enable', \
+                        '--all_dbs should be either enable or disable'
+                        all_databases(arguments['--all_dbs'])
+
+                    except AssertionError as e:
+                        print 'ERROR:\n{}\n'.format(e)
+                        sys.exit(1)
 
                 thingstodo.pop()
 
             #get all the jobs, then inspect them
             i = 0
-            for j in jobs.keys():
-                job_obj = job.get(server, jobs[j])
+            for j in dx_session_obj.jobs.keys():
+                job_obj = job.get(dx_session_obj.server_session,
+                                  dx_session_obj.jobs[j])
                 print_debug(job_obj)
-                print_info(engine["hostname"] + ": VDB Operations: " +
-                           job_obj.job_state)
-
+                print_info('{}: Operations: {}'.format(engine['hostname'],
+                                                       job_obj.job_state))
                 if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                     #If the job is in a non-running state, remove it from the
                     # running jobs list.
-                    del jobs[j]
-                else:
+                    del dx_session_obj.jobs[j]
+                elif job_obj.job_state in 'RUNNING':
                     #If the job is in a running state, increment the running
                     # job count.
                     i += 1
 
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
+                print_info('{}: {:d} jobs running.'.format(
+                    engine['hostname'], i))
+
             #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
+            if len(dx_session_obj.jobs) > 0:
                 sleep(float(arguments['--poll']))
 
 
-def run_job(engine):
+def run_job():
     """
     This function runs the main_workflow aynchronously against all the servers
     specified
     """
     #Create an empty list to store threads we create.
     threads = []
+    engine = None
 
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
         print_info("Executing against all Delphix Engines in the dxtools.conf")
 
-        #For each server in the dxtools.conf...
-        for delphix_engine in dxtools_objects:
-            engine = dxtools_objects[delphix_engine]
+        try:
+            #For each server in the dxtools.conf...
+            for delphix_engine in dx_session_obj.dlpx_engines:
+                engine = dx_session_obj[delphix_engine]
+                #Create a new thread and add it to the list.
+                threads.append(main_workflow(engine))
 
-            #Create a new thread and add it to the list.
-            threads.append(main_workflow(engine))
-    else:
+        except DlpxException as e:
+            print 'Error encountered in run_job():\n{}'.format(e)
+            sys.exit(1)
 
+    elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
-        if arguments['--engine']:
+      if arguments['--engine']:
             try:
-                engine = dxtools_objects[arguments['--engine']]
-                print_info("Executing against Delphix Engine: " +
-                           arguments['--engine'])
-            except:
-                print_error("Delphix Engine \"" + arguments['--engine'] +
-                            "\" cannot be found in " + config_file_path)
-                print_error("Please check your value and try again. Exiting")
-                sys.exit(1)
+                engine = dx_session_obj.dlpx_engines[arguments['--engine']]
+                print_info('Executing against Delphix Engine: {}\n'.format(
+                           (arguments['--engine'])))
 
-        #Else if the -d argument was given, test to see if the engine exists
-        # in dxtools.conf
-        elif arguments['-d']:
-            try:
-                engine = dxtools_objects[arguments['-d']]
-                print_info("Executing against Delphix Engine: " +
-                           arguments['-d'])
-            except:
-                print_error("Delphix Engine \"" + arguments['-d'] +
-                            "\" cannot be found in " + config_file_path)
-                print_error("Please check your value and try again. Exiting")
-                sys.exit(1)
-        else:
-            #Else search for a default engine in the dxtools.conf
-            for delphix_engine in dxtools_objects:
-                if dxtools_objects[delphix_engine]['default'] == 'true':
-                    engine = dxtools_objects[delphix_engine]
-                    print_info("Executing against the default Delphix Engine "
-                               "in the dxtools.conf: " +
-                               dxtools_objects[delphix_engine]['hostname'])
-                    break
+            except (DlpxException, RequestError, KeyError) as e:
+                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
+                                    'found in {}. Please check your value '
+                                    'and try again. Exiting.\n'.format(
+                                    arguments['--engine'], config_file_path))
 
-            if engine == None:
-                print_error("No default engine found. Exiting")
-                sys.exit(1)
+      else:
+          #Else search for a default engine in the dxtools.conf
+          for delphix_engine in dx_session_obj.dlpx_engines:
+              if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
+                 'true':
 
-        #run the job against the engine
-        threads.append(main_workflow(engine))
+                  engine = dx_session_obj.dlpx_engines[delphix_engine]
+                  print_info('Executing against the default Delphix Engine '
+                       'in the dxtools.conf: {}'.format(
+                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+              break
+
+          if engine == None:
+              raise DlpxException("\nERROR: No default engine found. Exiting")
+
+    #run the job against the engine
+    threads.append(main_workflow(engine))
 
     #For each thread in the list...
     for each in threads:
@@ -446,67 +330,30 @@ def run_job(engine):
         each.join()
 
 
-def serversess(f_engine_address, f_engine_username, f_engine_password):
-    """
-    Function to setup the session with the Delphix Engine
-    """
-    server_session= DelphixEngine(f_engine_address, f_engine_username,
-                                  f_engine_password, "DOMAIN")
-    return server_session
-
-
-def set_exit_handler(func):
-    """
-    This function helps us set the correct exit code
-    """
-    signal.signal(signal.SIGTERM, func)
-
-
 def time_elapsed():
     """
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
     """
-    elapsed_minutes = round((time() - time_start)/60, +1)
-    return elapsed_minutes
+    #elapsed_minutes = round((time() - time_start)/60, +1)
+    #return elapsed_minutes
+    return round((time() - time_start)/60, +1)
 
 
-def update_jobs_dictionary(engine, server, jobs):
-    """
-    This function checks each job in the dictionary and updates its status or
-    removes it if the job is complete.
-    Return the number of jobs still running.
-    """
-    #Establish the running jobs counter, as we are about to update the count
-    # from the jobs report.
-    i = 0
-    #get all the jobs, then inspect them
-    for j in jobs.keys():
-        job_obj = job.get(server, jobs[j])
-        print_debug(engine["hostname"] + ": " + str(job_obj))
-        print_info(engine["hostname"] + ": " + j.name + ": " +
-                   job_obj.job_state)
-
-        if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-            #If the job is in a non-running state, remove it from the running
-            # jobs list.
-            del jobs[j]
-        else:
-            #If the job is in a running state, increment the running job count.
-            i += 1
-    return i
-
-def main(argv):
+def main(arguments):
     #We want to be able to call on these variables anywhere in the script.
     global single_thread
     global usebackup
     global time_start
     global config_file_path
-    global database_name
-    global host_name
-    global dxtools_objects
+    global dx_session_obj
+    global debug
+
+    if arguments['--debug']:
+        debug = True
 
     try:
+        dx_session_obj = GetSession()
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
@@ -514,17 +361,15 @@ def main(argv):
         single_thread = False
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
-        dxtools_objects = get_config(config_file_path)
-
-        database_name = arguments['--vdb']
+        dx_session_obj.get_config(config_file_path)
 
         #This is the function that will handle processing main_workflow for
         # all the servers.
-        run_job(engine)
+        run_job()
 
-        elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        #elapsed_minutes = time_elapsed()
+        print_info('script took {:.2f} minutes to get this far.'.format(
+            time_elapsed()))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -532,38 +377,43 @@ def main(argv):
         This is what we use to handle our sys.exit(#)
         """
         sys.exit(e)
+
     except HttpError as e:
         """
         We use this exception handler when our connection to Delphix fails
         """
-        print_error("Connection failed to the Delphix Engine")
-        print_error( "Please check the ERROR message below")
-        print_error(e.message)
-        sys.exit(2)
+        print_exception('Connection failed to the Delphix Engine'
+                        'Please check the ERROR message:\n{}\n').format(e)
+        sys.exit(1)
+
     except JobError as e:
         """
-        We use this exception handler when a job fails in Delphix so that we have actionable data
+        We use this exception handler when a job fails in Delphix so that
+        we have actionable data
         """
-        print_error("A job failed in the Delphix Engine")
-        print_error(e.job)
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_exception('A job failed in the Delphix Engine')
+        print_info('{} took {:.2f} minutes to get this far:\n{}\n'.format(
+                   basename(__file__), elapsed_minutes, e))
         sys.exit(3)
+
     except KeyboardInterrupt:
         """
         We use this exception handler to gracefully handle ctrl+c exits
         """
         print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_info('{} took {:.2f} minutes to get this far\n'.format(
+                   basename(__file__), elapsed_minutes))
+
     except:
         """
         Everything else gets caught here
         """
-        print_error(sys.exc_info()[0])
-        print_error(traceback.format_exc())
+        print_exception(sys.exc_info()[0])
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + " minutes to get this far.")
+        print_info('{} took {:.2f} minutes to get this far\n'.format(
+                   basename(__file__), elapsed_minutes))
         sys.exit(1)
 
 if __name__ == "__main__":
