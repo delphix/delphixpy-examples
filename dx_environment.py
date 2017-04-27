@@ -11,33 +11,34 @@
 
 Usage:
   dx_environment.py (--type <name> --env_name <name> --host_user <username> \
---ip <address> --toolkit <path_to_the_toolkit> [--ase --ase_user <name> --ase_pw <name>] \
+--ip <address> [--toolkit <path_to_the_toolkit>] [--ase --ase_user <name> --ase_pw <name>] \
 |--update_ase_pw <name> --env_name <name> | --update_ase_user <name> --env_name <name> \
 | --delete <env_name> | --refresh <env_name)
-[--logdir <directory>][--debug] [--config <filename>]
+[--logdir <directory>][--debug] [--config <filename>] [--connector_name <name>]
 [--pw <password>][--engine <identifier>][--all] [--poll <n>]
    
   dx_environment.py -h | --help | -v | --version
 
-Create a Delphix environment.
+Create a Delphix environment. (current support for standalone environments only)
 
 Examples:
   dx_environment.py --engine landsharkengine --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
   dx_environment.py --type linux --env_name test1 --update_ase_pw newPasswd
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase --ase_user sa --ase_pw delphixpw
-
+  dx_environment.py --type windows --env_name SOURCE --host_user delphix.local\\administrator --ip 10.0.1.50 --toolkit foo --config dxtools.conf --pw 'myTempPassword123!' --debug --connector_name 10.0.1.60
 
 Options:
   --type <name>             The OS type for the environment
   --env_name <name>         The name of the Delphix environment
   --ip <addr>               The IP address of the Delphix environment
-  --toolkit <path>          Path of the toolkit.
+  --toolkit <path>          Path of the toolkit. Required for Unix/Linux
   --host_user <username>    The username on the Delphix environment
   --delete <environment>    The name of the Delphix environment to delete
-  --update_ase_pw <name> The new ASE DB password
+  --update_ase_pw <name>    The new ASE DB password
   --refresh <environment>   The name of the Delphix environment to refresh
   --pw <password>           Password of the user
+  --connector_name <environment>   The name of the Delphix connector to use. Required for Windows source environments
   --update_ase_user <name>  Update the ASE DB username
   --ase                     Flag to enable ASE environments
   --ase_user <name>         The ASE DB username
@@ -58,7 +59,7 @@ Options:
 
 """
 
-VERSION="v.0.3.401"
+VERSION="v.0.3.402"
 
 from docopt import docopt
 from os.path import basename
@@ -75,6 +76,7 @@ from delphixpy.web import job
 from delphixpy.web.vo import UnixHostEnvironment
 from delphixpy.web.vo import ASEHostEnvironmentParameters
 from delphixpy.web.vo import HostEnvironmentCreateParameters
+from delphixpy.web.vo import WindowsHostEnvironment
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
@@ -234,6 +236,60 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
         print('\nERROR: Encountered an exception while creating the '
               'environment:\n%s' %(e))
 
+def create_windows_env(engine, env_name, host_user, ip_addr,
+                     pw=None, connector_name=None):
+
+    """
+    Create a Windows environment.
+
+    env_name: The name of the environment
+    host_user: The server account used to authenticate 
+    ip_addr: DNS name or IP address of the environment
+    toolkit_path: Path to the toolkit. Note: This directory must be 
+                  writable by the host_user
+    pw: Password of the user. Default: None (use SSH keys instead)
+    """
+
+    env_params_obj = HostEnvironmentCreateParameters()
+
+    print_debug('Creating the environment with a password')
+    env_params_obj.primary_user = {'type': 'EnvironmentUser',
+                                      'name': host_user,
+                                      'credential': {
+                                      'type': 'PasswordCredential',
+                                      'password': pw }}
+
+    env_params_obj.host_parameters = {'type': 'WindowsHostCreateParameters',
+                                     'host': { 'address': ip_addr,
+                                     'type': 'WindowsHost',
+                                     'name': env_name}}
+
+    env_params_obj.host_environment = WindowsHostEnvironment()
+    env_params_obj.host_environment.name = env_name
+
+    if connector_name:
+      env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
+                                   connector_name)
+
+      if env_obj:
+        env_params_obj.host_parameters = {'type': 'WindowsHostCreateParameters',
+                                     'host': { 'address': ip_addr,
+                                     'type': 'WindowsHost',
+                                     'name': env_name,
+                                     'proxy': env_obj.host}}
+      elif env_obj is None:
+        print('Host was not found in the Engine: %s' % (arguments[--connector_name]))
+        sys.exit(1)
+
+    try:
+        environment.create(dx_session_obj.server_session,
+                           env_params_obj)
+        dx_session_obj.jobs[engine['hostname']] = \
+                                   dx_session_obj.server_session.last_job
+
+    except (DlpxException, RequestError, HttpError) as e:
+        print('\nERROR: Encountered an exception while creating the '
+              'environment:\n%s' %(e))
 
 def run_async(func):
     """
@@ -302,14 +358,19 @@ def main_workflow(engine):
             while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
                 if len(thingstodo)> 0:
 
-                    if arguments['--type'] == 'linux':
-                         env_name = arguments['--env_name']
-                         host_user = arguments['--host_user']
-                         pw = arguments['--pw']
-                         ip_addr = arguments['--ip']
-                         toolkit_path = arguments['--toolkit']
-                         create_linux_env(engine, env_name, host_user,
-                                          ip_addr, toolkit_path, pw)
+                    if arguments['--type'] == 'linux' or arguments['--type'] == 'windows':
+                        env_name = arguments['--env_name']
+                        host_user = arguments['--host_user']
+                        pw = arguments['--pw']
+                        ip_addr = arguments['--ip']
+                        host_name = arguments['--connector_name']
+                        if arguments['--type'] == 'linux':
+                          toolkit_path = arguments['--toolkit']
+                          create_linux_env(engine, env_name, host_user,
+                                        ip_addr, toolkit_path, pw)
+                        else:
+                          create_windows_env(engine, env_name, host_user,
+                                        ip_addr, pw, host_name)
 
                     elif arguments['--delete']:
                         delete_env(engine, arguments['--delete'])
