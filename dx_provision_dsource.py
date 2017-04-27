@@ -60,7 +60,7 @@ Options:
   --src_config <name>       Name of the configuration environment
   --ase_passwd <name>       ASE DB password
   --ase_user <name>         ASE username
-  --backup_path <path>      Path to the ASE/MSSQL backups
+  --backup_path <path>      Path to the ASE/MSSQL backups. Set to 'auto' for MSSQL autodiscovery
   --source_user <name>      Environment username
   --stage_user <name>       Stage username
   --stage_repo <name>       Stage repository
@@ -84,7 +84,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.008'
+VERSION = 'v.0.2.009'
 
 import sys
 from os.path import basename
@@ -231,8 +231,8 @@ def link_mssql_dsource():
         print_exception('Could not link {}: {}\n'.format(
             arguments['--dsource_name'], e))
         sys.exit(1)
-
-    link_params.link_data.shared_backup_location = arguments['--backup_path']
+    if arguments['--backup_path'] != "auto":
+      link_params.link_data.shared_backup_location = arguments['--backup_path']
 
     if arguments['--backup_loc_passwd']:
         link_params.link_data.backup_location_credentials = {'type':
