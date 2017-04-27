@@ -59,7 +59,7 @@ Options:
 
 """
 
-VERSION="v.0.3.402"
+VERSION="v.0.3.404"
 
 from docopt import docopt
 from os.path import basename
