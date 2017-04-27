@@ -4,16 +4,18 @@
 #requirements
 #pip install docopt delphixpy
 
-#The below doc follows the POSIX compliant standards and allows us to use 
+#The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
 
 """Create Host Environment
 
 Usage:
-  dx_environment.py (--type <name> --env_name <name> --host_user <username> --ip <address> --toolkit <path_to_the_toolkit> | --delete <env_name> | --refresh <env_name)
-                    [--logdir <directory>][--debug] [--config <filename>]
-                    [--pw <password>][--engine <identifier>][--all]
-                    [--poll <n>]
+  dx_environment.py (--type <name> --env_name <name> --host_user <username> \
+--ip <address> --toolkit <path_to_the_toolkit> [--ase --ase_user <name> --ase_pw <name>] \
+|--update_ase_pw <name> --env_name <name> | --update_ase_user <name> --env_name <name> \
+| --delete <env_name> | --refresh <env_name)
+[--logdir <directory>][--debug] [--config <filename>]
+[--pw <password>][--engine <identifier>][--all] [--poll <n>]
    
   dx_environment.py -h | --help | -v | --version
 
@@ -21,8 +23,9 @@ Create a Delphix environment.
 
 Examples:
   dx_environment.py --engine landsharkengine --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
-
+  dx_environment.py --type linux --env_name test1 --update_ase_pw newPasswd
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
+  dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase --ase_user sa --ase_pw delphixpw
 
 
 Options:
@@ -32,8 +35,13 @@ Options:
   --toolkit <path>          Path of the toolkit.
   --host_user <username>    The username on the Delphix environment
   --delete <environment>    The name of the Delphix environment to delete
+  --update_ase_pw <name> The new ASE DB password
   --refresh <environment>   The name of the Delphix environment to refresh
   --pw <password>           Password of the user
+  --update_ase_user <name>  Update the ASE DB username
+  --ase                     Flag to enable ASE environments
+  --ase_user <name>         The ASE DB username
+  --ase_pw <name>           Password of the ASE DB user
   --all                     Run against all engines.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -50,39 +58,31 @@ Options:
 
 """
 
-VERSION="v.0.3.400"
+VERSION="v.0.3.401"
 
 from docopt import docopt
-import logging
 from os.path import basename
-import signal
 import sys
 import time
 import traceback
-import json
-
-from multiprocessing import Process
 from time import sleep, time
 
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
-from delphixpy.web import database
 from delphixpy.web import environment
-from delphixpy.web import host
 from delphixpy.web import job
-from delphixpy.web import repository
-from delphixpy.web import source
-from delphixpy.web import user
+from delphixpy.web.vo import UnixHostEnvironment
+from delphixpy.web.vo import ASEHostEnvironmentParameters
 from delphixpy.web.vo import HostEnvironmentCreateParameters
 
-from lib.DxTimeflow import DxTimeflow
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
 from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_exception
 
 
 def delete_env(engine, env_name):
@@ -123,9 +123,51 @@ def refresh_env(engine, env_name):
                                    dx_session_obj.server_session.last_job
 
     except (DlpxException, RequestError) as e:
-        print('\nERROR: Refreshing the environment %s '
-              'encountered an error:\n%s' % (env_name, e))
+        print_exception('\nERROR: Refreshing the environment {} '
+                        'encountered an error:\n{}'.format(env_name, e))
         sys.exit(1)
+
+
+def update_ase_username():
+    """
+    Update the ASE database user password
+    """
+
+    env_obj = UnixHostEnvironment()
+    env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
+    env_obj.ase_host_environment_parameters.db_user = \
+        arguments['--update_ase_user']
+
+    try:
+        environment.update(dx_session_obj.server_session, find_obj_by_name(
+            dx_session_obj.server_session, environment, arguments['--env_name'],
+            env_obj).reference, env_obj)
+
+    except (HttpError, RequestError) as e:
+        print_exception('\nERROR: Updating the ASE DB password '
+                        'failed:\n{}\n'.format(e))
+
+
+def update_ase_pw():
+    """
+    Update the ASE database user password
+    """
+
+    env_obj = UnixHostEnvironment()
+    env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
+    env_obj.ase_host_environment_parameters.credentials = {'type':
+                                            'PasswordCredential',
+                                                'password':
+                                                arguments['--update_ase_pw']}
+
+    try:
+        environment.update(dx_session_obj.server_session, find_obj_by_name(
+            dx_session_obj.server_session, environment, arguments['--env_name'],
+            env_obj).reference, env_obj)
+
+    except (HttpError, RequestError) as e:
+        print_exception('\nERROR: Updating the ASE DB password '
+                        'failed:\n{}\n'.format(e))
 
 
 def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
@@ -142,35 +184,49 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
     pw: Password of the user. Default: None (use SSH keys instead)
     """
 
-    hostEnvParams_obj = HostEnvironmentCreateParameters()
-    hostEnvParams_obj.type = 'HostEnvironmentCreateParameters'
-    hostEnvParams_obj.host_environment = {'type': 'UnixHostEnvironment',
-                                          'name': env_name }
+    env_params_obj = HostEnvironmentCreateParameters()
 
     if pw is None:
         print_debug('Creating the environment with SSH Keys')
-        hostEnvParams_obj.primary_user = {'type': 'EnvironmentUser',
+        env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
                                           'credential': {
                                           'type': 'SystemKeyCredential'}}
 
     else:
         print_debug('Creating the environment with a password')
-        hostEnvParams_obj.primary_user = {'type': 'EnvironmentUser',
+        env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
-                                          'credential': { 
+                                          'credential': {
                                           'type': 'PasswordCredential',
                                           'password': pw }}
-                                             
-    hostEnvParams_obj.host_parameters = {'type': 'UnixHostCreateParameters',
+
+        env_params_obj.host_parameters = {'type': 'UnixHostCreateParameters',
                                          'host': { 'address': ip_addr,
                                          'type': 'UnixHost',
                                          'name': env_name,
                                          'toolkitPath': toolkit_path}}
 
+        env_params_obj.host_environment = UnixHostEnvironment()
+        env_params_obj.host_environment.name = env_name
+
+    if arguments['--ase']:
+        env_params_obj.host_environment.ase_host_environment_parameters = \
+            ASEHostEnvironmentParameters()
+
+        try:
+            env_params_obj.host_environment.ase_host_environment_parameters.db_user = \
+                arguments['--ase_user']
+            env_params_obj.host_environment.ase_host_environment_parameters.credentials = {
+                                            'type': 'PasswordCredential',
+                                            'password': arguments['--ase_pw']}
+        except KeyError:
+            print_exception('The --ase_user and --ase_pw arguments are'
+                            ' required with the --ase flag.\n')
+
     try:
         environment.create(dx_session_obj.server_session,
-                           hostEnvParams_obj)
+                           env_params_obj)
         dx_session_obj.jobs[engine['hostname']] = \
                                    dx_session_obj.server_session.last_job
 
@@ -234,14 +290,12 @@ def main_workflow(engine):
                                  engine['password'])
 
     except DlpxException as e:
-        print('\nERROR: Engine %s encountered an error while provisioning '
-              '%s:\n%s\n' % (dx_session_obj.engine['hostname'],
-              arguments['--target'], e))
+        print_exception('\nERROR: Engine {} encountered an error while '
+                        'provisioning {}:\n{}\n'.format(engine['hostname'],
+                        arguments['--target'], e))
         sys.exit(1)
 
-    thingstodo = ["thingtodo"]
-    #reset the running job count before we begin
-    i = 0
+    thingstodo = ['thingtodo']
 
     try:
         with dx_session_obj.job_mode(single_thread):
@@ -249,9 +303,6 @@ def main_workflow(engine):
                 if len(thingstodo)> 0:
 
                     if arguments['--type'] == 'linux':
-                         pw = arguments['--pw']
-                         ip_addr = arguments['--ip']
-                         toolkit_path = arguments['--toolkit']
                          env_name = arguments['--env_name']
                          host_user = arguments['--host_user']
                          pw = arguments['--pw']
@@ -266,6 +317,12 @@ def main_workflow(engine):
                     elif arguments['--refresh']:
                         refresh_env(engine, arguments['--refresh'])
 
+                    elif arguments['--update_ase_pw']:
+                        update_ase_pw()
+
+                    elif arguments['--update_ase_user']:
+                        update_ase_username()
+
                     thingstodo.pop()
 
                 #get all the jobs, then inspect them
@@ -278,11 +335,11 @@ def main_workflow(engine):
                                (engine['hostname'], job_obj.job_state))
 
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the 
+                    #If the job is in a non-running state, remove it from the
                     # running jobs list.
                         del dx_session_obj.jobs[j]
                     else:
-                        #If the job is in a running state, increment the 
+                        #If the job is in a running state, increment the
                         # running job count.
                         i += 1
                 print_info('%s: %s jobs running.\n' %
@@ -293,8 +350,8 @@ def main_workflow(engine):
                     sleep(float(arguments['--poll']))
 
     except (DlpxException, JobError) as e:
-        print('\nError while creating the environment %s:\n%s' %
-              (arguments['--env_name'], e.message))
+        print_exception('\nError while creating the environment {}:'
+                        '\n{}'.format(arguments['--env_name'], e.message))
         sys.exit(1)
 
 
@@ -303,12 +360,14 @@ def run_job():
     This function runs the main_workflow aynchronously against all the 
     servers specified
     """
+    engine = None
+
     #Create an empty list to store threads we create.
     threads = []
 
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
-        print_info("Executing against all Delphix Engines in the dxtools.conf")
+        print_info('Executing against all Delphix Engines in the dxtools.conf')
 
         try:
             #For each server in the dxtools.conf...
@@ -318,11 +377,11 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n%s' % (e)
+            print_exception('Error encountered in run_job():\n{}'.format(e))
             sys.exit(1)
 
     elif arguments['--all'] is False:
-        #Else if the --engine argument was given, test to see if the engine 
+        #Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
         if arguments['--engine']:
             try:
@@ -330,33 +389,36 @@ def run_job():
                 print_info('Executing against Delphix Engine: %s\n' %
                            (arguments['--engine']))
 
-            except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
-                                    'and try again. Exiting.\n' % (
-                                    arguments['--engine'], config_file_path))
+            except (DlpxException, KeyError) as e:
+                print_exception('\nERROR: Delphix Engine {} cannot be '
+                                    'found in {}. Please check your value '
+                                    'and try again. Exiting.\n{}\n'.format(
+                    arguments['--engine'], config_file_path, e))
 
         else:
             #Else search for a default engine in the dxtools.conf
+            #import pdb;pdb.set_trace()
             for delphix_engine in dx_session_obj.dlpx_engines:
                 if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
-                    'true':
+                        'true':
 
                     engine = dx_session_obj.dlpx_engines[delphix_engine]
                     print_info('Executing against the default Delphix Engine '
-                       'in the dxtools.conf: %s' % (
-                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+                               'in the dxtools.conf: {}'.format(
+                           dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
 
                 break
 
-            if engine == None:
-                raise DlpxException("\nERROR: No default engine found. Exiting")
+            if engine is None:
+                print_exception('\nERROR: No default engine found. Exiting')
+                sys.exit(1)
 
         #run the job against the engine
         threads.append(main_workflow(engine))
 
     #For each thread in the list...
     for each in threads:
-        #join them back together so that we wait for all threads to complete 
+        #join them back together so that we wait for all threads to complete
         # before moving on
         each.join()
 
@@ -394,7 +456,7 @@ def main(argv):
         dx_session_obj.get_config(config_file_path)
 
 
-        #This is the function that will handle processing main_workflow for 
+        #This is the function that will handle processing main_workflow for
         # all the servers.
         run_job()
 
@@ -433,7 +495,7 @@ def main(argv):
         """
         print('A job failed in the Delphix Engine:\n%s' % (e.job))
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + 
+        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
                    " minutes to get this far.")
         sys.exit(3)
 
@@ -443,7 +505,7 @@ def main(argv):
         """
         print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + 
+        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
                    " minutes to get this far.")
 
     except:
