@@ -4,7 +4,11 @@ Package DxLogging
 
 import logging
 
+<<<<<<< HEAD
 VERSION = 'v.0.1.004'
+=======
+VERSION = 'v.0.0.002'
+>>>>>>> CloudSurgeon/master
 
 def logging_est(logfile_path, debug=False):
     """
@@ -48,6 +52,12 @@ def print_info(print_obj):
     print 'INFO: {}'.format(str(print_obj))
     logging.info(str(print_obj))
 
+def print_warning(print_obj):
+    """
+    Call this function with a log message to prefix the message with INFO
+    """
+    print 'INFO: %s' % (str(print_obj))
+    logging.warn(str(print_obj))
 
 def print_exception(print_obj):
     """

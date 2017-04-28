@@ -73,6 +73,7 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
+<<<<<<< HEAD
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
@@ -91,6 +92,27 @@ from delphixpy.web.vo import RefreshParameters
 from delphixpy.web.vo import TimeflowPointLocation
 from delphixpy.web.vo import TimeflowPointSemantic
 from delphixpy.web.vo import TimeflowPointTimestamp
+=======
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
+from delphixpy.v1_6_0.exceptions import RequestError
+from delphixpy.v1_6_0 import job_context
+
+from delphixpy.v1_6_0.web import database
+from delphixpy.v1_6_0.web import environment
+from delphixpy.v1_6_0.web import group
+from delphixpy.v1_6_0.web import job
+from delphixpy.v1_6_0.web import source
+from delphixpy.v1_6_0.web import user
+from delphixpy.v1_6_0.web import timeflow
+from delphixpy.v1_6_0.web.snapshot import snapshot
+from delphixpy.v1_6_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_6_0.web.vo import RefreshParameters
+from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
+>>>>>>> CloudSurgeon/master
 
 class DlpxException(Exception):
     """
@@ -100,7 +122,6 @@ class DlpxException(Exception):
 
     def __init__(self, message):
         Exception.__init__(self, message)
-
 
 def run_async(func):
     """
@@ -206,6 +227,7 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
             matches.append(snapshot_obj)
 
     if len(matches) == 1:
+
         print_debug(engine["hostname"] + 
                     ": Found one and only one match. This is good.")
         print_debug(engine["hostname"] + ": " + matches[0])
@@ -245,6 +267,7 @@ def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
         print_debug(engine['hostname'] + 
                     ': Found one and only one match. This is good.')
         print_debug(engine['hostname'] + ': ' + snap_match)
+
 
         return matches[0]
 

@@ -1,0 +1,182 @@
+#!/usr/bin/expect -f
+#Adam Bowen - 2015
+#engine_network_assignment
+#Many thanks for the examples given at https://www.pantz.org/software/expect/expect_examples_and_tips.html
+#####################################################################
+set version 2.3.005
+set DESCRIPTION "This script sets the static IP address and dns information for the Delphix Engine"
+set timeout 20
+set BOLD "\033\[01m"
+set NORM "\033\[0m"
+set enginename [lindex $argv 0]
+set engineip [lindex $argv 1]
+set username [lindex $argv 2]
+set password [lindex $argv 3]
+set network [lindex $argv 4]
+set gateway [lindex $argv 5]
+set dnsserver [lindex $argv 6]
+set reboot [lindex $argv 7]
+set change false
+
+#log_user 0
+
+if {[llength $argv] < 7} {
+  send_user "Usage: $argv0 enginename engineip username \'password\' network_cidr gateway dnsserver reboot(Y or N)\n"
+  exit 1
+}
+
+send_user "\n#####\n#${BOLD}Welcome to $argv0, v.$version${NORM}"
+send_user "\n#$DESCRIPTION"
+send_user "\n#This script will update the network settings to the following:"
+send_user "\n#dhcp=false"
+send_user "\n#ip address = $engineip/$network"
+send_user "\n#default gateway = $gateway"
+send_user "\n#dnsserver = $dnsserver"
+send_user "\n#####\n"
+
+send_user "\nConnecting to $engineip\n"
+#spawn ssh -q -o ConnectTimeout=30 -o "StrictHostKeyChecking no" $username@$engineip
+spawn ssh -o "StrictHostKeyChecking no" $username@$engineip
+
+expect {
+	timeout { send_user "\nFailed to get password prompt\n"; exit 1 }
+	eof { send_user "\nSSH failure for $engineip\n"; exit 1 }
+	"Password: " {
+		send "$password\r"
+		expect {
+		  timeout { send_user "\nLogin failed. Password incorrect.\ngot '$expect_out(buffer)'\n"; exit 1}
+		  "*network setup update*" {}
+		  "*>*" {
+			send "/network/setup/update\r"
+			expect {
+        		default { send_user "\nFailed to get the network update prompt. Ensure you are logged in as a user with sysadmin privileges\n"; exit 1}
+        		"*network setup update *> "
+			}
+		  }
+		}
+	}
+	"${enginename}> "
+}
+
+send_user "\nSuccessfully logged into the Delphix Engine\n"
+#send "/version 1.6.1\r"
+#send "/network/setup/update\r"
+
+
+
+send_user "\nUpdating network settings...\n"
+
+send "/network/setup/ls\r"
+
+expect -re {Properties.*defaultRoute: (.*)\r\n.*dhcp: (.*)\r\n.*dnsDomain: (.*)\r\n.*dnsServers: (.*)\r\n.*hostname: (.*)\r\n.*primaryAddress: ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{2}).*\r\n.*} {
+	set defaultRoute $expect_out(1,string)
+	set dhcp $expect_out(2,string)
+	set dnsDomain $expect_out(3,string)
+	set dnsServers $expect_out(4,string)
+	set hostname $expect_out(5,string)
+	set primaryAddress $expect_out(6,string)
+}
+
+puts "\n"
+puts "defaultRoute: $defaultRoute"
+puts "dhcp: $dhcp"
+puts "dnsDomain: $dnsDomain"
+puts "dnsServers: $dnsServers"
+puts "hostname: $hostname"
+puts "primaryAddress: $primaryAddress"
+
+if {$dhcp=="true"} {
+	send_user "\nTurning off dhcp\n"
+	send "set dhcp=false\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\ndhcp already off"
+}
+
+if {$hostname!=$enginename} {
+	send_user "\nSetting hostname\n"
+	send "set hostname=$enginename\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\nhostname already set to correct value"
+}
+
+if {$defaultRoute!=$gateway} {
+	send_user "\nSetting defaultRoute\n"
+	send "set defaultRoute=$gateway\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\ndefaultRoute already set to correct value"
+}
+
+if {$dnsDomain!="delphix.local"} {
+	send_user "\nSetting dnsDomain\n"
+	send "set dnsDomain=delphix.local\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\ndnsDomain already set to correct value"
+}
+
+if {$dnsServers!=$dnsserver} {
+	send_user "\nSetting dnsServers\n"
+	send "set dnsServers=$dnsserver\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\ndnsServers already set to correct value"
+}
+
+if {"$primaryAddress"!="$engineip/$network"} {
+	#puts ""
+	#puts "HERE_ $primaryAddress _HERE"
+	#puts "HERE_ $engineip/$network _HERE"
+	#exit 1
+	send_user "\nSetting primaryAddress\n"
+	send "set primaryAddress=$engineip/$network\r"
+	expect "$hostname network setup update *> "
+	set change true
+} else {
+	send_user "\nprimaryAddress already set to correct value"
+}
+
+if {$change==true} {
+	send_user "\nCommitting changes\n"
+	send "commit\r"	
+} else {
+	send_user "\nNothing to change\n"
+	send "discard\r"
+}
+
+
+expect "${enginename}> "
+
+send "/network/setup/ls\r"
+
+expect -re "(Properties)(.*defaultRoute.*)(Operations.*)"
+
+set output $expect_out(2,string)
+
+puts "$BOLD New Engine Network Settings\n$output $NORM \n"
+
+if {$reboot=="Y"} {
+
+	send_user "\nRebooting Engine...\n"
+
+	send "/system/reboot\r"
+
+	expect "$enginename system reboot *>"
+
+	send "commit\r"
+
+expect "Rebooting system. The current session will be terminated."
+
+} else {
+
+	send "exit\r"
+}
+
+send_user "$argv0 is finished\n\n"
