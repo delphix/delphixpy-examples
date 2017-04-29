@@ -253,6 +253,7 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
     env_params_obj = HostEnvironmentCreateParameters()
 
     print_debug('Creating the environment with a password')
+    print_info(str(connector_name))
     env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                       'name': host_user,
                                       'credential': {
@@ -262,7 +263,8 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
     env_params_obj.host_parameters = {'type': 'WindowsHostCreateParameters',
                                      'host': { 'address': ip_addr,
                                      'type': 'WindowsHost',
-                                     'name': env_name}}
+                                     'name': env_name,
+                                     'connectorPort': 9100}}
 
     env_params_obj.host_environment = WindowsHostEnvironment()
     env_params_obj.host_environment.name = env_name
@@ -270,18 +272,17 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
     if connector_name:
       env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
                                    connector_name)
+      print_info('connector_name')
 
       if env_obj:
-        env_params_obj.host_parameters = {'type': 'WindowsHostCreateParameters',
-                                     'host': { 'address': ip_addr,
-                                     'type': 'WindowsHost',
-                                     'name': env_name,
-                                     'proxy': env_obj.host}}
+        print_info('env_obj')
+        env_params_obj.host_environment.proxy = env_obj.host
       elif env_obj is None:
         print('Host was not found in the Engine: %s' % (arguments[--connector_name]))
         sys.exit(1)
 
     try:
+        print_info(str(env_params_obj))
         environment.create(dx_session_obj.server_session,
                            env_params_obj)
         dx_session_obj.jobs[engine['hostname']] = \
@@ -370,7 +371,7 @@ def main_workflow(engine):
                                         ip_addr, toolkit_path, pw)
                         else:
                           create_windows_env(engine, env_name, host_user,
-                                        ip_addr, pw, host_name)
+                                        ip_addr, pw, host_name,)
 
                     elif arguments['--delete']:
                         delete_env(engine, arguments['--delete'])
