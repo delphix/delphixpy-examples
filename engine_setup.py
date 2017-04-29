@@ -4,7 +4,7 @@ Adam Bowen - Jan 2016
 This script configures the sysadmin user and configures domain0
 Will come back and properly throw this with logging, etc
 '''
-VERSION="v.2.3.004"
+VERSION="v.2.3.005"
 CONTENTDIR="/u02/app/content"
 
 import getopt
@@ -154,6 +154,25 @@ def main(argv):
             system_init_params.devices = [ device.reference for device in device_list if not device.configured ]
             print_info("Creating storage domain")
             domain.set(sys_server, system_init_params)
+            while True:
+                try:
+                    sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
+                    domain.get(sys_server)
+                except:    
+                    break
+                print_info("Waiting for Delphix Engine to go down")
+                time.sleep(3)
+
+        while True:
+            try:
+                sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
+                domain.get(sys_server)
+                break
+            except:    
+                pass
+            print_info("Waiting for Delphix Engine to be ready")
+            time.sleep(3)
+
     except SystemExit as e:
         sys.exit(e)
     except HttpError as e:
