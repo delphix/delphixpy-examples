@@ -189,28 +189,28 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
     env_params_obj = HostEnvironmentCreateParameters()
 
     if pw is None:
-        print_debug('Creating the environment with SSH Keys')
+        print_debug('Creating the environment with SSH Keys',debug)
         env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
                                           'credential': {
                                           'type': 'SystemKeyCredential'}}
 
     else:
-        print_debug('Creating the environment with a password')
+        print_debug('Creating the environment with a password',debug)
         env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
                                           'credential': {
                                           'type': 'PasswordCredential',
                                           'password': pw }}
 
-        env_params_obj.host_parameters = {'type': 'UnixHostCreateParameters',
-                                         'host': { 'address': ip_addr,
-                                         'type': 'UnixHost',
-                                         'name': env_name,
-                                         'toolkitPath': toolkit_path}}
+    env_params_obj.host_parameters = {'type': 'UnixHostCreateParameters',
+                                     'host': { 'address': ip_addr,
+                                     'type': 'UnixHost',
+                                     'name': env_name,
+                                     'toolkitPath': toolkit_path}}
 
-        env_params_obj.host_environment = UnixHostEnvironment()
-        env_params_obj.host_environment.name = env_name
+    env_params_obj.host_environment = UnixHostEnvironment()
+    env_params_obj.host_environment.name = env_name
 
     if arguments['--ase']:
         env_params_obj.host_environment.ase_host_environment_parameters = \
@@ -252,7 +252,7 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
 
     env_params_obj = HostEnvironmentCreateParameters()
 
-    print_debug('Creating the environment with a password')
+    print_debug('Creating the environment with a password',debug)
 
     env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                       'name': host_user,
@@ -389,7 +389,7 @@ def main_workflow(engine):
                 for j in dx_session_obj.jobs.keys():
                     job_obj = job.get(dx_session_obj.server_session,
                                       dx_session_obj.jobs[j])
-                    print_debug(job_obj)
+                    print_debug(job_obj,debug)
                     print_info('%s Environment: %s' %
                                (engine['hostname'], job_obj.job_state))
 
@@ -562,7 +562,7 @@ def main(argv):
         """
         We use this exception handler to gracefully handle ctrl+c exits
         """
-        print_debug("You sent a CTRL+C to interrupt the process")
+        print_debug("You sent a CTRL+C to interrupt the process",debug)
         elapsed_minutes = time_elapsed()
         print_info(basename(__file__) + " took " + str(elapsed_minutes) +
                    " minutes to get this far.")
