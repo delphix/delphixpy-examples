@@ -6,3 +6,7 @@
 *.swp
 
 *.pyc
+
+*.key
+
+*.pub
