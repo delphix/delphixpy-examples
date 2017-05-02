@@ -12,11 +12,17 @@
 Usage:
   dx_provision_dsource.py (--type <name>)
   dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> --dx_group <name> --db_passwd <name> --db_user <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
-      [--engine <identifier> | --all]
-      [--debug] [--parallel <n>] [--poll <n>]
-      [--config <path_to_file>] [--logdir <path_to_file>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync] 
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
 Create and sync a dSource
@@ -526,7 +532,6 @@ def main(argv):
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
-
         #This is the function that will handle processing main_workflow for
         # all the servers.
         run_job()
