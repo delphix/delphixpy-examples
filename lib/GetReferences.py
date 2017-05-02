@@ -18,7 +18,7 @@ from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0012'
+VERSION = 'v.0.2.0013'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -245,4 +245,4 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
                 return obj
         else:
             raise DlpxException('No sourceconfig match found for type {}.\n'.format(
-                install_type))
+                sourceconfig_name))
