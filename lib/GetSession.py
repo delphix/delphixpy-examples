@@ -22,9 +22,10 @@ from delphixpy.web import system
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 
 
-VERSION = 'v.0.2.07'
+VERSION = 'v.0.2.08'
 
 
 class GetSession(object):
@@ -164,5 +165,5 @@ class GetSession(object):
                 break
             except:    
                 pass
-            print_debug("Waiting for Delphix Engine to be ready", debug)
+            print_info("Waiting for Delphix Engine to be ready")
             sleep(3)
