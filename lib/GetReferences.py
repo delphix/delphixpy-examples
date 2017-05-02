@@ -12,12 +12,13 @@ from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.web import repository
 from delphixpy.web import database
+from delphixpy.web import sourceconfig
 
 from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0011'
+VERSION = 'v.0.2.0013'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -220,3 +221,28 @@ def find_dbrepo(engine, install_type, f_environment_ref, f_install_path):
         else:
             raise DlpxException('No Repo match found for type {}.\n'.format(
                 install_type))
+
+def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
+    """
+    Function to find database sourceconfig objects by environment reference and
+    sourceconfig name (db name), and return the object's reference as a string
+    You might use this function to find Oracle and PostGreSQL database sourceconfigs.
+
+    engine: Virtualization Engine Session object
+    sourceconfig_name: Name of source config, usually name of db instnace (ie. orcl)
+    f_environment_ref: Reference of the environment for the repository
+
+    return: delphixpy.web.vo.SourceConfig object
+    """
+
+    print_debug('Searching objects in the SourceConfig class for one with the '
+                'environment reference of %s and a name of %s' %
+                (f_environment_ref, sourceconfig_name))
+    all_objs = sourceconfig.get_all(engine, environment=f_environment_ref)
+    for obj in all_objs:
+        if obj.name == sourceconfig_name:
+                print_debug('Found a match %s'.format(obj.reference))
+                return obj
+        else:
+            raise DlpxException('No sourceconfig match found for type {}.\n'.format(
+                sourceconfig_name))

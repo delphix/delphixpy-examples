@@ -73,7 +73,6 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-<<<<<<< HEAD
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
@@ -92,27 +91,7 @@ from delphixpy.web.vo import RefreshParameters
 from delphixpy.web.vo import TimeflowPointLocation
 from delphixpy.web.vo import TimeflowPointSemantic
 from delphixpy.web.vo import TimeflowPointTimestamp
-=======
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError
-from delphixpy.v1_6_0.exceptions import JobError
-from delphixpy.v1_6_0.exceptions import RequestError
-from delphixpy.v1_6_0 import job_context
 
-from delphixpy.v1_6_0.web import database
-from delphixpy.v1_6_0.web import environment
-from delphixpy.v1_6_0.web import group
-from delphixpy.v1_6_0.web import job
-from delphixpy.v1_6_0.web import source
-from delphixpy.v1_6_0.web import user
-from delphixpy.v1_6_0.web import timeflow
-from delphixpy.v1_6_0.web.snapshot import snapshot
-from delphixpy.v1_6_0.web.vo import OracleRefreshParameters
-from delphixpy.v1_6_0.web.vo import RefreshParameters
-from delphixpy.v1_6_0.web.vo import TimeflowPointLocation
-from delphixpy.v1_6_0.web.vo import TimeflowPointSemantic
-from delphixpy.v1_6_0.web.vo import TimeflowPointTimestamp
->>>>>>> CloudSurgeon/master
 
 class DlpxException(Exception):
     """

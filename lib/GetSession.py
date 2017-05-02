@@ -10,6 +10,7 @@
 
 import json
 import ssl
+from time import sleep
 
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.exceptions import RequestError
@@ -17,12 +18,14 @@ from delphixpy.exceptions import JobError
 from delphixpy.exceptions import HttpError
 from delphixpy import job_context
 from delphixpy.web import job
+from delphixpy.web import system
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 
 
-VERSION = 'v.0.2.06'
+VERSION = 'v.0.2.08'
 
 
 class GetSession(object):
@@ -148,3 +151,19 @@ class GetSession(object):
 
                 #If so, wait
                 job_context.wait(self.server_session, jobobj.reference)
+
+    def server_wait(self):
+        """
+        This job just waits for the Delphix Engine to be up and for a 
+        succesful connection.
+
+        No arguments
+        """
+        while True:
+            try:
+                system.get(self.server_session)
+                break
+            except:    
+                pass
+            print_info("Waiting for Delphix Engine to be ready")
+            sleep(3)

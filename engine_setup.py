@@ -4,7 +4,7 @@ Adam Bowen - Jan 2016
 This script configures the sysadmin user and configures domain0
 Will come back and properly throw this with logging, etc
 '''
-VERSION="v.2.3.004"
+VERSION="v.2.3.005"
 CONTENTDIR="/u02/app/content"
 
 import getopt
@@ -20,7 +20,7 @@ from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError,JobError
 from delphixpy.v1_6_0.web import domain, storage, user
 from delphixpy.v1_6_0.web.vo import CredentialUpdateParameters, PasswordCredential, DomainCreateParameters, User
-
+from lib.GetSession import GetSession
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
     '''
@@ -104,6 +104,7 @@ def main(argv):
         logging_est()
         global time_start
         time_start = time.time()
+        dx_session_obj = GetSession()
         engine_ip = ""
         engine_pass = ""
         old_engine_pass = ""
@@ -125,6 +126,11 @@ def main(argv):
 
         if (engine_ip == "" or engine_pass == "" or old_engine_pass == "") :
             help()
+
+        dx_session_obj.serversess(engine_ip, 'sysadmin',
+                                 old_engine_pass, 'SYSTEM')
+
+        dx_session_obj.server_wait()
 
         sys_server = system_serversess(engine_ip, "sysadmin", old_engine_pass)
 
@@ -154,6 +160,20 @@ def main(argv):
             system_init_params.devices = [ device.reference for device in device_list if not device.configured ]
             print_info("Creating storage domain")
             domain.set(sys_server, system_init_params)
+            while True:
+                try:
+                    sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
+                    domain.get(sys_server)
+                except:    
+                    break
+                print_info("Waiting for Delphix Engine to go down")
+                time.sleep(3)
+
+        dx_session_obj.serversess(engine_ip, 'sysadmin',
+                                 engine_pass, 'SYSTEM')
+
+        dx_session_obj.server_wait()
+
     except SystemExit as e:
         sys.exit(e)
     except HttpError as e:

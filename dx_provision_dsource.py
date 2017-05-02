@@ -11,18 +11,24 @@
 """Create and sync a dSource
 Usage:
   dx_provision_dsource.py (--type <name>)
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> --dx_group <name> --db_passwd <name> --db_user <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
-      [--engine <identifier> | --all]
-      [--debug] [--parallel <n>] [--poll <n>]
-      [--config <path_to_file>] [--logdir <path_to_file>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync] 
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
 Create and sync a dSource
 Examples:
     Oracle:
-    dx_provision_dsource.py --type oracle --dsource_name oradb1--ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1
+    dx_provision_dsource.py --type oracle --dsource_name oradb1 --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 --db_user delphixdb --db_passwd delphixdb
 
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa --ase_passwd sybase --backup_path /data/db --source_user aseadmin --stage_user aseadmin --stage_repo ASE1570_S2 --src_config dbw1 --env_name aseSource --dx_group Sources
@@ -60,7 +66,7 @@ Options:
   --src_config <name>       Name of the configuration environment
   --ase_passwd <name>       ASE DB password
   --ase_user <name>         ASE username
-  --backup_path <path>      Path to the ASE/MSSQL backups
+  --backup_path <path>      Path to the ASE/MSSQL backups. Set to 'auto' for MSSQL autodiscovery
   --source_user <name>      Environment username
   --stage_user <name>       Stage username
   --stage_repo <name>       Stage repository
@@ -84,7 +90,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.008'
+VERSION = 'v.0.2.010'
 
 import sys
 from os.path import basename
@@ -115,6 +121,7 @@ from delphixpy.web.vo import SourcingPolicy
 from lib.DlpxException import DlpxException
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_dbrepo
+from lib.GetReferences import find_sourceconfig
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
@@ -132,36 +139,53 @@ def create_ora_sourceconfig(port_num=1521):
     env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
                                arguments['--env_name'])
 
-    repo_ref = find_dbrepo(dx_session_obj.server_session,
-                           'OracleInstall', env_obj.reference,
-                           arguments['--db_install_path']).reference
+    sourceconf_obj = find_sourceconfig(dx_session_obj.server_session,
+                            arguments['--db_name'], env_obj.reference)
 
-    dsource_params = OracleSIConfig()
+    if sourceconf_obj == None:
 
-    connect_str = ('jdbc:oracle:thin:@' + arguments['--ip_addr'] + ':' +
-                   str(port_num) + ':' + arguments['--db_name'])
+      repo_ref = find_dbrepo(dx_session_obj.server_session,
+                             'OracleInstall', env_obj.reference,
+                             arguments['--db_install_path']).reference
+      dsource_params = OracleSIConfig()
 
-    dsource_params.database_name = arguments['--db_name']
-    dsource_params.unique_name = arguments['--db_name']
-    dsource_params.repository = repo_ref
-    dsource_params.instance = OracleInstance()
-    dsource_params.instance.instance_name = arguments['--db_name']
-    dsource_params.instance.instance_number = 1
-    dsource_params.services = [{'type': 'OracleService',
-                                'jdbcConnectionString': connect_str}]
+      connect_str = ('jdbc:oracle:thin:@' + arguments['--ip_addr'] + ':' +
+                     str(port_num) + ':' + arguments['--db_name'])
 
-    try:
-        create_ret = link_ora_dsource(sourceconfig.create(
-            dx_session_obj.server_session, dsource_params),
-            env_obj.primary_user)
+      dsource_params.database_name = arguments['--db_name']
+      dsource_params.unique_name = arguments['--db_name']
+      dsource_params.repository = repo_ref
+      dsource_params.instance = OracleInstance()
+      dsource_params.instance.instance_name = arguments['--db_name']
+      dsource_params.instance.instance_number = 1
+      dsource_params.services = [{'type': 'OracleService',
+                                  'jdbcConnectionString': connect_str}]
 
-        print('Created and linked the dSource {} with reference {}.\n'.format(
-              (arguments['--db_name'], create_ret)))
+      try:
+          create_ret = link_ora_dsource(sourceconfig.create(
+              dx_session_obj.server_session, dsource_params),
+              env_obj.primary_user)
 
-    except (HttpError, RequestError) as e:
-        print_exception('ERROR: Could not create the sourceconfig: {}'.format(
-                        e))
-        sys.exit(1)
+          print('Created and linked the dSource %s with reference %s.\n' %
+                (arguments['--db_name'], create_ret))
+
+      except (HttpError, RequestError) as e:
+          print_exception('ERROR: Could not create the sourceconfig: {}'.format(
+                          e))
+          sys.exit(1)
+    else:
+      try:
+          create_ret = link_ora_dsource(sourceconf_obj.reference,
+              env_obj.primary_user)
+
+          print('Created and linked the dSource %s with reference %s.\n' %
+                (arguments['--db_name'], create_ret))
+
+      except (HttpError, RequestError) as e:
+          print_exception('ERROR: Could not create the sourceconfig: {}'.format(
+                          e))
+          sys.exit(1)
+
 
 
 def link_ora_dsource(srcconfig_ref, primary_user_ref):
@@ -179,11 +203,11 @@ def link_ora_dsource(srcconfig_ref, primary_user_ref):
                                          arguments['--dx_group']).reference
     link_params.link_data.compressedLinkingEnabled = True
     link_params.link_data.environment_user = primary_user_ref
-    link_params.link_data.db_user = 'delphixdb'
-    link_params.link_data.number_of_connections = arguments['--num_connections']
-    link_params.link_data.link_now = arguments['--link_now']
-    link_params.link_data.files_per_set = arguments['--files_per_set']
-    link_params.link_data.rman_channels = arguments['rman_channels']
+    link_params.link_data.db_user = arguments['--db_user']
+    link_params.link_data.number_of_connections = int(arguments['--num_connections'])
+    link_params.link_data.link_now = bool(arguments['--link_now'])
+    link_params.link_data.files_per_set = int(arguments['--files_per_set'])
+    link_params.link_data.rman_channels = int(arguments['--rman_channels'])
     link_params.link_data.skip_space_check = False
     link_params.link_data.db_credentials = {'type': 'PasswordCredential',
                                             'password':
@@ -231,8 +255,8 @@ def link_mssql_dsource():
         print_exception('Could not link {}: {}\n'.format(
             arguments['--dsource_name'], e))
         sys.exit(1)
-
-    link_params.link_data.shared_backup_location = arguments['--backup_path']
+    if arguments['--backup_path'] != "auto":
+      link_params.link_data.shared_backup_location = arguments['--backup_path']
 
     if arguments['--backup_loc_passwd']:
         link_params.link_data.backup_location_credentials = {'type':
@@ -508,7 +532,6 @@ def main(argv):
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
-
         #This is the function that will handle processing main_workflow for
         # all the servers.
         run_job()
