@@ -18,7 +18,7 @@ from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0011'
+VERSION = 'v.0.2.0012'
 
 def convert_timestamp(engine, timestamp):
     """
