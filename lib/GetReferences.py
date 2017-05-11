@@ -18,12 +18,11 @@ from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0013'
+VERSION = 'v.0.2.0015'
 
 def convert_timestamp(engine, timestamp):
     """
     Convert timezone from Zulu/UTC to the Engine's timezone
-
     engine: A Delphix engine session object.
     timestamp: the timstamp in Zulu/UTC to be converted
     """
@@ -48,7 +47,6 @@ def convert_timestamp(engine, timestamp):
 def find_all_objects(engine, f_class):
     """
     Return all objects from a given class
-
     engine: A Delphix engine session object
     f_class: The objects class. I.E. database or timeflow.
     :return: List of objects
@@ -94,7 +92,6 @@ def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
     """
     Function to find objects by name and object class, and return object's 
     reference as a string
-
     engine: A Delphix engine session object
     f_class: The objects class. I.E. database or timeflow.
     obj_name: The name of the object
@@ -133,7 +130,6 @@ def get_obj_reference(engine, obj_type, obj_name, search_str=None,
                       container=False):
     """
     Return the reference for the provided object name
-
     engine: A Delphix engine object.
     results: List containing object name
     search_str (optional): string to search within results list
@@ -165,17 +161,17 @@ def get_obj_reference(engine, obj_type, obj_name, search_str=None,
     raise DlpxException('Reference not found for {}'.format(obj_name))
 
 
-def get_db_name(engine, db_reference):
+def find_obj_name(engine, f_class, obj_reference):
     """
-    Return the database name from db_reference
+    Return the obj name from obj_reference
 
     engine: A Delphix engine object.
-    db_reference: The datbase reference to retrieve the db_name
+    f_class: The objects class. I.E. database or timeflow.
+    obj_reference: The object reference to retrieve the name
     """
-
     try:
-        db_name = database.get(engine, db_reference)
-        return db_name.name
+        obj_name = f_class.get(engine, obj_reference)
+        return obj_name.name
 
     except RequestError as e:
         raise DlpxException(e)
@@ -189,12 +185,10 @@ def find_dbrepo(engine, install_type, f_environment_ref, f_install_path):
     Function to find database repository objects by environment reference and
     install path, and return the object's reference as a string
     You might use this function to find Oracle and PostGreSQL database repos.
-
     engine: Virtualization Engine Session object
     install_type: Type of install - Oracle, ASE, SQL
     f_environment_ref: Reference of the environment for the repository
     f_install_path: Path to the installation directory.
-
     return: delphixpy.web.vo.SourceRepository object
     """
 
@@ -226,12 +220,12 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
     """
     Function to find database sourceconfig objects by environment reference and
     sourceconfig name (db name), and return the object's reference as a string
-    You might use this function to find Oracle and PostGreSQL database sourceconfigs.
-
+    You might use this function to find Oracle and PostGreSQL database
+    sourceconfigs.
     engine: Virtualization Engine Session object
-    sourceconfig_name: Name of source config, usually name of db instnace (ie. orcl)
+    sourceconfig_name: Name of source config, usually name of db
+                       instnace (ie. orcl)
     f_environment_ref: Reference of the environment for the repository
-
     return: delphixpy.web.vo.SourceConfig object
     """
 
@@ -244,5 +238,5 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
                 print_debug('Found a match %s'.format(obj.reference))
                 return obj
         else:
-            raise DlpxException('No sourceconfig match found for type {}.\n'.format(
-                sourceconfig_name))
+            raise DlpxException('No sourceconfig match found for type {}.'
+                                '\n'.format(sourceconfig_name))
