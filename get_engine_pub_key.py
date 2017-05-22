@@ -3,7 +3,7 @@
 Adam Bowen - Jan 2016
 This script grabs
 '''
-VERSION="v.2.3.001"
+VERSION="v.2.3.002"
 
 import getopt
 import logging
@@ -17,6 +17,7 @@ import untangle
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError,JobError
 from delphixpy.v1_6_0.web import system
+from lib.GetSession import GetSession
 
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
@@ -100,6 +101,7 @@ def main(argv):
         logging_est()
         global time_start
         time_start = time.time()
+        dx_session_obj = GetSession()
         engine_ip = ""
         engine_pass = ""
         old_engine_pass = ""
@@ -119,6 +121,10 @@ def main(argv):
 
         if (engine_ip == "" or engine_pass == "") :
             help()
+
+        dx_session_obj.serversess(engine_ip, 'sysadmin',
+                                 engine_pass, 'SYSTEM')
+        dx_session_obj.server_wait()
 
         sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
         system_info = system.get(sys_server)
