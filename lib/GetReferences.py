@@ -12,13 +12,14 @@ from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.web import repository
 from delphixpy.web import database
+from delphixpy.web import job
 from delphixpy.web import sourceconfig
 
 from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0015'
+VERSION = 'v.0.2.0017'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -65,14 +66,25 @@ def find_all_objects(engine, f_class):
 def find_obj_specs(engine, obj_lst):
     """
     Function to find objects for replication
-    :param engine: Delphix Virtualization session object
-    :param obj_lst: List of names for replication
+    engine: Delphix Virtualization session object
+    obj_lst: List of names for replication
     :return: List of references for the given object names
     """
     rep_lst = []
     for obj in obj_lst:
         rep_lst.append(find_obj_by_name(engine, database, obj).reference)
     return rep_lst
+
+
+def get_running_job(engine, target_ref):
+    """
+    Function to find a running job from the DB target reference.
+    :param engine: A Virtualization engine session object
+    :param target_ref: Reference to the target of the running job
+    :return: 
+    """
+    return job.get_all(engine, target=target_ref,
+                       job_state='RUNNING')[0].reference
 
 
 def find_obj_list(obj_lst, obj_name):
