@@ -11,24 +11,18 @@
 """Create and sync a dSource
 Usage:
   dx_provision_dsource.py (--type <name>)
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> --dx_group <name> --db_passwd <name> --db_user <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
-    [--engine <identifier> | --all]
-    [--debug] [--parallel <n>] [--poll <n>]
-    [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
-    [--engine <identifier> | --all]
-    [--debug] [--parallel <n>] [--poll <n>]
-    [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync] 
-    [--engine <identifier> | --all]
-    [--debug] [--parallel <n>] [--poll <n>]
-    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --dx_group <name> --db_passwd <name> --db_user <name> --db_name <name> --env_name <name> --db_install_path <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user <name> --stage_repo <name> --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
+      [--engine <identifier> | --all]
+      [--debug] [--parallel <n>] [--poll <n>]
+      [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
 Create and sync a dSource
 Examples:
     Oracle:
-    dx_provision_dsource.py --type oracle --dsource_name oradb1 --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 --db_user delphixdb --db_passwd delphixdb
+    dx_provision_dsource.py --type oracle --dsource_name oradb1--ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1
 
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa --ase_passwd sybase --backup_path /data/db --source_user aseadmin --stage_user aseadmin --stage_repo ASE1570_S2 --src_config dbw1 --env_name aseSource --dx_group Sources
@@ -66,7 +60,7 @@ Options:
   --src_config <name>       Name of the configuration environment
   --ase_passwd <name>       ASE DB password
   --ase_user <name>         ASE username
-  --backup_path <path>      Path to the ASE/MSSQL backups. Set to 'auto' for MSSQL autodiscovery
+  --backup_path <path>      Path to the ASE/MSSQL backups
   --source_user <name>      Environment username
   --stage_user <name>       Stage username
   --stage_repo <name>       Stage repository
@@ -90,7 +84,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.010'
+VERSION = 'v.0.2.008'
 
 import sys
 from os.path import basename
@@ -105,7 +99,8 @@ from delphixpy.web import group
 from delphixpy.web import job
 from delphixpy.web import environment
 from delphixpy.web import repository
-from delphixpy.web.database import link
+#from delphixpy.web.database import link
+from delphixpy.web import database
 from delphixpy.web.vo import OracleSIConfig
 from delphixpy.web.vo import OracleInstance
 from delphixpy.web.vo import LinkParameters
@@ -121,7 +116,7 @@ from delphixpy.web.vo import SourcingPolicy
 from lib.DlpxException import DlpxException
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_dbrepo
-from lib.GetReferences import find_sourceconfig
+from lib.GetReferences import get_running_job
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
@@ -129,63 +124,62 @@ from lib.DxLogging import print_exception
 from lib.GetSession import GetSession
 
 
-def create_ora_sourceconfig(port_num=1521):
+def create_ora_sourceconfig(engine_name, port_num=1521):
     """
     :param ip_addr:
     :param db_name:
     :return:
     """
-
+    create_ret = None
     env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
                                arguments['--env_name'])
 
-    sourceconf_obj = find_sourceconfig(dx_session_obj.server_session,
-                            arguments['--db_name'], env_obj.reference)
+    try:
+        sourceconfig_ref = find_obj_by_name(dx_session_obj.server_session,
+                                            sourceconfig,
+                                            arguments['--db_name']).reference
+    except DlpxException:
+        sourceconfig_ref = None
 
-    if sourceconf_obj == None:
+    repo_ref = find_dbrepo(dx_session_obj.server_session,
+                           'OracleInstall', env_obj.reference,
+                           arguments['--db_install_path']).reference
 
-      repo_ref = find_dbrepo(dx_session_obj.server_session,
-                             'OracleInstall', env_obj.reference,
-                             arguments['--db_install_path']).reference
-      dsource_params = OracleSIConfig()
+    dsource_params = OracleSIConfig()
 
-      connect_str = ('jdbc:oracle:thin:@' + arguments['--ip_addr'] + ':' +
-                     str(port_num) + ':' + arguments['--db_name'])
+    connect_str = ('jdbc:oracle:thin:@' + arguments['--ip_addr'] + ':' +
+                   str(port_num) + ':' + arguments['--db_name'])
 
-      dsource_params.database_name = arguments['--db_name']
-      dsource_params.unique_name = arguments['--db_name']
-      dsource_params.repository = repo_ref
-      dsource_params.instance = OracleInstance()
-      dsource_params.instance.instance_name = arguments['--db_name']
-      dsource_params.instance.instance_number = 1
-      dsource_params.services = [{'type': 'OracleService',
-                                  'jdbcConnectionString': connect_str}]
+    dsource_params.database_name = arguments['--db_name']
+    dsource_params.unique_name = arguments['--db_name']
+    dsource_params.repository = repo_ref
+    dsource_params.instance = OracleInstance()
+    dsource_params.instance.instance_name = arguments['--db_name']
+    dsource_params.instance.instance_number = 1
+    dsource_params.services = [{'type': 'OracleService',
+                                'jdbcConnectionString': connect_str}]
 
-      try:
-          create_ret = link_ora_dsource(sourceconfig.create(
-              dx_session_obj.server_session, dsource_params),
-              env_obj.primary_user)
+    try:
+        if sourceconfig_ref is None:
+            create_ret = link_ora_dsource(sourceconfig.create(
+                dx_session_obj.server_session, dsource_params),
+                env_obj.primary_user)
+        elif sourceconfig_ref is not None:
+            create_ret = link_ora_dsource(sourceconfig_ref,
+                                          env_obj.primary_user)
 
-          print('Created and linked the dSource %s with reference %s.\n' %
-                (arguments['--db_name'], create_ret))
-
-      except (HttpError, RequestError) as e:
-          print_exception('ERROR: Could not create the sourceconfig: {}'.format(
-                          e))
-          sys.exit(1)
-    else:
-      try:
-          create_ret = link_ora_dsource(sourceconf_obj.reference,
-              env_obj.primary_user)
-
-          print('Created and linked the dSource %s with reference %s.\n' %
-                (arguments['--db_name'], create_ret))
-
-      except (HttpError, RequestError) as e:
-          print_exception('ERROR: Could not create the sourceconfig: {}'.format(
-                          e))
-          sys.exit(1)
-
+        print('Created and linked the dSource {} with reference {}.\n'.format(
+              arguments['--db_name'], create_ret))
+        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
+        #Add the snapsync job to the jobs dictionary
+        dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
+            dx_session_obj.server_session, find_obj_by_name(
+                dx_session_obj.server_session, database,
+                arguments['--db_name']).reference)
+    except (HttpError, RequestError) as e:
+        print_exception('ERROR: Could not create the sourceconfig:\n'
+                        '{}'.format(e))
+        sys.exit(1)
 
 
 def link_ora_dsource(srcconfig_ref, primary_user_ref):
@@ -204,31 +198,26 @@ def link_ora_dsource(srcconfig_ref, primary_user_ref):
     link_params.link_data.compressedLinkingEnabled = True
     link_params.link_data.environment_user = primary_user_ref
     link_params.link_data.db_user = arguments['--db_user']
-    link_params.link_data.number_of_connections = int(arguments['--num_connections'])
+    link_params.link_data.number_of_connections = \
+        int(arguments['--num_connections'])
     link_params.link_data.link_now = bool(arguments['--link_now'])
     link_params.link_data.files_per_set = int(arguments['--files_per_set'])
     link_params.link_data.rman_channels = int(arguments['--rman_channels'])
-    link_params.link_data.skip_space_check = False
     link_params.link_data.db_credentials = {'type': 'PasswordCredential',
                                             'password':
                                                 arguments['--db_passwd']}
     link_params.link_data.sourcing_policy.logsync_enabled = True
-    link_params.link_data.sourcing_policy.logsync_mode = 'ARCHIVE_REDO_MODE'
-
-
-
+    #link_params.link_data.sourcing_policy.logsync_mode = 'ARCHIVE_REDO_MODE'
+    link_params.link_data.config = srcconfig_ref
     try:
-
-        link_params.link_data.config = srcconfig_ref
-
+        return database.link(dx_session_obj.server_session, link_params)
     except (RequestError, HttpError) as e:
-        print_exception('ERROR: Could not link dSource %s: %s\n' %
-                        (arguments['--db_name'], e))
+        print_exception('Database link failed for {}:\n{}\n'.format(
+            arguments['--dsource_name'], e))
+        sys.exit(1)
 
-    return link(dx_session_obj.server_session, link_params)
 
-
-def link_mssql_dsource():
+def link_mssql_dsource(engine_name):
     """
     Link an MSSQL dSource
     """
@@ -255,8 +244,8 @@ def link_mssql_dsource():
         print_exception('Could not link {}: {}\n'.format(
             arguments['--dsource_name'], e))
         sys.exit(1)
-    if arguments['--backup_path'] != "auto":
-      link_params.link_data.shared_backup_location = arguments['--backup_path']
+
+    link_params.link_data.shared_backup_location = arguments['--backup_path']
 
     if arguments['--backup_loc_passwd']:
         link_params.link_data.backup_location_credentials = {'type':
@@ -278,14 +267,19 @@ def link_mssql_dsource():
         link_params.link_data.sourcing_policy.logsync_enabled = True
 
     try:
-        link(dx_session_obj.server_session, link_params)
+        database.link(dx_session_obj.server_session, link_params)
+        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
+        dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
+            dx_session_obj.server_session, find_obj_by_name(
+                dx_session_obj.server_session, database,
+                arguments['--dsource_name']).reference)
 
     except (HttpError, RequestError, JobError) as e:
         print_exception('Database link failed for {}:\n{}\n'.format(
             arguments['--dsource_name'], e))
 
 
-def link_ase_dsource():
+def link_ase_dsource(engine_name):
     """
     Link an ASE dSource
     """
@@ -334,11 +328,17 @@ def link_ase_dsource():
         sys.exit(1)
 
     try:
-        dsource_ref = link(dx_session_obj.server_session, link_params)
+        dsource_ref = database.link(dx_session_obj.server_session, link_params)
+        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
+        dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
+            dx_session_obj.server_session, find_obj_by_name(
+                dx_session_obj.server_session, database,
+                arguments['--dsource_name']).reference)
         print '{} sucessfully linked {}'.format(dsource_ref,
                                                 arguments['--dsource_name'])
     except (RequestError, HttpError) as e:
-        print_exception('Error linking DB: {}'.format(e))
+        print_exception('Database link failed for {}:\n{}'.format(
+            arguments['--dsource_name'], e))
 
 
 def run_async(func):
@@ -395,44 +395,47 @@ def main_workflow(engine):
                         dx_session_obj.dlpx_engines['hostname'],
                         arguments['--target'], e))
         sys.exit(1)
-
     thingstodo = ["thingtodo"]
-    #reset the running job count before we begin
-    i = 0
-    with dx_session_obj.job_mode(single_thread):
-        while (len(jobs) > 0 or len(thingstodo)> 0):
-            if len(thingstodo)> 0:
+    try:
+        with dx_session_obj.job_mode(single_thread):
+            while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+                if len(thingstodo) > 0:
+                    if arguments['--type'].lower() == 'oracle':
+                        create_ora_sourceconfig(engine["hostname"])
+                    elif arguments['--type'].lower() == 'sybase':
+                        link_ase_dsource(engine["hostname"])
+                    elif arguments['--type'].lower() == 'mssql':
+                        link_mssql_dsource(engine["hostname"])
+                    thingstodo.pop()
+                # get all the jobs, then inspect them
+                i = 0
+                for j in dx_session_obj.jobs.keys():
+                    job_obj = job.get(dx_session_obj.server_session,
+                                      dx_session_obj.jobs[j])
+                    print_debug(job_obj)
+                    print_info('{}: Provisioning dSource: {}'.format(
+                        engine['hostname'], job_obj.job_state))
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
+                        # If the job is in a non-running state, remove it
+                        # from the
+                        # running jobs list.
+                        del dx_session_obj.jobs[j]
+                    elif job_obj.job_state in 'RUNNING':
+                        # If the job is in a running state, increment the
+                        # running job count.
+                        i += 1
+                    print_info('{}: {:d} jobs running.'.format(
+                               engine['hostname'], i))
+                    # If we have running jobs, pause before repeating the
+                    # checks.
+                    if len(dx_session_obj.jobs) > 0:
+                        sleep(float(arguments['--poll']))
 
-                if arguments['--type'].lower() == 'oracle':
-                    create_ora_sourceconfig()
-                elif arguments['--type'].lower() == 'sybase':
-                    link_ase_dsource()
-                elif arguments['--type'].lower() == 'mssql':
-                    link_mssql_dsource()
+    except (HttpError, RequestError, JobError, DlpxException) as e:
+        print_exception('ERROR: Could not complete ingesting the source '
+                        'data:\n{}'.format(e))
+        sys.exit(1)
 
-                thingstodo.pop()
-
-            #get all the jobs, then inspect them
-            i = 0
-            for j in jobs.keys():
-                job_obj = job.get(dx_session_obj.server_session, jobs[j])
-                print_debug(job_obj)
-                print_info('{}: Provision dSource: {}'.format(
-                           engine["hostname"],job_obj.job_state))
-
-                if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the
-                    # running jobs list.
-                    del jobs[j]
-                else:
-                    #If the job is in a running state, increment the running
-                    # job count.
-                    i += 1
-
-            print_info('{}: {} jobs running'.format(engine["hostname"],str(i)))
-            #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
-                sleep(float(arguments['--poll']))
 
 
 def run_job():
@@ -532,6 +535,7 @@ def main(argv):
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
+
         #This is the function that will handle processing main_workflow for
         # all the servers.
         run_job()
