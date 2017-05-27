@@ -53,26 +53,19 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.002"
+VERSION="v.0.0.003"
 
 from docopt import docopt
-import logging
 from os.path import basename
-import signal
 import sys
-import time
 import traceback
-import json
 import re
-from multiprocessing import Process
-from time import sleep
 from time import time
 
-from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.web.jetstream import branch
 from delphixpy.web.jetstream import container
 from delphixpy.web.jetstream import template
-from delphixpy.web import database
+from delphixpy.web.jetstream import operation
 from delphixpy.web.vo import JSBranchCreateParameters
 from delphixpy.web.vo import JSDataSourceCreateParameters
 from delphixpy.web.vo import JSBranch
@@ -80,14 +73,14 @@ from delphixpy.exceptions import RequestError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import HttpError
 
-from lib.DxTimeflow import DxTimeflow
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
 from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import convert_timestamp
+from lib.GetReferences import find_obj_name
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_exception
 
 
 def create_branch(branch_name, template_name, container_name):
@@ -119,8 +112,8 @@ def create_branch(branch_name, template_name, container_name):
         branch.create(dx_session_obj.server_session, js_branch_params)
 
     except (DlpxException, RequestError, HttpError) as e:
-        print('\nThe branch %s was not created. The error was:\n\n%s' %
-              (branch_name, e))
+        print_exception('\nThe branch {} was not created. The error was:'
+                        '\n{}'.format(branch_name, e))
         sys.exit(1)
 
 
@@ -132,18 +125,28 @@ def list_branches():
     """
 
     try:
-        header = '\nName\tReference\tJSBranch Name'
+        header = '\nName, Reference, End Time'
+        js_data_layout = ''
         js_branches = branch.get_all(dx_session_obj.server_session)
-            
+
         print header
         for js_branch in js_branches:
-            print('%s, %s, %s' % (js_branch.name, js_branch.reference,
-                                    js_branch._name[0]))
-        print '\n'
+            js_end_time = operation.get(dx_session_obj.server_session,
+                                        js_branch.first_operation).end_time
+
+            if re.search('TEMPLATE', js_branch.data_layout):
+                js_data_layout = find_obj_name(dx_session_obj.server_session,
+                                               template, js_branch.data_layout)
+            elif re.search('CONTAINER', js_branch.data_layout):
+                js_data_layout = find_obj_name(dx_session_obj.server_session,
+                                               container, js_branch.data_layout)
+
+            print('{}/{}, {}, {}'.format(js_data_layout, js_branch._name[0],
+                js_branch.reference, js_end_time))
 
     except (DlpxException, HttpError, RequestError) as e:
-        raise DlpxException('\nERROR: JS Branches could not be listed. The '
-                            'error was:\n\n%s' % (e))
+        print_exception('\nERROR: JS Branches could not be listed. The '
+                        'error was:\n\n{}'.format(e))
 
 
 def update_branch(branch_name):
@@ -154,7 +157,6 @@ def update_branch(branch_name):
     """
 
     js_branch_obj = JSBranch()
-    
     try:
         branch_obj = find_obj_by_name(dx_session_obj.server_session,
                                       branch, branch_name)
@@ -162,8 +164,8 @@ def update_branch(branch_name):
                       js_branch_obj)
 
     except (DlpxException, HttpError, RequestError) as e:
-        print('\nERROR: The branch %s could not be updated. The error was'
-              ':\n\n%s' % (branch_name, e))
+        print_exception('\nERROR: The branch %s could not be updated. The '
+                        'error was:\n\n{}'.format(branch_name, e))
 
 
 def activate_branch(branch_name):
@@ -180,7 +182,7 @@ def activate_branch(branch_name):
         branch.activate(dx_session_obj.server_session, branch_obj.reference)
 
     except RequestError as e:
-        print('\nAn error occurred updating the branch:\n%s' % (e))
+        print('\nAn error occurred updating the branch:\n{}'.format(e))
         sys.exit(1)
 
 
@@ -198,8 +200,8 @@ def delete_branch(branch_name):
         branch.delete(dx_session_obj.server_session, branch_obj.reference)
 
     except (DlpxException, HttpError, RequestError) as e:
-        raise DlpxException('\nERROR: The branch %s was not deleted. The '
-                            'error was:\n\n%s' % (branch_name, e.message))
+        raise DlpxException('\nERROR: The branch {} was not deleted. The '
+                            'error was:\n\n{}'.format(branch_name, e.message))
 
 
 def build_ds_params(engine, obj, db):
@@ -279,8 +281,7 @@ def time_elapsed():
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
     """
-    elapsed_minutes = round((time() - time_start)/60, +1)
-    return elapsed_minutes
+    return round((time() - time_start)/60, +1)
 
 
 @run_async
@@ -304,9 +305,10 @@ def main_workflow(engine):
                                   engine['password'])
 
     except DlpxException as e:
-        print('\nERROR: Engine %s encountered an error while provisioning '
-              '%s:\n%s\n' % (dx_session_obj.engine['hostname'],
-              arguments['--target'], e))
+        print_exception('\nERROR: Engine {} encountered an error while '
+                        'provisioning {}:\n{}\n'.format(engine['hostname'],
+                                                        arguments['--target'],
+                                                        e))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
@@ -349,6 +351,7 @@ def run_job():
     """
     #Create an empty list to store threads we create.
     threads = []
+    engine = None
 
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
@@ -362,7 +365,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n%s' % (e)
+            print 'Error encountered in run_job():\n{}'.format(e)
             sys.exit(1)
 
     elif arguments['--all'] is False:
@@ -371,13 +374,14 @@ def run_job():
         if arguments['--engine']:
             try:
                 engine = dx_session_obj.dlpx_engines[arguments['--engine']]
-                print_info('Executing against Delphix Engine: %s\n' %
-                           (arguments['--engine']))
+                print_info('Executing against Delphix Engine: {}\n'.format(
+                           arguments['--engine']))
 
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
-                                    'and try again. Exiting.\n' % (
-                                    arguments['--engine'], config_file_path))
+                print_exception('\nERROR: Delphix Engine {} cannot be found'
+                                ' in {}. Please check your value and try'
+                                ' again. Exiting.\n'.format(
+                    arguments['--engine'], config_file_path))
 
         else:
             #Else search for a default engine in the dxtools.conf
@@ -387,9 +391,8 @@ def run_job():
 
                     engine = dx_session_obj.dlpx_engines[delphix_engine]
                     print_info('Executing against the default Delphix Engine '
-                       'in the dxtools.conf: %s' % (
+                       'in the dxtools.conf: {}'.format(
                        dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
-
                 break
 
             if engine == None:
@@ -437,62 +440,54 @@ def main(argv):
         run_job()
 
         elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        print_info('Script took {:2f} minutes to get this far.'.format(
+            elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
-        """
-        This is what we use to handle our sys.exit(#)
-        """
+        #This is what we use to handle our sys.exit(#)
         sys.exit(e)
 
     except DlpxException as e:
-        """
-        We use this exception handler when an error occurs in a function call.
-        """
+        #We use this exception handler when an error occurs in a function call.
 
-        print('\nERROR: Please check the ERROR message below:\n%s' %
-              (e.message))
+        print('\nERROR: Please check the ERROR message below:\n{}'.format(
+              e.message))
         sys.exit(2)
 
     except HttpError as e:
-        """
-        We use this exception handler when our connection to Delphix fails
-        """
+        #We use this exception handler when our connection to Delphix fails
+
         print('\nERROR: Connection failed to the Delphix Engine. Please '
-              'check the ERROR message below:\n%s' % (e.message))
+              'check the ERROR message below:\n{}'.format(e.message))
         sys.exit(2)
 
     except JobError as e:
-        """
-        We use this exception handler when a job fails in Delphix so that we
-        have actionable data
-        """
-        print('A job failed in the Delphix Engine:\n%s' % (e.job))
+        #We use this exception handler when a job fails in Delphix so that we
+        #have actionable data
+
+        print('A job failed in the Delphix Engine:\n{}'.format(e.job))
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        print_info('{} took {:.2f} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
         sys.exit(3)
 
     except KeyboardInterrupt:
-        """
-        We use this exception handler to gracefully handle ctrl+c exits
-        """
+        #We use this exception handler to gracefully handle ctrl+c exits
+
         print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        print_info('{} took {:.2f} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
 
     except:
-        """
-        Everything else gets caught here
-        """
+        #Everything else gets caught here
+
         print(sys.exc_info()[0])
         print(traceback.format_exc())
         elapsed_minutes = time_elapsed()
-        print_info('%s took %s minutes to get this far' % (basename(__file__),
-                   str(elapsed_minutes)))
+        print_info('{} took {:.2f} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
         sys.exit(1)
 
 
