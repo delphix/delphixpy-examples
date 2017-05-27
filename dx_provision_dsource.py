@@ -90,7 +90,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.011'
+VERSION = 'v.0.2.012'
 
 import sys
 from os.path import basename
@@ -174,14 +174,23 @@ def create_ora_sourceconfig(engine_name, port_num=1521):
             create_ret = link_ora_dsource(sourceconfig_ref,
                                           env_obj.primary_user)
 
-        print('Created and linked the dSource {} with reference {}.\n'.format(
-              arguments['--db_name'], create_ret))
-        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
-        #Add the snapsync job to the jobs dictionary
-        dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
-            dx_session_obj.server_session, find_obj_by_name(
-                dx_session_obj.server_session, database,
-                arguments['--dsource_name']).reference)
+          print('Created and linked the dSource {} with reference {}.\n'.format(
+                arguments['--db_name'], create_ret))
+          link_job_ref = dx_session_obj.server_session.last_job
+          link_job_obj = job.get(dx_session_obj.server_session,
+                                        link_job_ref)
+          sleep(3) 
+          while link_job_obj.job_state not in ["CANCELED", "COMPLETED", "FAILED"]:
+            print "Waiting three seconds for link job to complete, and snap to begin"
+            link_job_obj = job.get(dx_session_obj.server_session,
+                                        link_job_ref)
+
+          #Add the snapsync job to the jobs dictionary
+          dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
+              dx_session_obj.server_session, find_obj_by_name(
+                  dx_session_obj.server_session, database,
+                  arguments['--dsource_name']).reference)
+          print('snap ref: ' + dx_session_obj.jobs[engine_name + 'snap'])
     except (HttpError, RequestError) as e:
         print_exception('ERROR: Could not create the sourceconfig:\n'
                         '{}'.format(e))
