@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 '''
-Adam Bowen - Jan 2016
+Adam Bowen - May 2017
 This script grabs
 '''
-VERSION="v.2.3.002"
+VERSION="v.2.3.003"
 
 import getopt
 import logging
@@ -33,6 +33,7 @@ def help():
     print("-h - Prints this message")
     print("-e <Delphix Engine IP>  - Engine must be up and console screen must be green")
     print("-p <sysadmin password>  - sysadmin password")
+    print("-d <directory> - directory where key will be saved")
     print("-v - Print version information and exit")
     sys.exit(2)
 
@@ -106,7 +107,7 @@ def main(argv):
         engine_pass = ""
         old_engine_pass = ""
         try:
-            opts,args = getopt.getopt(argv,"e:p:hv")
+            opts,args = getopt.getopt(argv,"e:d:p:hv")
         except getopt.GetoptError:
             help()
         for opt, arg in opts:
@@ -116,6 +117,8 @@ def main(argv):
                 engine_ip = arg
             elif opt == '-p':
                 engine_pass = arg
+            elif opt == '-d':
+                key_path = arg + '/engine_key.pub'
             elif opt == '-v':
                 version()
 
@@ -129,8 +132,8 @@ def main(argv):
         sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
         system_info = system.get(sys_server)
         print_info(system_info.ssh_public_key)
-        print_info("Writing to engine_key.pub")
-        target = open('engine_key.pub', 'w')
+        print_info("Writing to " + key_path)
+        target = open(key_path, 'w')
         target.write(system_info.ssh_public_key)
         target.close
         print_info("File saved")
