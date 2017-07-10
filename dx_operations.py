@@ -1,36 +1,36 @@
 #!/usr/bin/env python
 # Corey Brune - Oct 2016
-# Creates an authorization object
+# This script starts or stops a VDB
 # requirements
 # pip install docopt delphixpy
 
 # The below doc follows the POSIX compliant standards and allows us to use
 # this doc to also define our arguments for the script.
-"""List, create or remove authorizations for a Virtualization Engine
+"""List all VDBs or Start, stop, enable, disable a VDB
 Usage:
-  dx_authorization.py (--create --role <name> --target_type <name> --target <name> --user <name> | --list | --delete --role <name> --target_type <name> --target <name> --user <name>)
-                  [--engine <identifier> | --all]
+  dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
+                  [-d <identifier> | --engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_authorization.py -h | --help | -v | --version
-List, delete and create authentication objects
+  dx_operations_vdb.py -h | --help | -v | --version
+List all VDBs, start, stop, enable, disable a VDB
 
 Examples:
-  dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type database --target test_vdb
-  dx_authorization.py --engine landsharkengine --create --role Data --user dev_user --target_type group --target Sources
-  dx_authorization.py --list
-  dx_authorization.py --delete --role Data --user dev_user --target_type database --target test_vdb
+  dx_operations_vdb.py --engine landsharkengine --vdb testvdb --stop
+  dx_operations_vdb.py --vdb testvdb --start
+  dx_operations_vdb.py --all_dbs enable
+  dx_operations_vdb.py --all_dbs disable
+  dx_operations_vdb.py --list
 
 Options:
-  --create                  Create an authorization
-  --role <name>             Role for authorization. Valid Roles are Data,
-                             Read, Jet Stream User, OWNER, PROVISIONER
-  --target <name>           Target object for authorization
-  --target_type <name>      Target type. Valid target types are snapshot,
-                             group, database
-  --user <name>             User for the authorization
-  --list                    List all authorizations
-  --delete                  Delete authorization
+  --vdb <name>              Name of the VDB to stop or start
+  --start                   Stop the VDB
+  --stop                    Stop the VDB
+  --all_dbs <name>          Enable or disable all dSources and VDBs
+  --list                    List all databases from an engine
+  --enable                  Enable the VDB
+  --disable                 Disable the VDB
+  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -40,163 +40,127 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_authorization.log]
+                            [default: ./dx_operations_vdb.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.015'
+VERSION = 'v.0.3.015'
 
-from docopt import docopt
-from os.path import basename
 import sys
+from os.path import basename
 from time import sleep, time
 import traceback
 
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import HttpError
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web import role
-from delphixpy.v1_8_0.web import authorization
-from delphixpy.v1_8_0.web import user
-from delphixpy.v1_8_0.web import snapshot
-from delphixpy.v1_8_0.web import group
-from delphixpy.v1_8_0.web.vo import User
-from delphixpy.v1_8_0.web.vo import Authorization
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy.web import database
+from delphixpy.web import job
+from delphixpy.web import source
+from delphixpy.web.capacity import consumer
+from docopt import docopt
 
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_all_objects
+from lib.GetReferences import find_obj_list
+from lib.GetSession import GetSession
 
 
-def create_authorization(dlpx_obj, role_name, target_type, target_name,
-                         user_name):
+def dx_obj_operation(dlpx_obj, vdb_name, operation):
     """
     Function to start, stop, enable or disable a VDB
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
-    :param role_name: Name of the role
-    :param target_type: Supports snapshot, group and database target types
-    :param target_name: Name of the target
-    :param user_name: User for the authorization
+    :param vdb_name: Name of the object to stop/start/enable/disable
+    :type vdb_name: str
+    :param operation: enable or disable dSources and VDBs
+    :type operation: str
     """
 
-    authorization_obj = Authorization()
-    print_debug('Searching for {}, {} and {} references.\n'.format(
-                role_name, target_name, user_name))
+    print_debug('Searching for {} reference.\n'.format(vdb_name))
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    vdb_obj = find_obj_by_name(dlpx_obj.server_session, source, vdb_name)
     try:
-        authorization_obj.role = find_obj_by_name(dlpx_obj.server_session, role,
-                                    role_name).reference
-        authorization_obj.target = find_target_type(dlpx_obj, target_type,
-                                      target_name).reference
-        authorization_obj.user = find_obj_by_name(dlpx_obj.server_session, user,
-                                    user_name).reference
-        authorization.create(dlpx_obj.server_session, authorization_obj)
-    except (RequestError, HttpError, JobError) as e:
-        print_exception('An error occurred while creating authorization:\n'
-                        '{}'.format(e))
-    print 'Authorization successfully created for {}.'.format(user_name)
+        if vdb_obj:
+            if operation == 'start':
+                source.start(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'stop':
+                source.stop(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'enable':
+                source.enable(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'disable':
+                source.disable(dlpx_obj.server_session,
+                               vdb_obj.reference)
+            dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+    except (RequestError, HttpError, JobError, AttributeError), e:
+        print_exception('An error occurred while performing {} on {}:\n'
+                        '{}'.format(operation, vdb_name, e))
+    print '{} was successfully performed on {}.'.format(operation, vdb_name)
 
 
-def delete_authorization(dlpx_obj, role_name, target_type, target_name,
-                         user_name):
+def all_databases(dlpx_obj, operation):
     """
-    Function to delete a given authorization
+    Enable or disable all dSources and VDBs on an engine
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
-    :param role_name: Name of the role
-    :type role_name: basestring
-    :param target_type: Supports snapshot, group and database target types
-    :type target_type basestring
-    :param target_name: Name of the target
-    :type target_name: basestring
-    :param user_name: User for the authorization
-    :type user_name: basestring
+    :param operation: enable or disable dSources and VDBs
+    :type operation: str
     """
-    target_obj = find_target_type(dlpx_obj, target_type, target_name)
-    user_obj = find_obj_by_name(dlpx_obj.server_session, user,
-                                user_name)
-    role_obj = find_obj_by_name(dlpx_obj.server_session, role,
-                                role_name)
-    auth_objs = authorization.get_all(dlpx_obj.server_session)
 
-    try:
-
-        del_auth_str = '({}, {}, {})'.format(user_obj.reference,
-                                             role_obj.reference,
-                                             target_obj.reference)
-        for auth_obj in auth_objs:
-            if auth_obj.name == del_auth_str:
-                authorization.delete(dlpx_obj.server_session,
-                                     auth_obj.reference)
-    except DlpxException as e:
-        print_exception('ERROR: Could not delete authorization:\n{}'.format(e))
-    print '{} for user {} was deleted successfully'.format(target_name,
-                                                           user_name)
+    for db in database.get_all(dlpx_obj.server_session):
+        try:
+            dx_obj_operation(dlpx_obj, db.name, operation)
+        except (RequestError, HttpError, JobError):
+            pass
+        print '{} {}\n'.format(operation, db.name)
+        sleep(2)
 
 
-def find_target_type(dlpx_obj, target_type, target_name):
+def list_databases(dlpx_obj):
     """
-    Function to find the target authorization
+    Function to list all databases for a given engine
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
-    :param target_type: Type of target for authorization
-    :param target_name: Name of the target
     """
 
-    target_obj = None
+    source_stats_lst = find_all_objects(dlpx_obj.server_session, source)
+    is_dSource = None
     try:
-        if target_type.lower() == 'group':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, group,
-                                          target_name)
-        elif target_type.lower() == 'database':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, database,
-                                          target_name)
-        elif target_type.lower() == 'snapshot':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, snapshot,
-                                          target_name)
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('Could not find authorization target type '
-                        '{}:\n{}'.format(target_type, e))
-    return target_obj
-
-
-def list_authorization(dlpx_obj):
-    """
-    Function to list authorizations for a given engine
-
-    :param dlpx_obj: Virtualization Engine session object
-    """
-    target_obj = None
-
-    try:
-        auth_objs = authorization.get_all(dlpx_obj.server_session)
-        print_info('User, Role, Target, Reference')
-        for auth_obj in auth_objs:
-            role_obj = role.get(dlpx_obj.server_session, auth_obj.role)
-            user_obj = user.get(dlpx_obj.server_session, auth_obj.user)
-            if auth_obj.target.startswith('USER'):
-                target_obj = user.get(dlpx_obj.server_session, auth_obj.target)
-            elif auth_obj.target.startswith('GROUP'):
-                target_obj = group.get(dlpx_obj.server_session, auth_obj.target)
-            elif auth_obj.target.startswith('DOMAIN'):
-                target_obj = User()
-                target_obj.name = 'DOMAIN'
-            print '{}, {}, {}, {}'.format(user_obj.name, role_obj.name,
-                                               target_obj.name,
-                                               auth_obj.reference)
-    except (RequestError, HttpError, JobError, AttributeError) as e:
-        print_exception('An error occurred while listing authorizations.:\n'
-                        '{}\n'.format((e)))
+        for db_stats in find_all_objects(dlpx_obj.server_session,
+                                         consumer):
+            source_stats = find_obj_list(source_stats_lst, db_stats.name)
+            if source_stats is not None:
+                if source_stats.virtual is False:
+                    is_dSource = 'dSource'
+                elif source_stats.virtual is True:
+                    is_dSource = db_stats.parent
+                print('name: {},provision container: {},database disk '
+                      'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
+                      'Enabled: {},Status:{},'.format(str(db_stats.name),
+                      str(is_dSource),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
+                      source_stats.runtime.enabled,
+                      source_stats.runtime.status))
+            elif source_stats is None:
+                print('name = {},provision container= {},database disk '
+                      'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
+                      'Could not find source information. This could be a '
+                      'result of an unlinked object'.format(
+                      str(db_stats.name), str(db_stats.parent),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
+    except (RequestError, JobError, AttributeError, DlpxException) as e:
+        print 'An error occurred while listing databases: {}'.format((e))
 
 
 def run_async(func):
@@ -234,50 +198,53 @@ def run_async(func):
 @run_async
 def main_workflow(engine, dlpx_obj):
     """
-    This function actually runs the jobs.
+    This function is where we create our main workflow.
     Use the @run_async decorator to run this function asynchronously.
-    This allows us to run against multiple Delphix Engine simultaneously
+    The @run_async decorator allows us to run against multiple Delphix Engine
+    simultaneously
 
-    engine: Dictionary of engines
-    :type engine: dict
-    dlpx_obj: Virtualization Engine session object
+    :param engine: Dictionary of engines
+    :type engine: dictionary
+    :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
-
     """
 
     try:
         # Setup the connection to the Delphix Engine
         dlpx_obj.serversess(engine['ip_address'], engine['username'],
-                            engine['password'])
+                                  engine['password'])
+
     except DlpxException as e:
-        print_exception('ERROR: js_bookmark encountered an error authenticating'
-                        ' to {} {}:\n{}\n'.format(engine['hostname'],
-                                                  arguments['--target'], e))
+        print_exception('ERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
+                        arguments['--target'], e))
+        sys.exit(1)
+
     thingstodo = ["thingtodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            while (len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0):
-                if len(thingstodo) > 0:
-                    if arguments['--create']:
-                        create_authorization(dlpx_obj, arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
-                    elif arguments['--delete']:
-                        delete_authorization(dlpx_obj, arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
+            while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
+                if len(thingstodo)> 0:
+                    if arguments['--start']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'start')
+                    elif arguments['--stop']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'stop')
+                    elif arguments['--enable']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'enable')
+                    elif arguments['--disable']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'],
+                                         'disable')
                     elif arguments['--list']:
-                        list_authorization(dlpx_obj)
+                        list_databases(dlpx_obj)
+                    elif arguments['--all_dbs']:
+                        all_databases(dlpx_obj, arguments['--all_dbs'])
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0
                 for j in dlpx_obj.jobs.keys():
-                    job_obj = job.get(dlpx_obj.server_session,
-                                      dlpx_obj.jobs[j])
+                    job_obj = job.get(dlpx_obj.server_session, dlpx_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: : {}'.format(
+                    print_info('{}: Running JS Bookmark: {}'.format(
                         engine['hostname'], job_obj.job_state))
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
@@ -294,9 +261,20 @@ def main_workflow(engine, dlpx_obj):
                     if len(dlpx_obj.jobs) > 0:
                         sleep(float(arguments['--poll']))
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print_exception('\nError in dx_authorization: {}\n{}'.format(
+        print_exception('Error in js_bookmark: {}\n{}'.format(
             engine['hostname'], e))
         sys.exit(1)
+
+
+def time_elapsed(time_start):
+    """
+    This function calculates the time elapsed since the beginning of the script.
+    Call this anywhere you want to note the progress in terms of time
+
+    :param time_start:  start time of the script.
+    :type time_start: float
+    """
+    return round((time() - time_start)/60, +1)
 
 
 def run_job(dlpx_obj, config_file_path):
@@ -361,16 +339,6 @@ def run_job(dlpx_obj, config_file_path):
         # join them back together so that we wait for all threads to complete
         # before moving on
         each.join()
-
-
-def time_elapsed(time_start):
-    """
-    This function calculates the time elapsed since the beginning of the script.
-    Call this anywhere you want to note the progress in terms of time
-
-    :param time_start: float containing start time of the script.
-    """
-    return round((time() - time_start)/60, +1)
 
 
 def main():

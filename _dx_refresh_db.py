@@ -3,13 +3,17 @@
 #This script refreshes a vdb
 # Updated by Corey Brune Oct 2016
 #requirements
+#TODO
+#  Update print statements with format()
+# Check if environment is enabled/valid
+
 #pip install --upgrade setuptools pip docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list-timeflows | --list-snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
@@ -27,8 +31,8 @@ Options:
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
   --dsource <name>          Name of dsource in Delphix to execute against.
   --group_name <name>       Name of the group to execute against.
-  --list_timeflows          List all timeflows
-  --list_snapshots          List all snapshots
+  --list-timeflows          List all timeflows
+  --list-snapshots          List all snapshots
   --host <name>             Name of environment in Delphix to execute against.
   --timestamp_type <type>   The type of timestamp you are specifying.
                             Acceptable Values: TIME, SNAPSHOT
@@ -58,42 +62,40 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.1.615'
+VERSION = 'v.0.1.602'
 
 
 from docopt import docopt
 import logging
 from os.path import basename
 import sys
+import time
 import traceback
-import json
 from time import sleep, time
 
-from delphixpy.v1_8_0.delphix_engine import DelphixEngine
-from delphixpy.v1_8_0.exceptions import HttpError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0 import job_context
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import environment
-from delphixpy.v1_8_0.web import group
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web import source
-from delphixpy.v1_8_0.web import timeflow
-from delphixpy.v1_8_0.web.snapshot import snapshot
-from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
-from delphixpy.v1_8_0.web.vo import RefreshParameters
-from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
-from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
-from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
+from delphixpy.exceptions import HttpError
+from delphixpy.exceptions import JobError
+from delphixpy.exceptions import RequestError
+from delphixpy.web import database
+from delphixpy.web import environment
+from delphixpy.web import group
+from delphixpy.web import job
+from delphixpy.web import source
+from delphixpy.web import timeflow
+from delphixpy.web.snapshot import snapshot
+from delphixpy.web.vo import OracleRefreshParameters
+from delphixpy.web.vo import RefreshParameters
+from delphixpy.web.vo import TimeflowPointLocation
+from delphixpy.web.vo import TimeflowPointSemantic
+from delphixpy.web.vo import TimeflowPointTimestamp
 
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetSession import GetSession
 
 
 def run_async(func):
@@ -179,7 +181,6 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
             matches.append(snapshot_obj)
 
     if len(matches) == 1:
-
         print_debug(engine["hostname"] + 
                     ": Found one and only one match. This is good.")
         print_debug(engine["hostname"] + ": " + matches[0])
@@ -187,7 +188,7 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
         return matches[0]
 
     elif len(matches) > 1:
-        print_error("The name specified was not specific enough. " 
+        print_error("The name specified was not specific enough. "
                     "More than one match found.")
 
         for each in matches:
@@ -219,7 +220,6 @@ def find_snapshot_by_database_and_time(engine, server, database_obj, snap_time):
         print_debug(engine['hostname'] + 
                     ': Found one and only one match. This is good.')
         print_debug(engine['hostname'] + ': ' + snap_match)
-
 
         return matches[0]
 
@@ -253,72 +253,6 @@ def find_source_by_database(engine, server, database_obj):
     return source_obj
 
 
-def get_config(config_file_path):
-    """
-    This function reads in the dxtools.conf file
-    """
-    #First test to see that the file is there and we can open it
-    try:
-        config_file = open(config_file_path).read()
-    except:
-        print_error("Was unable to open " + config_file_path + 
-                    ". Please check the path and permissions, then try again.")
-        sys.exit(1)
-
-    #Now parse the file contents as json and turn them into a 
-    # python dictionary, throw an error if it isn't proper json
-    try:
-        config = json.loads(config_file)
-    except:
-        print_error("Was unable to read " + config_file_path + 
-                    " as json. Please check file in a json formatter and " \
-                    "try again.")
-        sys.exit(1)
-
-    #Create a dictionary of engines (removing the data node from the 
-    # dxtools.json, for easier parsing)
-    delphix_engines = {}
-    for each in config['data']:
-        delphix_engines[each['hostname']] = each
-
-    print_debug(delphix_engines)
-    return delphix_engines
-
-
-def job_mode(server):
-    """
-    This function tells Delphix how to execute jobs, based on the 
-    single_thread variable at the beginning of the file
-    """
-    #Synchronously (one at a time)
-    if single_thread == True:
-        job_m = job_context.sync(server)
-        print_debug("These jobs will be executed synchronously")
-    #Or asynchronously
-    else:
-        job_m = job_context.async(server)
-        print_debug("These jobs will be executed asynchronously")
-    return job_m
-
-
-def job_wait():
-    """
-    This job stops all work in the thread/process until all jobs on the 
-    engine are completed.
-    """
-    #Grab all the jos on the server (the last 25, be default)
-    all_jobs = job.get_all(server)
-    #For each job in the list, check to see if it is running (not ended)
-    for jobobj in all_jobs:
-        if not (jobobj.job_state in ["CANCELED", "COMPLETED", "FAILED"]):
-            print_debug("Waiting for " + jobobj.reference + " (currently: " + 
-                        jobobj.job_state + 
-                        ") to finish running against the container")
-
-            #If so, wait
-            job_context.wait(server,jobobj.reference)
-
-
 def get_obj_name(server, f_object, obj_reference):
     """
     Return the object name from obj_reference
@@ -331,10 +265,7 @@ def get_obj_name(server, f_object, obj_reference):
         obj_name = f_object.get(server, obj_reference)
         return(obj_name.name)
 
-    except RequestError as e:
-        raise dlpxExceptionHandler(e)
-
-    except HttpError as e:
+    except (HttpError, RequestError) as e:
         raise DlpxException(e)
 
 
@@ -342,20 +273,23 @@ def list_snapshots(server):
     """
     List all snapshots with timestamps
     """
+    container_name = ''
 
-    header = 'Snapshot Name, First Change Point, Location, Latest Change Point'
+    header = 'Snapshot Name, First Change Point, Latest Change Point'
     snapshots = snapshot.get_all(server)
 
     print header
     for snap in snapshots:
-        container_name = get_obj_name(server, database, snap.container)
-        snap_range = snapshot.timeflow_range(server, snap.reference)
+        try:
+            container_name = get_obj_name(server, database, snap.container)
+            snap_range = snapshot.timeflow_range(server, snap.reference)
+        except (DlpxException, RequestError, HttpError) as e:
+            print_exception('Encountered exception when listing snapshots:\n'
+                            '{}'.format(e))
 
-        print '{}, {}, {}, {}, {}'.format(str(snap.name),
-                                  container_name,
-                                  snap_range.start_point.timestamp,
-                                  snap_range.start_point.location,
-                                  snap_range.end_point.timestamp)
+        print '{}, {}, {}, {}'.format(str(snap.name), container_name,
+                                      snap_range.start_point.timestamp,
+                                      snap_range.end_point.timestamp)
 
 
 @run_async
@@ -368,34 +302,43 @@ def main_workflow(engine):
     """
 
     #Pull out the values from the dictionary for this engine
-    engine_address = engine["ip_address"]
-    engine_username = engine["username"]
-    engine_password = engine["password"]
+    try:
+        #Setup the connection to the Delphix Engine
+        dx_session_obj.serversess(engine['ip_address'], engine['username'],
+                                  engine['password'])
+
+        if arguments['--vdb']:
+            #Get the database reference we are copying from the database name
+            database_obj = find_obj_by_name(dx_session_obj.server_session,
+                                            database, arguments['--vdb'])
+
+    except DlpxException as e:
+        print_exception('\nERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
+                        arguments['--target'], e))
+        sys.exit(1)
+
     #Establish these variables as empty for use later
     databases = []
     environment_obj = None
     source_objs = None
     jobs = {}
-    
-
-    #Setup the connection to the Delphix Engine
-    server = serversess(engine_address, engine_username, engine_password)
 
     #If an environment/server was specified
     if host_name:
-        print_debug(engine["hostname"] + ": Getting environment for " + 
-                    host_name)
+        print_debug('{}: Getting environment for {}'.format(engine['hostname'],
+                    host_name))
         #Get the environment object by the hostname
-        environment_obj = find_obj_by_name(engine, server, environment, 
-                                           host_name)
+        environment_obj = find_obj_by_name(dx_session_obj.server_session,
+                                           environment, host_name)
 
         if environment_obj != None:
             #Get all the sources running on the server
-            env_source_objs = source.get_all(server, 
+            env_source_objs = source.get_all(dx_session_obj.server_session,
                                      environment=environment_obj.reference)
 
             #If the server doesn't have any objects, exit.
-            if env_source_objs == None:
+            if env_source_objs is None:
                 print_error(host_name + "does not have any objects. Exiting")
                 sys.exit(1)
 
@@ -454,18 +397,18 @@ def main_workflow(engine):
         #containers, because we can't refresh those this way.
         databases = database.get_all(server, no_js_container_data_source=True)
 
-    elif arguments['--list_timeflows']:
+    elif arguments['--list-timeflows']:
         list_timeflows(server)
 
-    elif arguments['--list_snapshots']:
+    elif arguments['--list-snapshots']:
         list_snapshots(server)
 
     #reset the running job count before we begin
     i = 0
-    with job_mode(server):
-        #While there are still running jobs or databases still to process....
-
-        while (len(jobs) > 0 or len(databases) > 0):
+    try:
+        with dx_session_obj.job_mode(single_thread):
+            while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+                if len(thingstodo) > 0:
 
             #While there are databases still to process and we are still under 
             #the max simultaneous jobs threshold (if specified)
@@ -494,8 +437,10 @@ def main_workflow(engine):
                         return
 
                 #Refresh the database
-                refresh_job = refresh_database(engine, server, jobs, 
-                                               source_obj[0], database_obj)
+                refresh_job = refresh_database(engine,
+                                               dx_session_obj.server_session,
+                                               jobs,  source_obj[0],
+                                               database_obj)
                 #If refresh_job has any value, then we know that a job was 
                 # initiated.
 
@@ -504,19 +449,30 @@ def main_workflow(engine):
                     i += 1
             #Check to see if we are running at max parallel processes, and 
             # report if so.
-            if ( arguments['--parallel'] != None and \
-                 i >= int(arguments['--parallel'])):
+            if (arguments['--parallel'] != None and \
+                            i >= int(arguments['--parallel'])):
 
                 print_info(engine["hostname"] + ": Max jobs reached (" + 
                            str(i) + ")")
 
-            i = update_jobs_dictionary(engine, server, jobs)
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. " +
-                       str(len(databases)) + " jobs waiting to run")
+            i = update_jobs_dictionary(engine, dx_session_obj.server_session,
+                                       jobs)
+            print_info('{}: {:.2f} jobs running. {:d} jobs waiting to '
+                       'run.'.format(engine['hostname'], i, len(databases)))
 
             #If we have running jobs, pause before repeating the checks.
             if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
+
+
+def on_exit(sig, func=None):
+    """
+    This function helps us end cleanly and with exit codes
+    """
+    print_info("Shutdown Command Received")
+    print_info("Shutting down " + basename(__file__))
+    sys.exit(0)
+
 
 def print_error(print_obj):
     """
@@ -675,15 +631,6 @@ def run_job(engine):
         each.join()
 
 
-def serversess(f_engine_address, f_engine_username, f_engine_password):
-    """
-    Function to setup the session with the Delphix Engine
-    """
-    server_session= DelphixEngine(f_engine_address, f_engine_username, 
-                                  f_engine_password, "DOMAIN")
-    return server_session
-
-
 def list_timeflows(server):
     """
     Retrieve and print all timeflows for a given engine
@@ -741,8 +688,8 @@ def set_timeflow_point(engine, server, container_obj):
 
             else:
                 raise DlpxException('ERROR: Was unable to use the specified '
-                                    'snapshot %s for database %s.\n' %
-                                    (arguments['--timestamp'],
+                                    'snapshot {} for database {}.\n'.format(
+                                    arguments['--timestamp'],
                                     container_obj.name))
 
         elif arguments['--timestamp']:
@@ -831,9 +778,11 @@ def main(argv):
     global database_name
     global config_file_path
     global dxtools_objects
+    global dx_session_obj
 
     try:
         #Declare globals that will be used throughout the script.
+        dx_session_obj = GetSession()
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
@@ -841,17 +790,15 @@ def main(argv):
         single_thread = False
         database_name = arguments['--name']
         host_name = arguments['--host']
-        config_file_path = arguments['--config']
-        #Parse the dxtools.conf and put it into a dictionary
-        dxtools_objects = get_config(config_file_path)
+        dx_session_obj.get_config(arguments['--config'])
         
         #This is the function that will handle processing main_workflow for 
         # all the servers.
-        run_job(engine)
+        run_job()
         
         elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) + 
-                   " minutes to get this far.")
+        print_info('Script took {:d} minutes to get this far.'.format(
+            elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -859,42 +806,44 @@ def main(argv):
         This is what we use to handle our sys.exit(#)
         """
         sys.exit(e)
+
     except HttpError as e:
         """
         We use this exception handler when our connection to Delphix fails
         """
-        print_error("Connection failed to the Delphix Engine")
-        print_error( "Please check the ERROR message below")
-        print_error(e.message)
+        print_exception('Connection failed to the Delphix Engine. Please '
+                        'check the error message below:\n{}'.format(e.message))
         sys.exit(2)
+
     except JobError as e:
         """
         We use this exception handler when a job fails in Delphix so that we 
         have actionable data
         """
-        print_error("A job failed in the Delphix Engine")
-        print_error(e.job)
+        print_exception('A job failed in the Delphix Engine:\n{}'.format(e.job))
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + 
-                   " minutes to get this far.")
+        print_info('{} took {:d} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
         sys.exit(3)
+
     except KeyboardInterrupt:
         """
         We use this exception handler to gracefully handle ctrl+c exits
         """
-        print_debug("You sent a CTRL+C to interrupt the process")
+        print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + 
-                   " minutes to get this far.")
+        print_info('{} took {:d} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
+
     except:
         """
         Everything else gets caught here
         """
-        print_error(sys.exc_info()[0])
-        print_error(traceback.format_exc())
+        print_exception(sys.exc_info()[0])
+        print_exception(traceback.format_exc())
         elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) + 
-                   " minutes to get this far.")
+        print_info('{} took {:d} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
         sys.exit(1)
 
 if __name__ == "__main__":

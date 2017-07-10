@@ -10,12 +10,12 @@
 """Perform routine operations on Jetstream containers
 
 Usage:
-  dx_jetstream_container.py --template <name> (--container <name> | --all_containers )
+  dx_jetstream_container_refresh.py --template <name> (--container <name> | --all_containers )
                   --operation <name> [-d <identifier> | --engine <identifier> | --all]
                   [--bookmark_name <name>] [--bookmark_tags <tags>] [--bookmark_shared <bool>]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_jetstream_container.py -h | --help | -v | --version
+  dx_jetstream_container_refresh.py -h | --help | -v | --version
 
 Perform routine operations on a Jetstream Container
 

@@ -98,7 +98,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.303'
+VERSION = 'v.0.2.302'
 
 import signal
 import sys
@@ -146,7 +146,6 @@ from delphixpy.web.vo import AppDataDirectSourceConfig
 from lib.DxTimeflow import DxTimeflow
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
-from lib.GetReferences import find_dbrepo
 from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
@@ -199,19 +198,12 @@ def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj,
         return vdb_obj.reference
 
 
-def create_mssql_vdb(engine, jobs, vdb_group, vdb_name, 
+def create_mssql_vdb(engine, server, jobs, vdb_group, vdb_name, 
                      environment_obj, container_obj):
     '''
     Create a MSSQL VDB
-    engine:
-    jobs:
-    vdb_group:
-    vdb_name,
-    environment_obj:
-    container_obj:
-    
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, dx_session_obj.server_session,
+    vdb_obj = find_database_by_name_and_group_name(engine, server, 
                                                    vdb_group.name, vdb_name)
     if vdb_obj == None:
         vdb_params = MSSqlProvisionParameters()
@@ -219,28 +211,31 @@ def create_mssql_vdb(engine, jobs, vdb_group, vdb_name,
         vdb_params.container.group = vdb_group.reference
         vdb_params.container.name = vdb_name
         vdb_params.source = MSSqlVirtualSource()
-        vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
         vdb_params.source_config = MSSqlSIConfig()
         vdb_params.source_config.database_name = arguments['--db']
+        vdb_params.source_config.instance = MSSqlInstanceConfig()
+        vdb_params.source_config.instance.host = environment_obj.host
 
-        vdb_params.source_config.repository = find_dbrepo(
-            dx_session_obj.server_session, 'MSSqlInstance', environment_obj.reference,
-            arguments['--envinst']).reference
+        vdb_repo = find_dbrepo_by_environment_ref_and_name(engine, server, 
+                                                     "MSSqlInstance", 
+                                                     environment_obj.reference,
+                                                     arguments['--envinst'])
+        vdb_params.source_config.repository = vdb_repo.reference
 
         vdb_params.timeflow_point_parameters = set_timeflow_point(engine, 
-                                                                  dx_session_obj.server_session, 
+                                                                  server, 
                                                                   container_obj)
         if not vdb_params.timeflow_point_parameters:
             return
         vdb_params.timeflow_point_parameters.container = \
                                              container_obj.reference
         print_info(engine["hostname"] + ":Provisioning " + vdb_name)
-        database.provision(dx_session_obj.server_session, vdb_params)
+        database.provision(server, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
-        jobs[engine["hostname"]] = dx_session_obj.server_session.last_job
+        jobs[engine["hostname"]] = server.last_job
         #return the job object to the calling statement so that we can tell if 
         # a job was created or not (will return None, if no job)
-        return dx_session_obj.server_session.last_job
+        return server.last_job
     else:
         print_info(engine["hostname"] + ": " + vdb_name + " already exists.")
         return vdb_obj.reference
@@ -756,7 +751,7 @@ def main_workflow(engine):
     try:
         #Setup the connection to the Delphix Engine
         dx_session_obj.serversess(engine['ip_address'], engine['username'],
-                                  engine['password'])
+                                  engine['password'], https=True)
 
         group_obj = find_obj_by_name(dx_session_obj.server_session, group, 
                                      arguments['--target_grp'])
@@ -808,7 +803,7 @@ def main_workflow(engine):
                                        database_obj)
 
                     elif arg_type == "mssql":
-                        create_mssql_vdb(engine, jobs, group_obj, 
+                        create_mssql_vdb(engine, server, jobs, group_obj, 
                                          database_name, environment_obj, 
                                          database_obj)
 
@@ -941,6 +936,8 @@ def set_timeflow_point(engine, server, container_obj):
     This returns the reference of the timestamp specified.
     """
 
+    print engine, '\n', server, '\n', container_obj
+    sys.exit(1)
     if arguments['--timestamp_type'].upper() == "SNAPSHOT":
         if arguments['--timestamp'].upper() == "LATEST":
             print_debug('%s: Using the latest Snapshot.' % 

@@ -42,7 +42,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.002'
 
 import sys
 import re
@@ -70,7 +70,7 @@ def list_jobs():
                     arguments['--state'].upper()):
             pass
         else:
-            print('The state should be one of these options:\n'
+            print_info('The state should be one of these options:\n'
                   'RUNNING, SUSPENDED, CANCELED, COMPLETED, FAILED')
             sys.exit(1)
 
@@ -229,7 +229,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n%s' % (e)
+            print 'Error encountered in run_job():\n{}'.format(e)
             sys.exit(1)
 
     elif arguments['--all'] is False:

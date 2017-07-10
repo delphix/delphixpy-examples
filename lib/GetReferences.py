@@ -6,20 +6,20 @@ import re
 from datetime import datetime
 from dateutil import tz
 
-from delphixpy.web.service import time
-from delphixpy.exceptions import RequestError
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.web import repository
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web import sourceconfig
+from delphixpy.v1_8_0.web.service import time
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.web import repository
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import sourceconfig
 
 from DlpxException import DlpxException
 from DxLogging import print_debug
-from DxLogging import print_exception
 
-VERSION = 'v.0.2.0017'
+VERSION = 'v.0.2.0019'
+
 
 def convert_timestamp(engine, timestamp):
     """
@@ -39,7 +39,6 @@ def convert_timestamp(engine, timestamp):
         engine_local_tz = '{} {} {}'.format(str(converted_tz.date()),
                                             str(converted_tz.time()),
                                             str(converted_tz.tzname()))
-
         return engine_local_tz
     except TypeError:
         return None
@@ -52,8 +51,6 @@ def find_all_objects(engine, f_class):
     f_class: The objects class. I.E. database or timeflow.
     :return: List of objects
     """
-
-    return_lst = []
 
     try:
         return f_class.get_all(engine)
@@ -79,8 +76,8 @@ def find_obj_specs(engine, obj_lst):
 def get_running_job(engine, target_ref):
     """
     Function to find a running job from the DB target reference.
-    :param engine: A Virtualization engine session object
-    :param target_ref: Reference to the target of the running job
+    engine: A Virtualization engine session object
+    target_ref: Reference to the target of the running job
     :return: 
     """
     return job.get_all(engine, target=target_ref,
@@ -121,19 +118,15 @@ def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
                             '{}.\n'.format(e))
     for obj in all_objs:
         if obj.name == obj_name:
-
             if active_branch is False:
-                return(obj)
-
-            #This code is for JS objects only.
+                return obj
+            # This code is for JS objects only.
             elif active_branch is True:
                 return_list.append(obj.reference)
                 return_list.append(obj.active_branch)
-                return(return_list)
-
+                return return_list
             return obj
-
-    #If the object isn't found, raise an exception.
+    # If the object isn't found, raise an exception.
     raise DlpxException('{} was not found on engine {}.\n'.format(
         obj_name, engine.address))
 
@@ -151,25 +144,20 @@ def get_obj_reference(engine, obj_type, obj_name, search_str=None,
     ret_lst = []
 
     results = obj_type.get_all(engine)
-
     for result in results:
         if container is False:
             if result.name == obj_name:
                 ret_lst.append(result.reference)
-
                 if search_str:
                     if re.search(search_str, result.reference, re.IGNORECASE):
                         ret_lst.append(True)
                     else:
                         ret_lst.append(False)
-
                 return ret_lst
         else:
             if result.container == obj_name:
                 ret_lst.append(result.reference)
-
                 return ret_lst
-
     raise DlpxException('Reference not found for {}'.format(obj_name))
 
 
@@ -184,10 +172,8 @@ def find_obj_name(engine, f_class, obj_reference):
     try:
         obj_name = f_class.get(engine, obj_reference)
         return obj_name.name
-
     except RequestError as e:
         raise DlpxException(e)
-
     except (JobError, HttpError) as e:
         raise DlpxException(e.message)
 
@@ -201,20 +187,19 @@ def find_dbrepo(engine, install_type, f_environment_ref, f_install_path):
     install_type: Type of install - Oracle, ASE, SQL
     f_environment_ref: Reference of the environment for the repository
     f_install_path: Path to the installation directory.
-    return: delphixpy.web.vo.SourceRepository object
+    return: delphixpy.v1_8_0.web.vo.SourceRepository object
     """
 
-    print_debug('Searching objects in the %s class for one with the '
-                'environment reference of %s and an install path of %s' %
-                (install_type, f_environment_ref, f_install_path))
-    #import pdb;pdb.set_trace()
+    print_debug('Searching objects in the {} class for one with the '
+                'environment reference of {} and an install path of {}'.format(
+        install_type, f_environment_ref, f_install_path))
     all_objs = repository.get_all(engine, environment=f_environment_ref)
     for obj in all_objs:
         if 'OracleInstall' == install_type:
             if (obj.type == install_type and
                 obj.installation_home == f_install_path):
 
-                print_debug('Found a match %s'.format(obj.reference))
+                print_debug('Found a match {}'.format(obj.reference))
                 return obj
 
         elif 'MSSqlInstance' == install_type:
@@ -232,22 +217,21 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
     """
     Function to find database sourceconfig objects by environment reference and
     sourceconfig name (db name), and return the object's reference as a string
-    You might use this function to find Oracle and PostGreSQL database
-    sourceconfigs.
+    You might use this function to find Oracle database sourceconfigs.
     engine: Virtualization Engine Session object
     sourceconfig_name: Name of source config, usually name of db
                        instnace (ie. orcl)
     f_environment_ref: Reference of the environment for the repository
-    return: delphixpy.web.vo.SourceConfig object
+    return: delphixpy.v1_8_0.web.vo.SourceConfig object
     """
 
     print_debug('Searching objects in the SourceConfig class for one with the '
-                'environment reference of %s and a name of %s' %
-                (f_environment_ref, sourceconfig_name))
+                'environment reference of %s and a name of {}'.format(
+                f_environment_ref, sourceconfig_name))
     all_objs = sourceconfig.get_all(engine, environment=f_environment_ref)
     for obj in all_objs:
         if obj.name == sourceconfig_name:
-                print_debug('Found a match %s'.format(obj.reference))
+                print_debug('Found a match {}'.format(obj.reference))
                 return obj
         else:
             raise DlpxException('No sourceconfig match found for type {}.'

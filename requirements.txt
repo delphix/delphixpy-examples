@@ -2,4 +2,4 @@ setuptools
 pip
 docopt
 delphixpy
-dateutil
+python-dateutil

@@ -61,7 +61,7 @@ Options:
 
 """
 
-VERSION="v.0.3.601"
+VERSION="v.0.3.604"
 
 from docopt import docopt
 from os.path import basename
@@ -100,6 +100,9 @@ def list_env():
                                  environment.user, env.primary_user)
         env_host = find_obj_name(dx_session_obj.server_session,
                                  host, env.host)
+
+        #ORACLE CLUSTER does not have env.host
+        #Windows does not have ASE instances
 
         print 'Environment Name: {}, Username: {}, Host: {}, Enabled: {}, ' \
               'ASE Environment Params: {}'.format(
@@ -141,7 +144,6 @@ def refresh_env(engine, env_name):
     try:
         env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
                                    env_name)
-
         environment.refresh(dx_session_obj.server_session, env_obj.reference)
         dx_session_obj.jobs[engine['hostname']] = \
                                    dx_session_obj.server_session.last_job
@@ -259,7 +261,8 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
               'environment:\n{}'.format(e))
     except JobError as e:
         print_exception('JobError while creating environment {}:\n{}'.format(
-            e, e.msg))
+            e, e.message))
+
 
 def create_windows_env(engine, env_name, host_user, ip_addr,
                      pw=None, connector_name=None):
@@ -314,6 +317,7 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
         print('\nERROR: Encountered an exception while creating the '
               'environment:\n{}'.format(e))
 
+
 def run_async(func):
     """
         http://code.activestate.com/recipes/576684-simple-threading-decorator/
@@ -357,11 +361,6 @@ def main_workflow(engine):
     This allows us to run against multiple Delphix Engine simultaneously
 
     """
-
-    #Establish these variables as empty for use later
-    environment_obj = None
-    source_objs = None
-
 
     try:
        #Setup the connection to the Delphix Engine

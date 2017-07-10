@@ -53,25 +53,25 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.003"
+VERSION="v.0.0.010"
 
 from docopt import docopt
 from os.path import basename
 import sys
 import traceback
 import re
-from time import time
+from time import time, sleep
 
-from delphixpy.web.jetstream import branch
-from delphixpy.web.jetstream import container
-from delphixpy.web.jetstream import template
-from delphixpy.web.jetstream import operation
-from delphixpy.web.vo import JSBranchCreateParameters
-from delphixpy.web.vo import JSDataSourceCreateParameters
-from delphixpy.web.vo import JSBranch
-from delphixpy.exceptions import RequestError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import HttpError
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web.jetstream import branch
+from delphixpy.v1_8_0.web.jetstream import container
+from delphixpy.v1_8_0.web.jetstream import template
+from delphixpy.v1_8_0.web.jetstream import operation
+from delphixpy.v1_8_0.web.vo import JSBranchCreateParameters
+from delphixpy.v1_8_0.web.vo import JSBranch
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import HttpError
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
@@ -83,162 +83,127 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 
 
-def create_branch(branch_name, template_name, container_name):
+def create_branch(dlpx_obj, branch_name, template_name, container_name):
     """
     Create the JS Branch
 
+    dlpx_obj: Virtualization Engine session object
     branch_name: Name of the branch to create
     template_name: Name of the template to use
     container_name: Name of the container to use
     """
 
     js_branch_params = JSBranchCreateParameters()
-
+    js_branch_params.name = branch_name
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
     try:
-        data_container_obj = find_obj_by_name(dx_session_obj.server_session,
+        data_container_obj = find_obj_by_name(dlpx_obj.server_session,
                                               container, container_name)
-
-        source_layout_obj = find_obj_by_name(dx_session_obj.server_session,
+        source_layout_obj = find_obj_by_name(dlpx_obj.server_session,
                                              template, template_name)
-
-        js_branch_params.name = branch_name
         js_branch_params.data_container = data_container_obj.reference
         js_branch_params.timeline_point_parameters = {
                                               'sourceDataLayout':
                                               source_layout_obj.reference,
                                               'type':
                                               'JSTimelinePointLatestTimeInput'}
-            
-        branch.create(dx_session_obj.server_session, js_branch_params)
-
+        branch.create(dlpx_obj.server_session, js_branch_params)
+        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        print_info('JS Branch {} was created successfully.'.format(
+            branch_name))
     except (DlpxException, RequestError, HttpError) as e:
-        print_exception('\nThe branch {} was not created. The error was:'
-                        '\n{}'.format(branch_name, e))
-        sys.exit(1)
+        print_exception('\nThe branch was not created. The error was:'
+                        '\n{}'.format(e))
 
 
-def list_branches():
+def list_branches(dlpx_obj):
     """
     List all branches on a given engine
 
+    dlpx_obj: Virtualization Engine session object
     No args required
     """
 
     try:
-        header = '\nName, Reference, End Time'
+        header = '\nBranch Name, Data Layout, Reference, End Time'
         js_data_layout = ''
-        js_branches = branch.get_all(dx_session_obj.server_session)
+        js_branches = branch.get_all(dlpx_obj.server_session)
 
         print header
         for js_branch in js_branches:
-            js_end_time = operation.get(dx_session_obj.server_session,
+            js_end_time = operation.get(dlpx_obj.server_session,
                                         js_branch.first_operation).end_time
-
             if re.search('TEMPLATE', js_branch.data_layout):
-                js_data_layout = find_obj_name(dx_session_obj.server_session,
+                js_data_layout = find_obj_name(dlpx_obj.server_session,
                                                template, js_branch.data_layout)
             elif re.search('CONTAINER', js_branch.data_layout):
-                js_data_layout = find_obj_name(dx_session_obj.server_session,
+                js_data_layout = find_obj_name(dlpx_obj.server_session,
                                                container, js_branch.data_layout)
-
-            print('{}/{}, {}, {}'.format(js_data_layout, js_branch._name[0],
-                js_branch.reference, js_end_time))
-
+            print_info('{} {}, {}, {}'.format(js_branch._name[0],
+                                              js_data_layout,
+                                              js_branch.reference,
+                                              js_end_time))
     except (DlpxException, HttpError, RequestError) as e:
         print_exception('\nERROR: JS Branches could not be listed. The '
                         'error was:\n\n{}'.format(e))
 
 
-def update_branch(branch_name):
+def update_branch(dlpx_obj, branch_name):
     """
     Updates a branch
 
+    dlpx_obj: Virtualization Engine session object
     branch_name: Name of the branch to update
     """
 
     js_branch_obj = JSBranch()
     try:
-        branch_obj = find_obj_by_name(dx_session_obj.server_session,
+        branch_obj = find_obj_by_name(dlpx_obj.server_session,
                                       branch, branch_name)
-        branch.update(dx_session_obj.server_session, branch_obj.reference,
+        branch.update(dlpx_obj.server_session, branch_obj.reference,
                       js_branch_obj)
-
+        print_info('The branch {} was updated successfully.'.format(
+            branch_name))
     except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: The branch %s could not be updated. The '
-                        'error was:\n\n{}'.format(branch_name, e))
+        print_exception('\nERROR: The branch could not be updated. The '
+                        'error was:\n\n{}'.format(e))
 
 
-def activate_branch(branch_name):
+def activate_branch(dlpx_obj, branch_name):
     """
     Activates a branch
 
+    dlpx_obj: Virtualization Engine session object
     branch_name: Name of the branch to activate
     """
 
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
     try:
-        branch_obj = find_obj_by_name(dx_session_obj.server_session,
+        branch_obj = find_obj_by_name(dlpx_obj.server_session,
                                       branch, branch_name)
-
-        branch.activate(dx_session_obj.server_session, branch_obj.reference)
-
+        branch.activate(dlpx_obj.server_session, branch_obj.reference)
+        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        print_info('The branch {} was activated successfully.'.format(
+            branch_name))
     except RequestError as e:
-        print('\nAn error occurred updating the branch:\n{}'.format(e))
-        sys.exit(1)
+        print_exception('\nAn error occurred activating the '
+                        'branch:\n{}'.format(e))
 
 
-def delete_branch(branch_name):
+def delete_branch(dlpx_obj, branch_name):
     """
     Deletes a branch
-
+    dlpx_obj: Virtualization Engine session object
     branch_name: Branch to delete
     """
 
     try:
-        branch_obj = find_obj_by_name(dx_session_obj.server_session,
+        branch_obj = find_obj_by_name(dlpx_obj.server_session,
                                       branch, branch_name)
-
-        branch.delete(dx_session_obj.server_session, branch_obj.reference)
-
+        branch.delete(dlpx_obj.server_session, branch_obj.reference)
     except (DlpxException, HttpError, RequestError) as e:
-        raise DlpxException('\nERROR: The branch {} was not deleted. The '
-                            'error was:\n\n{}'.format(branch_name, e.message))
-
-
-def build_ds_params(engine, obj, db):
-    """
-    Builds the datasource parameters
-
-    engine: Dictionary of engines
-    obj: object type to use when finding db
-    db: Name of the database to use when building the parameters
-    """
-
-    try:
-        db_obj = find_obj_by_name(dx_session_obj.server_session,
-                                  obj, db)
-
-        ds_params = JSDataSourceCreateParameters()
-        ds_params.source = {'type':'JSDataSource', 'name': db}
-        ds_params.container = db_obj.reference
-        return(ds_params)
-
-    except RequestError as e:
-        print('\nCould not find %s\n%s' % (db, e.message))
-        sys.exit(1)
-
-
-def updateJSObject(obj_name, obj_type, vo_object, err_message):
-    try:
-        obj_ref = find_obj_by_name(dx_session_obj.server_session,
-                                   obj_type, obj_name)
-        obj_type.update(engine, obj_ref, vo_object)
-        print '%s was updated successfully.\n' % (obj_name)
-
-
-    except (DlpxException, HttpError, RequestError) as e:
-        print('\nERROR: An error occurred while updating branch %s:\n%s' %
-              (engine['hostname'], e))
-        sys.exit(1)
+        print_exception('\nERROR: The branch was not deleted. The '
+                            'error was:\n\n{}'.format(e.message))
 
 
 def run_async(func):
@@ -285,7 +250,7 @@ def time_elapsed():
 
 
 @run_async
-def main_workflow(engine):
+def main_workflow(engine, dlpx_obj):
     """
     This function is where we create our main workflow.
     Use the @run_async decorator to run this function asynchronously.
@@ -293,6 +258,7 @@ def main_workflow(engine):
     simultaneously
 
     engine: Dictionary of engines
+    dlpx_obj: Virtualization Engine session object
     """
 
     #Establish these variables as empty for use later
@@ -301,9 +267,8 @@ def main_workflow(engine):
 
     try:
         #Setup the connection to the Delphix Engine
-        dx_session_obj.serversess(engine['ip_address'], engine['username'],
+        dlpx_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
-
     except DlpxException as e:
         print_exception('\nERROR: Engine {} encountered an error while '
                         'provisioning {}:\n{}\n'.format(engine['hostname'],
@@ -312,42 +277,58 @@ def main_workflow(engine):
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
-
     try:
-        with dx_session_obj.job_mode(single_thread):
-            while len(thingstodo)> 0:
-            #while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+        with dlpx_obj.job_mode(single_thread):
+            while (len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0):
                 if len(thingstodo) > 0:
-
                     if arguments['--create_branch']:
-                        create_branch(arguments['--create_branch'],
-                                        arguments['--template_name'],
-                                        arguments['--container_name'])
-
+                        create_branch(dlpx_obj, arguments['--create_branch'],
+                                      arguments['--template_name'],
+                                      arguments['--container_name'])
                     elif arguments['--delete_branch']:
-                        delete_branch(arguments['--delete_branch'])
-
+                        delete_branch(dlpx_obj, arguments['--delete_branch'])
                     elif arguments['--update_branch']:
-                        update_branch(arguments['--update_branch'])
-
+                        update_branch(dlpx_obj, arguments['--update_branch'])
                     elif arguments['--activate_branch']:
-                        activate_branch(arguments['--activate_branch'])
-
+                        activate_branch(dlpx_obj,
+                                        arguments['--activate_branch'])
                     elif arguments['--list_branches']:
-                        list_branches()
-
+                        list_branches(dlpx_obj)
                     thingstodo.pop()
-
+                # get all the jobs, then inspect them
+                i = 0
+                for j in dlpx_obj.jobs.keys():
+                    job_obj = job.get(dlpx_obj.server_session,
+                                      dlpx_obj.jobs[j])
+                    print_debug(job_obj)
+                    print_info('{}: Provisioning JS Branch: {}'.format(
+                        engine['hostname'], job_obj.job_state))
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
+                        # If the job is in a non-running state, remove it
+                        # from the running jobs list.
+                        del dlpx_obj.jobs[j]
+                    elif job_obj.job_state in 'RUNNING':
+                        # If the job is in a running state, increment the
+                        # running job count.
+                        i += 1
+                    print_info('{}: {:d} jobs running.'.format(
+                        engine['hostname'], i))
+                    # If we have running jobs, pause before repeating the
+                    # checks.
+                    if len(dlpx_obj.jobs) > 0:
+                        sleep(float(arguments['--poll']))
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print('\nError in js_branch: %s:\n%s' %
-              (engine['hostname'], e))
-        sys.exit(1)
+        print_exception('\nError in js_branch: {}\n{}'.format(
+            engine['hostname'], e))
 
 
-def run_job():
+def run_job(dlpx_obj, config_file_path):
     """
     This function runs the main_workflow aynchronously against all the
     servers specified
+
+    dlpx_obj: Virtualization Engine session object
+    config_file_path: path containing the dxtools.conf file.
     """
     #Create an empty list to store threads we create.
     threads = []
@@ -356,24 +337,21 @@ def run_job():
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
         print_info("Executing against all Delphix Engines in the dxtools.conf")
-
         try:
             #For each server in the dxtools.conf...
-            for delphix_engine in dx_session_obj.dlpx_engines:
-                engine = dx_session_obj[delphix_engine]
+            for delphix_engine in dlpx_obj.dlpx_engines:
+                engine = dlpx_obj.dlpx_engines[delphix_engine]
                 #Create a new thread and add it to the list.
-                threads.append(main_workflow(engine))
+                threads.append(main_workflow(engine, dlpx_obj))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n{}'.format(e)
-            sys.exit(1)
-
+            print_exception('Error encountered in run_job():\n{}'.format(e))
     elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
         if arguments['--engine']:
             try:
-                engine = dx_session_obj.dlpx_engines[arguments['--engine']]
+                engine = dlpx_obj.dlpx_engines[arguments['--engine']]
                 print_info('Executing against Delphix Engine: {}\n'.format(
                            arguments['--engine']))
 
@@ -385,21 +363,21 @@ def run_job():
 
         else:
             #Else search for a default engine in the dxtools.conf
-            for delphix_engine in dx_session_obj.dlpx_engines:
-                if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
+            for delphix_engine in dlpx_obj.dlpx_engines:
+                if dlpx_obj.dlpx_engines[delphix_engine]['default'] == \
                     'true':
 
-                    engine = dx_session_obj.dlpx_engines[delphix_engine]
+                    engine = dlpx_obj.dlpx_engines[delphix_engine]
                     print_info('Executing against the default Delphix Engine '
                        'in the dxtools.conf: {}'.format(
-                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+                       dlpx_obj.dlpx_engines[delphix_engine]['hostname']))
                 break
 
-            if engine == None:
+            if engine is None:
                 raise DlpxException("\nERROR: No default engine found. Exiting")
 
         #run the job against the engine
-        threads.append(main_workflow(engine))
+        threads.append(main_workflow(engine, dlpx_obj))
 
     #For each thread in the list...
     for each in threads:
@@ -408,14 +386,10 @@ def run_job():
         each.join()
 
 
-def main(argv):
+def main():
     #We want to be able to call on these variables anywhere in the script.
     global single_thread
-    global usebackup
     global time_start
-    global database_name
-    global config_file_path
-    global dx_session_obj
     global debug
 
     try:
@@ -423,13 +397,6 @@ def main(argv):
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
-        config_file_path = arguments['--config']
-
-
-        logging_est(arguments['--logdir'])
-        print_debug(arguments)
-        time_start = time()
-        engine = None
         single_thread = False
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
@@ -437,10 +404,9 @@ def main(argv):
 
         #This is the function that will handle processing main_workflow for
         # all the servers.
-        run_job()
-
+        run_job(dx_session_obj, config_file_path)
         elapsed_minutes = time_elapsed()
-        print_info('Script took {:2f} minutes to get this far.'.format(
+        print_info('Script took {:.2f} minutes to get this far.'.format(
             elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
@@ -496,4 +462,4 @@ if __name__ == "__main__":
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
 
     #Feed our arguments to the main function, and off we go!
-    main(arguments)
+    main()

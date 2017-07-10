@@ -3,31 +3,35 @@ List, create, destroy and refresh Delphix timeflows
 """
 # TODO:
 #    implement debug flag
+#    convert to module
 
 import re
 import sys
 
-from delphixpy.exceptions import HttpError, JobError, RequestError
-from delphixpy.web import database
-from delphixpy.web import timeflow
-from delphixpy.web import snapshot
-from delphixpy import job_context
-from delphixpy.web.timeflow import bookmark
-from delphixpy.web.vo import OracleRefreshParameters
-from delphixpy.web.vo import OracleTimeflowPoint
-from delphixpy.web.vo import RefreshParameters
-from delphixpy.web.vo import TimeflowPointLocation
-from delphixpy.web.vo import MSSqlTimeflowPoint
-from delphixpy.web.vo import TimeflowPointTimestamp
-from delphixpy.web.vo import TimeflowPointSemantic
+from delphixpy.v1_8_0.exceptions import HttpError, JobError, RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import timeflow
+from delphixpy.v1_8_0.web import snapshot
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web.timeflow import bookmark
+from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_8_0.web.vo import OracleTimeflowPoint
+from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_8_0.web.vo import MSSqlTimeflowPoint
+from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 
 from DlpxException import DlpxException
 from GetReferences import get_obj_reference
 from GetReferences import convert_timestamp
 from GetReferences import find_obj_by_name
 from DxLogging import print_exception
+from DxLogging import print_info
 
-VERSION = 'v.0.2.002'
+
+VERSION = 'v.0.2.015'
+
 
 class DxTimeflow(object):
     """Shared methods for timeflows """
@@ -121,8 +125,9 @@ class DxTimeflow(object):
         tf_create_params.timeflow_point = otfp
 
         try:
-            print 'Bookmark {} successfully created with reference {}'.format(
-                bookmark.bookmark.create(self.engine, tf_create_params))
+            print_info('Bookmark {} successfully created.'.format(
+                bookmark_name))
+            bookmark.bookmark.create(self.engine, tf_create_params)
 
         except RequestError as e:
             raise DlpxException(e.message)
@@ -173,7 +178,6 @@ class DxTimeflow(object):
             except RequestError as e:
                 dlpx_err = e.message
                 raise DlpxException(dlpx_err.action)
-
 
     def find_snapshot(self, database_ref, timestamp, snap_name=None,
                       snap_time=None):
