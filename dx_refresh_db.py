@@ -9,7 +9,7 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list-timeflows | --list-snapshots)
+  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
@@ -27,8 +27,8 @@ Options:
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
   --dsource <name>          Name of dsource in Delphix to execute against.
   --group_name <name>       Name of the group to execute against.
-  --list-timeflows          List all timeflows
-  --list-snapshots          List all snapshots
+  --list_timeflows          List all timeflows
+  --list_snapshots          List all snapshots
   --host <name>             Name of environment in Delphix to execute against.
   --timestamp_type <type>   The type of timestamp you are specifying.
                             Acceptable Values: TIME, SNAPSHOT
@@ -58,48 +58,43 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.1.601'
+VERSION = 'v.0.1.615'
 
 
 from docopt import docopt
 import logging
 from os.path import basename
-import signal
 import sys
-import time
 import traceback
 import json
-
-from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.delphix_engine import DelphixEngine
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy import job_context
-from delphixpy.web import database
-from delphixpy.web import environment
-from delphixpy.web import group
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web import user
-from delphixpy.web import timeflow
-from delphixpy.web.snapshot import snapshot
-from delphixpy.web.vo import OracleRefreshParameters
-from delphixpy.web.vo import RefreshParameters
-from delphixpy.web.vo import TimeflowPointLocation
-from delphixpy.web.vo import TimeflowPointSemantic
-from delphixpy.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web import timeflow
+from delphixpy.v1_8_0.web.snapshot import snapshot
+from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
 
-class DlpxException(Exception):
-    """
-    Delphix Exception class. Exit signals are handled by calling method.
-    """
+from lib.DlpxException import DlpxException
+from lib.GetSession import GetSession
+from lib.GetReferences import find_obj_by_name
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_info
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_exception
 
-
-    def __init__(self, message):
-        Exception.__init__(self, message)
 
 def run_async(func):
     """
@@ -176,27 +171,6 @@ def find_database_by_name_and_group_name(engine, server, group_name,
                database_name + "\" in " + group_name)
 
 
-def find_obj_by_name(engine, server, f_class, obj_name):
-    """
-    Function to find objects by name and object class, and return object's 
-    reference as a string.
-    You might use this function to find objects like groups.
-    """
-    print_debug(engine["hostname"] + ": Searching objects in the " + 
-                f_class.__name__ + " class\n   for one named \"" + 
-                obj_name +"\"")
-
-    obj_ref = ''
-    all_objs = f_class.get_all(server)
-    for obj in all_objs:
-        if obj.name == obj_name:
-            print_debug(engine["hostname"] + ": Found a match " + 
-                        str(obj.reference))
-
-            return obj
-    print_info(engine["hostname"] + ": Unable to find a match")
-
-
 def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
     snapshots = snapshot.get_all(server, database=database_obj.reference)
     matches = []
@@ -213,7 +187,7 @@ def find_snapshot_by_database_and_name(engine, server, database_obj, snap_name):
         return matches[0]
 
     elif len(matches) > 1:
-        print_error("The name specified was not specific enough. " \
+        print_error("The name specified was not specific enough. " 
                     "More than one match found.")
 
         for each in matches:
@@ -311,25 +285,6 @@ def get_config(config_file_path):
     return delphix_engines
 
 
-def logging_est(logfile_path):
-    """
-    Establish Logging
-    """
-    global debug
-    logging.basicConfig(filename=logfile_path,
-                        format='%(levelname)s:%(asctime)s:%(message)s',
-                        level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-
-    print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
-
-    global logger
-    debug = arguments['--debug']
-    logger = logging.getLogger()
-    if debug == True:
-        logger.setLevel(10)
-        print_info("Debug Logging is enabled.")
-
-
 def job_mode(server):
     """
     This function tells Delphix how to execute jobs, based on the 
@@ -388,7 +343,7 @@ def list_snapshots(server):
     List all snapshots with timestamps
     """
 
-    header = 'Snapshot Name, First Change Point, Latest Change Point'
+    header = 'Snapshot Name, First Change Point, Location, Latest Change Point'
     snapshots = snapshot.get_all(server)
 
     print header
@@ -396,9 +351,10 @@ def list_snapshots(server):
         container_name = get_obj_name(server, database, snap.container)
         snap_range = snapshot.timeflow_range(server, snap.reference)
 
-        print '%s, %s, %s, %s' % (str(snap.name),
+        print '{}, {}, {}, {}, {}'.format(str(snap.name),
                                   container_name,
                                   snap_range.start_point.timestamp,
+                                  snap_range.start_point.location,
                                   snap_range.end_point.timestamp)
 
 
@@ -498,10 +454,10 @@ def main_workflow(engine):
         #containers, because we can't refresh those this way.
         databases = database.get_all(server, no_js_container_data_source=True)
 
-    elif arguments['--list-timeflows']:
+    elif arguments['--list_timeflows']:
         list_timeflows(server)
 
-    elif arguments['--list-snapshots']:
+    elif arguments['--list_snapshots']:
         list_snapshots(server)
 
     #reset the running job count before we begin
@@ -562,42 +518,12 @@ def main_workflow(engine):
             if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
 
-
-def on_exit(sig, func=None):
-    """
-    This function helps us end cleanly and with exit codes
-    """
-    print_info("Shutdown Command Received")
-    print_info("Shutting down " + basename(__file__))
-    sys.exit(0)
-
-
-def print_debug(print_obj):
-    """
-    Call this function with a log message to prefix the message with DEBUG
-    """
-    try:
-        if debug == True:
-            print "DEBUG: " + str(print_obj)
-            logging.debug(str(print_obj))
-    except:
-        pass
-
-
 def print_error(print_obj):
     """
     Call this function with a log message to prefix the message with ERROR
     """
     print "ERROR: " + str(print_obj)
     logging.error(str(print_obj))
-
-
-def print_info(print_obj):
-    """
-    Call this function with a log message to prefix the message with INFO
-    """
-    print "INFO: " + str(print_obj)
-    logging.info(str(print_obj))
 
 
 def print_warning(print_obj):

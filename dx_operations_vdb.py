@@ -51,13 +51,13 @@ import sys
 from os.path import basename
 from time import sleep, time
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web.capacity import consumer
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web.capacity import consumer
 from docopt import docopt
 
 from lib.DlpxException import DlpxException

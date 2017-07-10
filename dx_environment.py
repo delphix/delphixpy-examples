@@ -13,7 +13,7 @@ Usage:
   dx_environment.py (--type <name> --env_name <name> --host_user <username> \
 --ip <address> [--toolkit <path_to_the_toolkit>] [--ase --ase_user <name> --ase_pw <name>] \
 |--update_ase_pw <name> --env_name <name> | --update_ase_user <name> --env_name <name> \
-| --delete <env_name> | --refresh <env_name)
+| --delete <env_name> | --refresh <env_name | --list)
 [--logdir <directory>][--debug] [--config <filename>] [--connector_name <name>]
 [--pw <password>][--engine <identifier>][--all] [--poll <n>]
    
@@ -27,11 +27,13 @@ Examples:
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase --ase_user sa --ase_pw delphixpw
   dx_environment.py --type windows --env_name SOURCE --host_user delphix.local\\administrator --ip 10.0.1.50 --toolkit foo --config dxtools.conf --pw 'myTempPassword123!' --debug --connector_name 10.0.1.60
+  dx_environment.py --list
 
 Options:
   --type <name>             The OS type for the environment
   --env_name <name>         The name of the Delphix environment
   --ip <addr>               The IP address of the Delphix environment
+  --list                    List all of the environments for a given engine
   --toolkit <path>          Path of the toolkit. Required for Unix/Linux
   --host_user <username>    The username on the Delphix environment
   --delete <environment>    The name of the Delphix environment to delete
@@ -53,18 +55,17 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_provision_db.log]
+                            [default: ./dx_environment.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 
 """
 
-VERSION="v.0.3.405"
+VERSION="v.0.3.604"
 
 from docopt import docopt
 from os.path import basename
 import sys
-import time
 import traceback
 from time import sleep, time
 
@@ -73,6 +74,7 @@ from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
 from delphixpy.web import environment
 from delphixpy.web import job
+from delphixpy.web import host
 from delphixpy.web.vo import UnixHostEnvironment
 from delphixpy.web.vo import ASEHostEnvironmentParameters
 from delphixpy.web.vo import HostEnvironmentCreateParameters
@@ -81,10 +83,33 @@ from delphixpy.web.vo import WindowsHostEnvironment
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
 from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_obj_name
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+
+def list_env():
+    """
+    List all environments for a given engine
+    """
+
+    all_envs = environment.get_all(dx_session_obj.server_session)
+    for env in all_envs:
+        env_user = find_obj_name(dx_session_obj.server_session,
+                                 environment.user, env.primary_user)
+        env_host = find_obj_name(dx_session_obj.server_session,
+                                 host, env.host)
+
+        #ORACLE CLUSTER does not have env.host
+        #Windows does not have ASE instances
+
+        print 'Environment Name: {}, Username: {}, Host: {}, Enabled: {}, ' \
+              'ASE Environment Params: {}'.format(
+            env.name, env_user, env_host, env.enabled,
+            env.ase_host_environment_parameters if
+            isinstance(env.ase_host_environment_parameters,
+                       ASEHostEnvironmentParameters) else 'Undefined')
 
 
 def delete_env(engine, env_name):
@@ -104,7 +129,7 @@ def delete_env(engine, env_name):
                                    dx_session_obj.server_session.last_job
 
     elif env_obj is None:
-        print('Environment was not found in the Engine: %s' % (env_name))
+        print('Environment was not found in the Engine: {}'.format(env_name))
         sys.exit(1)
 
 
@@ -119,7 +144,6 @@ def refresh_env(engine, env_name):
     try:
         env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
                                    env_name)
-
         environment.refresh(dx_session_obj.server_session, env_obj.reference)
         dx_session_obj.jobs[engine['hostname']] = \
                                    dx_session_obj.server_session.last_job
@@ -234,7 +258,11 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
 
     except (DlpxException, RequestError, HttpError) as e:
         print('\nERROR: Encountered an exception while creating the '
-              'environment:\n%s' %(e))
+              'environment:\n{}'.format(e))
+    except JobError as e:
+        print_exception('JobError while creating environment {}:\n{}'.format(
+            e, e.message))
+
 
 def create_windows_env(engine, env_name, host_user, ip_addr,
                      pw=None, connector_name=None):
@@ -276,7 +304,7 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
       if env_obj:
         env_params_obj.host_environment.proxy = env_obj.host
       elif env_obj is None:
-        print('Host was not found in the Engine: %s' % (arguments[--connector_name]))
+        print('Host was not found in the Engine: {}'.format(arguments[--connector_name]))
         sys.exit(1)
 
     try:
@@ -287,7 +315,8 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
 
     except (DlpxException, RequestError, HttpError) as e:
         print('\nERROR: Encountered an exception while creating the '
-              'environment:\n%s' %(e))
+              'environment:\n{}'.format(e))
+
 
 def run_async(func):
     """
@@ -333,11 +362,6 @@ def main_workflow(engine):
 
     """
 
-    #Establish these variables as empty for use later
-    environment_obj = None
-    source_objs = None
-
-
     try:
        #Setup the connection to the Delphix Engine
        dx_session_obj.serversess(engine['ip_address'], engine['username'],
@@ -381,6 +405,8 @@ def main_workflow(engine):
 
                     elif arguments['--update_ase_user']:
                         update_ase_username()
+                    elif arguments['--list']:
+                        list_env()
 
                     thingstodo.pop()
 
@@ -390,8 +416,8 @@ def main_workflow(engine):
                     job_obj = job.get(dx_session_obj.server_session,
                                       dx_session_obj.jobs[j])
                     print_debug(job_obj,debug)
-                    print_info('%s Environment: %s' %
-                               (engine['hostname'], job_obj.job_state))
+                    print_info('{} Environment: {}'.format(
+                               engine['hostname'], job_obj.job_state))
 
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                     #If the job is in a non-running state, remove it from the
@@ -401,8 +427,8 @@ def main_workflow(engine):
                         #If the job is in a running state, increment the
                         # running job count.
                         i += 1
-                print_info('%s: %s jobs running.\n' %
-                           (engine['hostname'], str(i)))
+                print_info('{}: {:d} jobs running.\n'.format(
+                           engine['hostname'], i))
 
                 #If we have running jobs, pause before repeating the checks.
                 if len(dx_session_obj.jobs) > 0:
@@ -445,8 +471,8 @@ def run_job():
         if arguments['--engine']:
             try:
                 engine = dx_session_obj.dlpx_engines[arguments['--engine']]
-                print_info('Executing against Delphix Engine: %s\n' %
-                           (arguments['--engine']))
+                print_info('Executing against Delphix Engine: {}\n'.format(
+                           arguments['--engine']))
 
             except (DlpxException, KeyError) as e:
                 print_exception('\nERROR: Delphix Engine {} cannot be '

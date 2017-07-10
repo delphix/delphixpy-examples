@@ -31,7 +31,7 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_operations_vdb.log]
+                            [default: ./dx_skel.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
@@ -256,10 +256,14 @@ def main(arguments):
         run_job()
 
         elapsed_minutes = time_elapsed()
-        print_info('script took {:d} minutes to get this far.'.format(
+        print_info('script took {:.2f} minutes to get this far.'.format(
             elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
+    except DlpxException as e:
+        print_exception('script encountered an error while processing the'
+                        'config file:\n{}'.format(e))
+
     except SystemExit as e:
         """
         This is what we use to handle our sys.exit(#)
@@ -300,7 +304,7 @@ def main(arguments):
         """
         print_exception(sys.exc_info()[0])
         elapsed_minutes = time_elapsed()
-        print_info('{} took {.2f} minutes to get this far\n'.format(
+        print_info('{} took {:.2f} minutes to get this far\n'.format(
                    basename(__file__), elapsed_minutes))
         sys.exit(1)
 

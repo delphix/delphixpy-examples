@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 #Adam Bowen - Apr 2016
 #This script snapshots a vdb or dSource
+#Corey Brune - March 2017
+# Updated to allow backup of Sybase
 #requirements
 #pip install docopt delphixpy
 
@@ -10,8 +12,9 @@
 
 Usage:
   dx_snapshot_db.py (--group <name> [--name <name>] | --all_dbs )
-                  [-d <identifier> | --engine <identifier> | --all]
-                  [--usebackup] [--debug] [--parallel <n>] [--poll <n>]
+                  [--engine <identifier> | --all]
+                  [--usebackup] [--bck_file <name>] [--debug] [--parallel <n>]
+                  [--poll <n>][--create_bckup]
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_snapshot_db.py (--host <name> [--group <name>] [--object_type <type>] 
                   | --object_type <name> [--group <name>] [--host <type>] )
@@ -26,21 +29,24 @@ Examples:
   dx_snapshot_db.py --group "Sources" --object_type dsource --usebackup
   dx_snapshot_db.py --name "Employee Oracle 11G DB"
   dx_snapshot_db.py --host LINUXSOURCE --parallel 2 --usebackup
+  dx_snapshot_db.py --name dbw2 --usebackup --group Sources --create_bckup
+  dx_snapshot_db.py --name dbw2 --usebackup --group Sources --bck_file dbw2_full_20170317_001.dmp
   dx_snapshot_db.py --host LINUXSOURCE --parallel 4 --usebackup --debug -d landsharkengine
 
 
 
 Options:
-  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --all_dbs                 Run against all database objects
+  --bck_file <name>         Name of the specific ASE Sybase backup file(s).
   --name <name>             Name of object in Delphix to execute against.
   --group <name>            Name of group in Delphix to execute against.
   --host <name>             Name of environment in Delphix to execute against.
   --object_type <obj_type>  dsource or vdb.
   --usebackup               Snapshot using "Most Recent backup".
                             Available for MSSQL and ASE only.
+  --create_bckup            Create and ingest a new Sybase backup
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
@@ -54,7 +60,7 @@ Options:
 
 """
 
-VERSION="v.0.0.010"
+VERSION="v.0.0.100"
 
 
 from docopt import docopt
@@ -470,9 +476,14 @@ def snapshot_database(engine, server, jobs, source_obj, container_obj, obj_type=
             #Else if the database is a dSource and a ASE type, we need also to tell Delphix how we want to sync the database...
             #Delphix will just ignore the extra parameters if it is a VDB, so we will omit any extra code to check
             elif (source_obj.type == "ASELinkedSource"):
-                #From last backup?
                 if  usebackup == True:
-                    sync_params = ASELatestBackupSyncParameters()
+                    if arguments['--bck_file']:
+                        sync_params = ASESpecificBackupSyncParameters()
+                        sync_params.backup_files = (arguments['--bck_file']).split(' ')
+                    elif arguments['--create_bckup']:
+                        sync_params = ASENewBackupSyncParameters()
+                    else:
+                        sync_params = ASELatestBackupSyncParameters()
                     print_info(engine["hostname"] + ": ASE database. Creating snapshot of " + container_obj.name + " from Latest Full backup.")
                 #Or take a new backup?
                 else:
@@ -605,5 +616,4 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit()
     #Feed our arguments to the main function, and off we go!
-    print arguments
     main(arguments)

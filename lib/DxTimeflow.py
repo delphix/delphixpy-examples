@@ -7,19 +7,19 @@ List, create, destroy and refresh Delphix timeflows
 import re
 import sys
 
-from delphixpy.exceptions import HttpError, JobError, RequestError
-from delphixpy.web import database
-from delphixpy.web import timeflow
-from delphixpy.web import snapshot
-from delphixpy import job_context
-from delphixpy.web.timeflow import bookmark
-from delphixpy.web.vo import OracleRefreshParameters
-from delphixpy.web.vo import OracleTimeflowPoint
-from delphixpy.web.vo import RefreshParameters
-from delphixpy.web.vo import TimeflowPointLocation
-from delphixpy.web.vo import MSSqlTimeflowPoint
-from delphixpy.web.vo import TimeflowPointTimestamp
-from delphixpy.web.vo import TimeflowPointSemantic
+from delphixpy.v1_8_0.exceptions import HttpError, JobError, RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import timeflow
+from delphixpy.v1_8_0.web import snapshot
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web.timeflow import bookmark
+from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_8_0.web.vo import OracleTimeflowPoint
+from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_8_0.web.vo import MSSqlTimeflowPoint
+from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 
 from DlpxException import DlpxException
 from GetReferences import get_obj_reference
@@ -27,7 +27,7 @@ from GetReferences import convert_timestamp
 from GetReferences import find_obj_by_name
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.002'
+VERSION = 'v.0.2.003'
 
 class DxTimeflow(object):
     """Shared methods for timeflows """

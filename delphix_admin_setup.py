@@ -4,7 +4,7 @@ Adam Bowen - Jan 2016
 This script configures the delphix_admin user after domain0 is configured
 Will come back and properly throw this with logging, etc
 '''
-VERSION="v.2.3.003"
+VERSION="v.2.3.002"
 CONTENTDIR="/u02/app/content"
 
 import getopt

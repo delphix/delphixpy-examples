@@ -38,20 +38,20 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.004'
+VERSION = 'v.0.0.005'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web import database
-from delphixpy.web.timeflow import oracle
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web.timeflow import oracle
 
 
 from lib.DlpxException import DlpxException

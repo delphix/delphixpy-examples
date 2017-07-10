@@ -98,35 +98,28 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.301'
+VERSION = 'v.0.2.303'
 
-import logging
 import signal
 import sys
 import time
 import traceback
-import json
 import re
 from docopt import docopt
 from os.path import basename
-from multiprocessing import Process
 from time import sleep, time
 
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
-from delphixpy import job_context
 from delphixpy.web import database
 from delphixpy.web import environment
 from delphixpy.web import group
-from delphixpy.web import host
 from delphixpy.web import job
 from delphixpy.web import repository
 from delphixpy.web import snapshot
 from delphixpy.web import source
-from delphixpy.web import sourceconfig
-from delphixpy.web import user
 from delphixpy.web.database import template
 from delphixpy.web.vo import VirtualSourceOperations
 from delphixpy.web.vo import OracleDatabaseContainer
@@ -145,7 +138,6 @@ from delphixpy.web.vo import ASEVirtualSource
 from delphixpy.web.vo import MSSqlProvisionParameters
 from delphixpy.web.vo import MSSqlDatabaseContainer
 from delphixpy.web.vo import MSSqlVirtualSource
-from delphixpy.web.vo import MSSqlInstance
 from delphixpy.web.vo import MSSqlSIConfig
 from delphixpy.web.vo import AppDataVirtualSource
 from delphixpy.web.vo import AppDataProvisionParameters
@@ -211,8 +203,15 @@ def create_mssql_vdb(engine, jobs, vdb_group, vdb_name,
                      environment_obj, container_obj):
     '''
     Create a MSSQL VDB
+    engine:
+    jobs:
+    vdb_group:
+    vdb_name,
+    environment_obj:
+    container_obj:
+    
     '''
-    vdb_obj = find_database_by_name_and_group_name(engine, dx_session_obj.server_session, 
+    vdb_obj = find_database_by_name_and_group_name(engine, dx_session_obj.server_session,
                                                    vdb_group.name, vdb_name)
     if vdb_obj == None:
         vdb_params = MSSqlProvisionParameters()
@@ -223,8 +222,6 @@ def create_mssql_vdb(engine, jobs, vdb_group, vdb_name,
         vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
         vdb_params.source_config = MSSqlSIConfig()
         vdb_params.source_config.database_name = arguments['--db']
-        #vdb_params.source_config.instance = MSSqlInstance()
-        #vdb_params.source_config.instance.host = environment_obj.host
 
         vdb_params.source_config.repository = find_dbrepo(
             dx_session_obj.server_session, 'MSSqlInstance', environment_obj.reference,
@@ -385,8 +382,7 @@ def create_vfiles_vdb(engine, jobs, vfiles_group, vfiles_name,
 def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
                          environment_obj, container_obj, pre_refresh=None,
                          post_refresh=None, pre_rollback=None,
-                         post_rollback=None, configure_clone=None, 
-                         snapshot=None):
+                         post_rollback=None, configure_clone=None):
 
     '''
     Create an Oracle SI VDB
@@ -402,6 +398,7 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
 
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
+        vdb_params.open_resetlogs = False
 
         if arguments['--noopen']:
             vdb_params.open_resetlogs = False
@@ -466,41 +463,14 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
             vdb_params.source.operations.configure_clone = [{ 'type':
                                                  'RunCommandOnSourceOperation',
                                                  'command': configure_clone }]
- 
-#        vdb_params.source.operations = {'type': 'VirtualSourceOperations'}
-#
-#        if pre_refresh:
-#            vdb_params.source.operations.update({'preRefresh': [{'type':
-#                                                 'RunCommandOnSourceOperation',
-#                                                 'command': pre_refresh}]})
-#
-#        if post_refresh:
-#            vdb_params.source.operations.update({'postRefresh': 
-#                                      [{'type': 'RunCommandOnSourceOperation',
-#                                      'command': post_refresh}]})
-#
-#        if pre_rollback:
-#            vdb_params.source.operations.update({'preRollback': [{'type':
-#                                                 'RunCommandOnSourceOperation',
-#                                                 'command': pre_rollback}]})
-#
-#        if post_rollback:
-#            vdb_params.source.operations.update({'postRollback': 
-#                                      [{'type': 'RunCommandOnSourceOperation',
-#                                      'command': post_rollback}]})
-#
-#        if configure_clone:
-#            vdb_params.source.operations.update({'configureClone': 
-#                                      [{'type': 'RunCommandOnSourceOperation',
-#                                      'command': configure_clone}]})
-#
-        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine, 
-                                                 dx_session_obj.server_session,
-                                                 'OracleInstall',
-                                                 environment_obj.reference,
-                                                 arguments['--envinst'])
 
-        vdb_params.source_config.database_name = arguments['--db']
+        vdb_repo = find_dbrepo_by_environment_ref_and_install_path(engine,
+                                                dx_session_obj.server_session,
+                                                'OracleInstall',
+                                                environment_obj.reference,
+                                                arguments['--envinst'])
+
+        vdb_params.source_config.database_name = db
         vdb_params.source_config.unique_name = unique_name
         vdb_params.source_config.instance = OracleInstance()
         vdb_params.source_config.instance.instance_name = inst_name
@@ -513,6 +483,7 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
                                                   arguments['--timestamp_type'],
                                                   arguments['--timestamp'])
 
+        print vdb_params, '\n\n\n'
         print_info(engine["hostname"] + ": Provisioning " + vdb_name)
         database.provision(dx_session_obj.server_session, vdb_params)
         #Add the job into the jobs dictionary so we can track its progress
@@ -524,9 +495,8 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
         return dx_session_obj.server_session.last_job
 
     else:
-        raise DlpxException('\nERROR: %s: %s alread exists\n' % 
+        raise DlpxException('\nERROR: %s: %s alread exists\n' %
                             (engine['hostname'], vdb_name))
-        return vdb_obj.reference
 
 
 def find_all_databases_by_group_name(engine, server, group_name, 
@@ -573,9 +543,7 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
                 (engine['hostname'], install_type, f_environment_ref,
                 f_install_path), debug)
 
-    obj_ref = ''
-    all_objs = repository.get_all(server, environment=f_environment_ref)
-    for obj in all_objs:
+    for obj in repository.get_all(server, environment=f_environment_ref):
         if install_type == 'PgSQLInstall':
             if (obj.type == install_type and
                 obj.installation_path == f_install_path):
@@ -590,15 +558,6 @@ def find_dbrepo_by_environment_ref_and_install_path(engine, server,
                 print_debug('%s: Fount a match %s' % (engine['hostname'],
                             str(obj.reference)), debug)
                 return obj
-
-        elif install_type == 'MySQLInstall':
-            if (obj.type == install_type and 
-                obj.installation_path == f_install_path):
-
-                print_debug('%s Found a match %s' % (engine['hostname'],
-                            str(obj.reference)), debug)
-                return obj
-
         else:
             raise DlpxException('%s: No Repo match found for type %s.\n' %
                                 (engine["hostname"], install_type))
@@ -684,6 +643,9 @@ def find_snapshot_by_database_and_name(engine, database_obj, snap_name):
         if str(snapshot_obj.name).startswith(arguments['--timestamp']):
             matches.append(snapshot_obj)
 
+    for each in matches:
+        print_debug(each.name, debug)
+
     if len(matches) == 1:
         print_debug('%s: Found one and only one match. This is good.\n %s' %
                     (engine['hostname'], matches[0]), debug)
@@ -694,14 +656,9 @@ def find_snapshot_by_database_and_name(engine, database_obj, snap_name):
                             ' More than one match found.\n' %
                             (engine['hostname'],))
 
-        for each in matches:
-            print_debug(each.name, debug)
     else:
         raise DlpxException('%s: No matches found for the time specified.\n'
                             % (engine['hostname']))
-
-    raise DlpxException('%s: No matching snapshot found.\n' %
-                        (engine["hostname"]))
 
 
 def find_snapshot_by_database_and_time(engine, database_obj, snap_time):
@@ -721,10 +678,11 @@ def find_snapshot_by_database_and_time(engine, database_obj, snap_time):
         return matches[0]
 
     elif len(matches) > 1:
+        print_debug(matches, debug)
+
         raise DlpxException('%s: The time specified was not specific enough.'
                             'More than one match found.\n' %
                             (engine['hostname']))
-        print_debug(matches, debug)
     else:
         raise DlpxException('%s: No matches found for the time specified.\n'
                             % (engine['hostname']))
@@ -930,7 +888,8 @@ def run_job():
                            (arguments['--engine']))
 
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
+                raise DlpxException('\nERROR: Delphix Engine %s cannot be '
+                                    'found in %s. Please check your value '
                                     'and try again. Exiting.\n' % (
                                     arguments['--engine'], config_file_path))
 
@@ -981,12 +940,14 @@ def set_timeflow_point(engine, server, container_obj):
     """
     This returns the reference of the timestamp specified.
     """
+
     if arguments['--timestamp_type'].upper() == "SNAPSHOT":
         if arguments['--timestamp'].upper() == "LATEST":
             print_debug('%s: Using the latest Snapshot.' % 
                         (engine['hostname']), debug)
 
             timeflow_point_parameters = TimeflowPointSemantic()
+            timeflow_point_parameters.container = container_obj.ref
             timeflow_point_parameters.location = "LATEST_SNAPSHOT"
 
         elif arguments['--timestamp'].startswith("@"):
@@ -1009,7 +970,6 @@ def set_timeflow_point(engine, server, container_obj):
                                     (engine['hostname'],
                                     arguments['--timestamp'],
                                     container_obj.name))
-                return
 
         else:
             print_debug('%s: Using a time-designated snapshot' %
@@ -1078,6 +1038,7 @@ def update_jobs_dictionary(engine, server, jobs):
             #If the job is in a running state, increment the running job count.
             i += 1
     return i
+
 
 def main(argv):
     #We want to be able to call on these variables anywhere in the script.
