@@ -104,7 +104,7 @@ def all_databases(operation):
     operation: enable or disable dSources and VDBs
     """
 
-    for db in database.get_all(dx_session_obj.server_session):
+    for db in database.get_all(dx_session_obj.server_session, no_js_container_data_source=True):
         print '{} {}\n'.format(operation, db.name)
 
         try:
