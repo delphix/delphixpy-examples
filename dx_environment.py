@@ -38,7 +38,7 @@ Options:
   --host_user <username>    The username on the Delphix environment
   --delete <environment>    The name of the Delphix environment to delete
   --update_ase_pw <name>    The new ASE DB password
-  --refresh <environment>   The name of the Delphix environment to refresh
+  --refresh <environment>   The name of the Delphix environment to refresh. Specify "all" to refresh all environments
   --pw <password>           Password of the user
   --connector_name <environment>   The name of the Delphix connector to use. Required for Windows source environments
   --update_ase_user <name>  Update the ASE DB username
@@ -61,7 +61,7 @@ Options:
 
 """
 
-VERSION="v.0.3.604"
+VERSION="v.0.3.605"
 
 from docopt import docopt
 from os.path import basename
@@ -84,6 +84,7 @@ from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
+from lib.GetReferences import find_all_objects
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
@@ -141,17 +142,32 @@ def refresh_env(engine, env_name):
     env_name: Name of the environment to refresh
     """
 
-    try:
-        env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
-                                   env_name)
-        environment.refresh(dx_session_obj.server_session, env_obj.reference)
-        dx_session_obj.jobs[engine['hostname']] = \
-                                   dx_session_obj.server_session.last_job
+    if env_name == "all":
+      env_list = find_all_objects(dx_session_obj.server_session, environment)
+      for env_obj in env_list:
+        try:
+          environment.refresh(dx_session_obj.server_session, env_obj.reference)
+          dx_session_obj.jobs[engine['hostname']] = \
+                                     dx_session_obj.server_session.last_job
 
-    except (DlpxException, RequestError) as e:
-        print_exception('\nERROR: Refreshing the environment {} '
-                        'encountered an error:\n{}'.format(env_name, e))
-        sys.exit(1)
+        except (DlpxException, RequestError) as e:
+          print_exception('\nERROR: Refreshing the environment {} '
+                          'encountered an error:\n{}'.format(env_name, e))
+          sys.exit(1)
+    else:
+
+      try:
+          env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
+                                     env_name)
+
+          environment.refresh(dx_session_obj.server_session, env_obj.reference)
+          dx_session_obj.jobs[engine['hostname']] = \
+                                     dx_session_obj.server_session.last_job
+
+      except (DlpxException, RequestError) as e:
+          print_exception('\nERROR: Refreshing the environment {} '
+                          'encountered an error:\n{}'.format(env_name, e))
+          sys.exit(1)
 
 
 def update_ase_username():
