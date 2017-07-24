@@ -12,6 +12,7 @@
 Usage:
   dx_provision_dsource.py (--type <name>)
   dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --dx_group <name> --db_passwd <name> --db_user <name> --db_name <name> --env_name <name> --db_install_path <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+      [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user <name> --stage_repo <name> --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
   dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
       [--engine <identifier> | --all]
