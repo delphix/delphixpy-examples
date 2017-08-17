@@ -17,6 +17,7 @@ Usage:
 [--logdir <directory>][--debug] [--config <filename>] [--connector_name <name>]
 [--pw <password>][--engine <identifier>][--all] [--poll <n>]
   dx_environment.py (--update_host --old_host_address <name> --new_host_address <name>) [--logdir <directory>][--debug] [--config <filename>]
+  dx_environment.py ([--enable]|[--disable]) --env_name <name> [--logdir <directory>][--debug] [--config <filename>]
   dx_environment.py -h | --help | -v | --version
 
 Create a Delphix environment. (current support for standalone environments only)
@@ -28,6 +29,8 @@ Examples:
   dx_environment.py --update_host --host_name 10.0.3.60
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase --ase_user sa --ase_pw delphixpw
   dx_environment.py --type windows --env_name SOURCE --host_user delphix.local\\administrator --ip 10.0.1.50 --toolkit foo --config dxtools.conf --pw 'myTempPassword123!' --debug --connector_name 10.0.1.60
+  dx_environment.py --enable --env_name SOURCE
+  dx_environment.py --disable --env_name SOURCE
   dx_environment.py --list
 
 Options:
@@ -62,6 +65,8 @@ Options:
   --update_host             Update the host address for an environment
   --old_host_address <name> The current name of the host, as registered in Delphix. Required for update_host
   --new_host_address <name> The desired name of the host, as registered in Delphix. Required for update_host
+  --enable                  Enable the named source
+  --disable                 Disable the names source
 
 """
 
@@ -108,11 +113,16 @@ def update_host_address(old_host_address, new_host_address):
     else:
       host_obj = UnixHost()
     host_obj.address = new_host_address
+    try:
+      host.update(dx_session_obj.server_session, old_host_obj.reference, host_obj)
 
-    host.update(dx_session_obj.server_session, old_host_obj.reference, host_obj)
+      print('Old Host Name: {}'.format(old_host_address))
+      print('New Host Name: {}'.format(new_host_address))
 
-    print('Old Host Name: {}'.format(old_host_address))
-    print('New Host Name: {}'.format(new_host_address))
+    except (DlpxException, RequestError) as e:
+      print_exception('\nERROR: Updating the host {} '
+                      'encountered an error:\n{}'.format(env_name, e))
+      sys.exit(1)
 
 def list_env():
     """
