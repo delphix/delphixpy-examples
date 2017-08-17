@@ -16,7 +16,7 @@ Usage:
 | --delete <env_name> | --refresh <env_name | --list)
 [--logdir <directory>][--debug] [--config <filename>] [--connector_name <name>]
 [--pw <password>][--engine <identifier>][--all] [--poll <n>]
-   
+  dx_environment.py (--update_host --old_host_address <name> --new_host_address <name>) [--logdir <directory>][--debug] [--config <filename>]
   dx_environment.py -h | --help | -v | --version
 
 Create a Delphix environment. (current support for standalone environments only)
@@ -25,6 +25,7 @@ Examples:
   dx_environment.py --engine landsharkengine --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
   dx_environment.py --type linux --env_name test1 --update_ase_pw newPasswd
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
+  dx_environment.py --update_host --host_name 10.0.3.60
   dx_environment.py --type linux --env_name test1 --host_user delphix --pw delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase --ase_user sa --ase_pw delphixpw
   dx_environment.py --type windows --env_name SOURCE --host_user delphix.local\\administrator --ip 10.0.1.50 --toolkit foo --config dxtools.conf --pw 'myTempPassword123!' --debug --connector_name 10.0.1.60
   dx_environment.py --list
@@ -58,10 +59,13 @@ Options:
                             [default: ./dx_environment.log]
   -h --help                 Show this screen.
   -v --version              Show version.
+  --update_host             Update the host address for an environment
+  --old_host_address <name> The current name of the host, as registered in Delphix. Required for update_host
+  --new_host_address <name> The desired name of the host, as registered in Delphix. Required for update_host
 
 """
 
-VERSION="v.0.3.605"
+VERSION="v.0.3.606"
 
 from docopt import docopt
 from os.path import basename
@@ -79,6 +83,8 @@ from delphixpy.web.vo import UnixHostEnvironment
 from delphixpy.web.vo import ASEHostEnvironmentParameters
 from delphixpy.web.vo import HostEnvironmentCreateParameters
 from delphixpy.web.vo import WindowsHostEnvironment
+from delphixpy.web.vo import WindowsHost
+from delphixpy.web.vo import UnixHost
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
@@ -89,6 +95,24 @@ from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+
+def update_host_address(old_host_address, new_host_address):
+    """
+    Update the given host
+    """
+
+    old_host_obj = find_obj_by_name(dx_session_obj.server_session,
+                                 host, old_host_address)
+    if old_host_obj.type == "WindowsHost":
+      host_obj = WindowsHost()
+    else:
+      host_obj = UnixHost()
+    host_obj.address = new_host_address
+
+    host.update(dx_session_obj.server_session, old_host_obj.reference, host_obj)
+
+    print('Old Host Name: {}'.format(old_host_address))
+    print('New Host Name: {}'.format(new_host_address))
 
 def list_env():
     """
@@ -423,6 +447,8 @@ def main_workflow(engine):
                         update_ase_username()
                     elif arguments['--list']:
                         list_env()
+                    elif arguments['--update_host']:
+                        update_host_address(arguments['--old_host_address'], arguments['--new_host_address'])
 
                     thingstodo.pop()
 
