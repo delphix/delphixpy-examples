@@ -65,12 +65,12 @@ Options:
   --update_host             Update the host address for an environment
   --old_host_address <name> The current name of the host, as registered in Delphix. Required for update_host
   --new_host_address <name> The desired name of the host, as registered in Delphix. Required for update_host
-  --enable                  Enable the named source
-  --disable                 Disable the names source
+  --enable                  Enable the named environment
+  --disable                 Disable the named environment
 
 """
 
-VERSION="v.0.3.606"
+VERSION="v.0.3.607"
 
 from docopt import docopt
 from os.path import basename
@@ -101,6 +101,36 @@ from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 
+def enable_environment(env_name):
+    """
+    Enable the given host
+    """
+    env_obj = find_obj_by_name(dx_session_obj.server_session,
+                                 environment, env_name)
+
+    try:
+      environment.enable(dx_session_obj.server_session,env_obj.reference)
+      print('Attempting to enable {}'.format(env_name))
+    except (DlpxException, RequestError) as e:
+      print_exception('\nERROR: Enabling the host {} '
+                      'encountered an error:\n{}'.format(env_name, e))
+      sys.exit(1)
+
+def disable_environment(env_name):
+    """
+    Enable the given host
+    """
+    env_obj = find_obj_by_name(dx_session_obj.server_session,
+                                 environment, env_name)
+
+    try:
+      environment.disable(dx_session_obj.server_session,env_obj.reference)
+      print('Attempting to disable {}'.format(env_name))
+    except (DlpxException, RequestError) as e:
+      print_exception('\nERROR: Disabling the host {} '
+                      'encountered an error:\n{}'.format(env_name, e))
+      sys.exit(1)    
+
 def update_host_address(old_host_address, new_host_address):
     """
     Update the given host
@@ -116,8 +146,7 @@ def update_host_address(old_host_address, new_host_address):
     try:
       host.update(dx_session_obj.server_session, old_host_obj.reference, host_obj)
 
-      print('Old Host Name: {}'.format(old_host_address))
-      print('New Host Name: {}'.format(new_host_address))
+      print('Attempting to update {} to {}'.format(old_host_address, new_host_address))
 
     except (DlpxException, RequestError) as e:
       print_exception('\nERROR: Updating the host {} '
@@ -459,6 +488,10 @@ def main_workflow(engine):
                         list_env()
                     elif arguments['--update_host']:
                         update_host_address(arguments['--old_host_address'], arguments['--new_host_address'])
+                    elif arguments['--enable']:
+                        enable_environment(arguments['--env_name'])
+                    elif arguments['--disable']:
+                        disable_environment(arguments['--env_name'])
 
                     thingstodo.pop()
 
