@@ -11,19 +11,24 @@
 """Create and sync a dSource
 Usage:
   dx_provision_dsource.py (--type <name>)
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --dx_group <name> --db_passwd <name> --db_user <name> --db_name <name> --env_name <name> --db_install_path <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
-      [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user <name> --stage_repo <name> --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
-      [--engine <identifier> | --all]
-      [--debug] [--parallel <n>] [--poll <n>]
-      [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> --dx_group <name> --db_passwd <name> --db_user <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync] 
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
 Create and sync a dSource
 Examples:
     Oracle:
-    dx_provision_dsource.py --type oracle --dsource_name oradb1--ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1
+    dx_provision_dsource.py --type oracle --dsource_name oradb1 --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 --db_user delphixdb --db_passwd delphixdb
 
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa --ase_passwd sybase --backup_path /data/db --source_user aseadmin --stage_user aseadmin --stage_repo ASE1570_S2 --src_config dbw1 --env_name aseSource --dx_group Sources
@@ -246,7 +251,8 @@ def link_mssql_dsource(engine_name):
             arguments['--dsource_name'], e))
         sys.exit(1)
 
-    link_params.link_data.shared_backup_location = arguments['--backup_path']
+    if arguments['--backup_path'] != "auto":
+      link_params.link_data.shared_backup_location = arguments['--backup_path']
 
     if arguments['--backup_loc_passwd']:
         link_params.link_data.backup_location_credentials = {'type':
