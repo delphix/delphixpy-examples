@@ -27,7 +27,7 @@ Usage:
 Description
 
 Examples:
-    dx_users.py --add --user_name dev --password delphix --email "test@something.com" --jsonly true
+    dx_users.py --add --user_name dev --password delphix --email "test@something.com" --jsonly
     dx_users.py --debug --config delphixpy-examples/dxtools_1.conf  --update --user_name dev --password not_delphix --email "test@somethingelse.com"
     dx_users.py --delete --user_name dev
     dx_users.py --list
@@ -54,7 +54,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.002'
+VERSION = 'v.0.0.003'
 
 import sys
 from os.path import basename
