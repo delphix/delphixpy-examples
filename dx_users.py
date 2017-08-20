@@ -11,11 +11,11 @@
 #this doc to also define our arguments for the script.
 """Description
 Usage:
-  dx_users.py (--user_name <name> [(--add --password <password> --email <email_address>)|--delete])
+  dx_users.py (--user_name <name> [(--add --password <password> --email <email_address> [--jsonly]) |--delete])
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_users.py --update --user_name <name> [ --password <password> ] [--email <email_address> ] [ --delete ]
+  dx_users.py --update --user_name <name> [ --password <password> ] [--email <email_address> ] [ --delete ] [--jsonly]
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]      
@@ -27,7 +27,7 @@ Usage:
 Description
 
 Examples:
-    dx_users.py --add --user_name dev --password delphix --email "test@something.com"
+    dx_users.py --add --user_name dev --password delphix --email "test@something.com" --jsonly true
     dx_users.py --debug --config delphixpy-examples/dxtools_1.conf  --update --user_name dev --password not_delphix --email "test@somethingelse.com"
     dx_users.py --delete --user_name dev
     dx_users.py --list
@@ -36,6 +36,7 @@ Options:
   --user_name <name>        The name of the user
   --password <password>     The password of the user to be created/updated
   --email <email_address>   The email addres of the user to be created/updated
+  --jsonly                  Designate the user as a Jet Stream Only User
   --add                     Add the identified user
   --update                  Update the identified user
   --delete                  Delete the identified user
@@ -53,7 +54,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.002'
 
 import sys
 from os.path import basename
@@ -63,8 +64,11 @@ from docopt import docopt
 from delphixpy.exceptions import HttpError
 from delphixpy.exceptions import JobError
 from delphixpy.exceptions import RequestError
+from delphixpy.web import authorization
 from delphixpy.web import job
 from delphixpy.web import user
+from delphixpy.web import role
+from delphixpy.web.vo import Authorization
 from delphixpy.web.vo import User
 from delphixpy.web.vo import PasswordCredential
 from delphixpy.web.vo import CredentialUpdateParameters
@@ -78,7 +82,7 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_all_objects
 from lib.GetSession import GetSession
 
-def add_user(user_name, user_password, user_email):
+def add_user(user_name, user_password, user_email, jsonly=None):
     """
     This function adds the user
     """
@@ -96,7 +100,31 @@ def add_user(user_name, user_password, user_email):
                       'encountered an error:\n{}'.format(user_name, e))
       sys.exit(1)
 
-def update_user(user_name, user_password=None, user_email=None):
+    js_only(user_name, jsonly)
+
+def js_only(user_name, jsonly=None):
+  """
+  Switch the user to/from a jsonly user
+  """
+  user_obj = find_obj_by_name(dx_session_obj.server_session,
+                                 user, user_name)
+  role_obj = find_obj_by_name(dx_session_obj.server_session,
+                                   role, "Jet Stream User")
+
+  if jsonly:
+    authorization_obj = Authorization()
+    authorization_obj.role = role_obj.reference
+    authorization_obj.target =  user_obj.reference
+    authorization_obj.user = user_obj.reference
+
+    authorization.create(dx_session_obj.server_session, authorization_obj)
+  else:
+
+    auth_name = "(" + user_obj.reference + ", " + role_obj.reference + ", " + user_obj.reference + ")"
+    authorization.delete(dx_session_obj.server_session,find_obj_by_name(dx_session_obj.server_session,
+                                   authorization, auth_name).reference)
+
+def update_user(user_name, user_password=None, user_email=None, jsonly=None):
     """
     This function updates the user
     """
@@ -127,8 +155,8 @@ def update_user(user_name, user_password=None, user_email=None):
           print_exception('\nERROR: Updating the user {} password '
                           'encountered an error:\n{}'.format(user_name, e))
           sys.exit(1)
-    #updated_user_obj.credential = PasswordCredential()
-    #updated_user_obj.credential.password = user_password
+
+    js_only(user_name, jsonly)
 
 def delete_user(user_name):
     """
@@ -214,9 +242,9 @@ def main_workflow(engine):
             while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
                 if len(thingstodo) > 0:
                     if arguments['--add'] :
-                        add_user(arguments['--user_name'], arguments['--password'], arguments['--email'])
+                        add_user(arguments['--user_name'], arguments['--password'], arguments['--email'], arguments['--jsonly'])
                     elif arguments['--update'] :
-                        update_user(arguments['--user_name'], arguments['--password'], arguments['--email'])
+                        update_user(arguments['--user_name'], arguments['--password'], arguments['--email'], arguments['--jsonly'])
                     elif arguments['--delete']:
                         delete_user(arguments['--user_name'])
                     elif arguments['--list']:
