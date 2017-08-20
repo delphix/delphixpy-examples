@@ -41,6 +41,7 @@ Examples:
 
     MSSQL:
     dx_provision_dsource.py --type mssql  --dsource_name mssql_dsource --dx_group Sources --db_passwd delphix --db_user sa --stage_env mssql_target_svr --stage_instance MSSQLSERVER --backup_path \\bckserver\path\backups --backup_loc_passwd delphix --backup_loc_user delphix
+    dx_provision_dsource.py --type mssql  --dsource_name AdventureWorks2014 --dx_group "9 - Sources" --db_passwd delphixdb --db_user aw --stage_env WINDOWSTARGET --stage_instance MSSQLSERVER --logsync --backup_path auto
 
 
 Options:
@@ -90,7 +91,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.008'
+VERSION = 'v.0.2.0015'
 
 import sys
 from os.path import basename
