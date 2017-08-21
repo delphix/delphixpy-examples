@@ -19,7 +19,7 @@ Usage:
     [--engine <identifier> | --all]
     [--debug] [--parallel <n>] [--poll <n>]
     [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync] 
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync --load_from_backup]
     [--engine <identifier> | --all]
     [--debug] [--parallel <n>] [--poll <n>]
     [--config <path_to_file>] [--logdir <path_to_file>]
@@ -41,7 +41,7 @@ Examples:
 
     MSSQL:
     dx_provision_dsource.py --type mssql  --dsource_name mssql_dsource --dx_group Sources --db_passwd delphix --db_user sa --stage_env mssql_target_svr --stage_instance MSSQLSERVER --backup_path \\bckserver\path\backups --backup_loc_passwd delphix --backup_loc_user delphix
-    dx_provision_dsource.py --type mssql  --dsource_name AdventureWorks2014 --dx_group "9 - Sources" --db_passwd delphixdb --db_user aw --stage_env WINDOWSTARGET --stage_instance MSSQLSERVER --logsync --backup_path auto
+    dx_provision_dsource.py --type mssql  --dsource_name AdventureWorks2014 --dx_group "9 - Sources" --db_passwd delphixdb --db_user aw --stage_env WINDOWSTARGET --stage_instance MSSQLSERVER --logsync --backup_path auto --load_from_backup
 
 
 Options:
@@ -76,6 +76,7 @@ Options:
   --logsync                 Enable logsync
   --backup_loc_passwd <passwd>  Password of the shared backup path (--bckup_path)
   --backup_loc_user <nam>   User of the shared backup path (--bckup_path)
+  --load_from_backup        If set, Delphix will try to load the most recent full backup (MSSQL only)
   --dsource_name <name>     Name of the dSource
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
@@ -91,7 +92,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.0015'
+VERSION = 'v.0.2.0016'
 
 import sys
 from os.path import basename
@@ -269,7 +270,9 @@ def link_mssql_dsource(engine_name):
     link_params.link_data.db_user = arguments['--db_user']
 
     link_params.link_data.sourcing_policy = SourcingPolicy()
-    link_params.link_data.sourcing_policy.load_from_backup = True
+
+    if arguments['--load_from_backup']:
+      link_params.link_data.sourcing_policy.load_from_backup = True
 
     if arguments['--logsync']:
         link_params.link_data.sourcing_policy.logsync_enabled = True
