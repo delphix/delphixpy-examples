@@ -68,6 +68,7 @@ from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_list
+from lib.GetReferences import find_source_by_dbname
 from lib.GetSession import GetSession
 
 
@@ -77,7 +78,7 @@ def vdb_operation(vdb_name, operation):
     """
     print_debug('Searching for {} reference.\n'.format(vdb_name))
 
-    vdb_obj = find_obj_by_name(dx_session_obj.server_session, source, vdb_name)
+    vdb_obj = find_source_by_dbname(dx_session_obj.server_session, database, vdb_name)
     try:
         if vdb_obj:
             if operation == 'start':
