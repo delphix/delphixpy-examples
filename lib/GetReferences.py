@@ -12,6 +12,7 @@ from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.web import repository
 from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import source
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import sourceconfig
 
@@ -19,7 +20,7 @@ from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0018'
+VERSION = 'v.0.2.0019'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -132,6 +133,39 @@ def find_obj_by_name(engine, f_class, obj_name, active_branch=False):
                 return(return_list)
 
             return obj
+
+    #If the object isn't found, raise an exception.
+    raise DlpxException('{} was not found on engine {}.\n'.format(
+        obj_name, engine.address))
+
+def find_source_by_dbname(engine, f_class, obj_name, active_branch=False):
+    """
+    Function to find sources by database name and object class, and return object's 
+    reference as a string
+    engine: A Delphix engine session object
+    f_class: The objects class. I.E. database or timeflow.
+    obj_name: The name of the database object in Delphix
+    active_branch: Default = False. If true, return list containing
+                   the object's reference and active_branch. Otherwise, return 
+                   the reference.
+    """
+
+    return_list = []
+
+    try:
+        all_objs = f_class.get_all(engine)
+    except AttributeError as e:
+        raise DlpxException('Could not find reference for object class'
+                            '{}.\n'.format(e))
+    for obj in all_objs:
+        
+        if obj.name == obj_name:
+            print_debug('object: {}\n\n'.format(obj))
+            print_debug(obj.name)
+            print_debug(obj.reference)
+            source_obj = source.get_all(engine,database=obj.reference)
+            print_debug('source: {}\n\n'.format(source_obj))
+            return source_obj[0]
 
     #If the object isn't found, raise an exception.
     raise DlpxException('{} was not found on engine {}.\n'.format(
