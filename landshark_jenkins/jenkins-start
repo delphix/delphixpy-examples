@@ -11,7 +11,8 @@ if [ -n "${EXISTS}" ]; then
 	echo "Starting container"
 	sudo docker start landshark-jenkins
 else
-	sudo docker run -p 5777:8080 -p 50000:50000 --name "landshark-jenkins" -v ${CONTENTDIR}/..:/var/jenkins_home/scripts -d cloudsurgeon/landshark-jenkins:latest
+	sudo docker run -p 5777:8080 -p 50000:50000 --name "landshark-jenkins" -v ${CONTENTDIR}/..:/var/jenkins_home/scripts \
+		--env JAVA_OPTS=-Djenkins.install.runSetupWizard=false -d cloudsurgeon/landshark-jenkins:latest
 
 	RETRY_COUNT=0
 	until [ $exitcode -eq 0 ]; do
