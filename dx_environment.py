@@ -13,7 +13,7 @@ Usage:
   dx_environment.py (--type <name> --env_name <name> --host_user <username> \
 --ip <address> [--toolkit <path_to_the_toolkit>] [--ase --ase_user <name> --ase_pw <name>] \
 |--update_ase_pw <name> --env_name <name> | --update_ase_user <name> --env_name <name> \
-| --delete <env_name> | --refresh <env_name | --list)
+| --delete <env_name> | --refresh <env_name> | --list)
 [--logdir <directory>][--debug] [--config <filename>] [--connector_name <name>]
 [--pw <password>][--engine <identifier>][--all] [--poll <n>]
   dx_environment.py (--update_host --old_host_address <name> --new_host_address <name>) [--logdir <directory>][--debug] [--config <filename>]
@@ -70,7 +70,7 @@ Options:
 
 """
 
-VERSION="v.0.3.607"
+VERSION="v.0.3.608"
 
 from docopt import docopt
 from os.path import basename
