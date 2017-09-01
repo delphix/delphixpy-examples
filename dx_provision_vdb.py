@@ -98,7 +98,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.304'
+VERSION = 'v.0.2.305'
 
 import signal
 import sys
@@ -398,7 +398,7 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
 
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
-        vdb_params.open_resetlogs = False
+        vdb_params.open_resetlogs = True
 
         if arguments['--noopen']:
             vdb_params.open_resetlogs = False
