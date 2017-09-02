@@ -176,14 +176,24 @@ def create_ora_sourceconfig(engine_name, port_num=1521):
             create_ret = link_ora_dsource(sourceconfig_ref,
                                           env_obj.primary_user)
 
-        print('Created and linked the dSource {} with reference {}.\n'.format(
+        print_info('Created and linked the dSource {} with reference {}.\n'.format(
               arguments['--db_name'], create_ret))
-        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
+        link_job_ref = dx_session_obj.server_session.last_job
+        link_job_obj = job.get(dx_session_obj.server_session,
+                                      link_job_ref)
+        while link_job_obj.job_state not in ["CANCELED", "COMPLETED", "FAILED"]:
+          print_info('Waiting three seconds for link job to complete, and sync to begin')
+          sleep(3)
+          link_job_obj = job.get(dx_session_obj.server_session,
+                                      link_job_ref)
+
         #Add the snapsync job to the jobs dictionary
         dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
             dx_session_obj.server_session, find_obj_by_name(
                 dx_session_obj.server_session, database,
-                arguments['--db_name']).reference)
+                arguments['--dsource_name']).reference)
+        print_debug('Snapshot Job Reference: {}.\n'.format(
+          dx_session_obj.jobs[engine_name + 'snap']))
     except (HttpError, RequestError) as e:
         print_exception('ERROR: Could not create the sourceconfig:\n'
                         '{}'.format(e))
