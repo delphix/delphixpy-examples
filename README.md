@@ -1,7 +1,3 @@
-#Thanks
-First, a lot of thanks to Corey Brune (@mcbrune) for all of his contributions that make this spaghetti
-look decent.
-
 # delphixpy-examples
 These are some example python scripts I put together to serve as examples for those getting started with Delphix the delphixpy module.
 

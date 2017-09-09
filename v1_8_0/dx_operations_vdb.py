@@ -51,13 +51,13 @@ import sys
 from os.path import basename
 from time import sleep, time
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web.capacity import consumer
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web.capacity import consumer
 from docopt import docopt
 
 from lib.DlpxException import DlpxException
@@ -68,6 +68,7 @@ from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_list
+from lib.GetReferences import find_source_by_dbname
 from lib.GetSession import GetSession
 
 
@@ -77,7 +78,7 @@ def vdb_operation(vdb_name, operation):
     """
     print_debug('Searching for {} reference.\n'.format(vdb_name))
 
-    vdb_obj = find_obj_by_name(dx_session_obj.server_session, source, vdb_name)
+    vdb_obj = find_source_by_dbname(dx_session_obj.server_session, database, vdb_name)
     try:
         if vdb_obj:
             if operation == 'start':
@@ -106,12 +107,7 @@ def all_databases(operation):
 
     for db in database.get_all(dx_session_obj.server_session, no_js_container_data_source=True):
         print '{} {}\n'.format(operation, db.name)
-
-        try:
-            vdb_operation(db.name, operation)
-        except (RequestError, HttpError, JobError):
-            pass
-
+        vdb_operation(db.name, operation)
         sleep(2)
 
 
@@ -235,9 +231,9 @@ def main_workflow(engine):
 
                 elif arguments['--all_dbs']:
                     try:
-                        #assert arguments['--all_dbs'] in 'disable' or \
-                        #arguments['--all_dbs'] in 'enable', \
-                        #'--all_dbs should be either enable or disable'
+                        assert arguments['--all_dbs'] in 'disable' or \
+                        arguments['--all_dbs'] in 'enable', \
+                        '--all_dbs should be either enable or disable'
                         all_databases(arguments['--all_dbs'])
 
                     except AssertionError as e:
@@ -340,6 +336,8 @@ def time_elapsed():
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
     """
+    #elapsed_minutes = round((time() - time_start)/60, +1)
+    #return elapsed_minutes
     return round((time() - time_start)/60, +1)
 
 

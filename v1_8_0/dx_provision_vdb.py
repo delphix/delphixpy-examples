@@ -98,7 +98,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.303'
+VERSION = 'v.0.2.305'
 
 import signal
 import sys
@@ -398,7 +398,7 @@ def create_oracle_si_vdb(engine, jobs, vdb_name, vdb_group_obj,
 
     if vdb_obj == None:
         vdb_params = OracleProvisionParameters()
-        vdb_params.open_resetlogs = False
+        vdb_params.open_resetlogs = True
 
         if arguments['--noopen']:
             vdb_params.open_resetlogs = False
@@ -947,7 +947,7 @@ def set_timeflow_point(engine, server, container_obj):
                         (engine['hostname']), debug)
 
             timeflow_point_parameters = TimeflowPointSemantic()
-            timeflow_point_parameters.container = container_obj.ref
+            timeflow_point_parameters.container = container_obj.reference
             timeflow_point_parameters.location = "LATEST_SNAPSHOT"
 
         elif arguments['--timestamp'].startswith("@"):

@@ -3,7 +3,6 @@ List, create, destroy and refresh Delphix timeflows
 """
 # TODO:
 #    implement debug flag
-#    convert to module
 
 import re
 import sys
@@ -27,11 +26,8 @@ from GetReferences import get_obj_reference
 from GetReferences import convert_timestamp
 from GetReferences import find_obj_by_name
 from DxLogging import print_exception
-from DxLogging import print_info
 
-
-VERSION = 'v.0.2.015'
-
+VERSION = 'v.0.2.003'
 
 class DxTimeflow(object):
     """Shared methods for timeflows """
@@ -125,9 +121,8 @@ class DxTimeflow(object):
         tf_create_params.timeflow_point = otfp
 
         try:
-            print_info('Bookmark {} successfully created.'.format(
-                bookmark_name))
-            bookmark.bookmark.create(self.engine, tf_create_params)
+            print 'Bookmark {} successfully created with reference {}'.format(
+                bookmark.bookmark.create(self.engine, tf_create_params))
 
         except RequestError as e:
             raise DlpxException(e.message)
@@ -178,6 +173,7 @@ class DxTimeflow(object):
             except RequestError as e:
                 dlpx_err = e.message
                 raise DlpxException(dlpx_err.action)
+
 
     def find_snapshot(self, database_ref, timestamp, snap_name=None,
                       snap_time=None):

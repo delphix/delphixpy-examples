@@ -11,18 +11,24 @@
 """Create and sync a dSource
 Usage:
   dx_provision_dsource.py (--type <name>)
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --dx_group <name> --db_passwd <name> --db_user <name> --db_name <name> --env_name <name> --db_install_path <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user <name> --stage_repo <name> --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
-      [--engine <identifier> | --all]
-      [--debug] [--parallel <n>] [--poll <n>]
-      [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ip_addr <name> --db_name <name> --env_name <name> --db_install_path <name> --dx_group <name> --db_passwd <name> --db_user <name> [--port_num <name>][--num_connections <name>][--link_now <name>][--files_per_set <name>][--rman_channels <name>]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --ase_user <name> --ase_passwd <name> --backup_path <name> --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 --src_config <name> --env_name <name> --dx_group <name> [--bck_file <name>][--create_bckup]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync --load_from_backup]
+    [--engine <identifier> | --all]
+    [--debug] [--parallel <n>] [--poll <n>]
+    [--config <path_to_file>] [--logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
 Create and sync a dSource
 Examples:
     Oracle:
-    dx_provision_dsource.py --type oracle --dsource_name oradb1--ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1
+    dx_provision_dsource.py --type oracle --dsource_name oradb1 --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 --db_user delphixdb --db_passwd delphixdb
 
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa --ase_passwd sybase --backup_path /data/db --source_user aseadmin --stage_user aseadmin --stage_repo ASE1570_S2 --src_config dbw1 --env_name aseSource --dx_group Sources
@@ -35,6 +41,7 @@ Examples:
 
     MSSQL:
     dx_provision_dsource.py --type mssql  --dsource_name mssql_dsource --dx_group Sources --db_passwd delphix --db_user sa --stage_env mssql_target_svr --stage_instance MSSQLSERVER --backup_path \\bckserver\path\backups --backup_loc_passwd delphix --backup_loc_user delphix
+    dx_provision_dsource.py --type mssql  --dsource_name AdventureWorks2014 --dx_group "9 - Sources" --db_passwd delphixdb --db_user aw --stage_env WINDOWSTARGET --stage_instance MSSQLSERVER --logsync --backup_path auto --load_from_backup
 
 
 Options:
@@ -69,6 +76,7 @@ Options:
   --logsync                 Enable logsync
   --backup_loc_passwd <passwd>  Password of the shared backup path (--bckup_path)
   --backup_loc_user <nam>   User of the shared backup path (--bckup_path)
+  --load_from_backup        If set, Delphix will try to load the most recent full backup (MSSQL only)
   --dsource_name <name>     Name of the dSource
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
@@ -84,7 +92,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.008'
+VERSION = 'v.0.2.0016'
 
 import sys
 from os.path import basename
@@ -168,14 +176,24 @@ def create_ora_sourceconfig(engine_name, port_num=1521):
             create_ret = link_ora_dsource(sourceconfig_ref,
                                           env_obj.primary_user)
 
-        print('Created and linked the dSource {} with reference {}.\n'.format(
+        print_info('Created and linked the dSource {} with reference {}.\n'.format(
               arguments['--db_name'], create_ret))
-        dx_session_obj.jobs[engine_name] = dx_session_obj.server_session.last_job
+        link_job_ref = dx_session_obj.server_session.last_job
+        link_job_obj = job.get(dx_session_obj.server_session,
+                                      link_job_ref)
+        while link_job_obj.job_state not in ["CANCELED", "COMPLETED", "FAILED"]:
+          print_info('Waiting three seconds for link job to complete, and sync to begin')
+          sleep(3)
+          link_job_obj = job.get(dx_session_obj.server_session,
+                                      link_job_ref)
+
         #Add the snapsync job to the jobs dictionary
         dx_session_obj.jobs[engine_name + 'snap'] = get_running_job(
             dx_session_obj.server_session, find_obj_by_name(
                 dx_session_obj.server_session, database,
-                arguments['--db_name']).reference)
+                arguments['--dsource_name']).reference)
+        print_debug('Snapshot Job Reference: {}.\n'.format(
+          dx_session_obj.jobs[engine_name + 'snap']))
     except (HttpError, RequestError) as e:
         print_exception('ERROR: Could not create the sourceconfig:\n'
                         '{}'.format(e))
@@ -245,7 +263,8 @@ def link_mssql_dsource(engine_name):
             arguments['--dsource_name'], e))
         sys.exit(1)
 
-    link_params.link_data.shared_backup_location = arguments['--backup_path']
+    if arguments['--backup_path'] != "auto":
+      link_params.link_data.shared_backup_location = arguments['--backup_path']
 
     if arguments['--backup_loc_passwd']:
         link_params.link_data.backup_location_credentials = {'type':
@@ -261,7 +280,9 @@ def link_mssql_dsource(engine_name):
     link_params.link_data.db_user = arguments['--db_user']
 
     link_params.link_data.sourcing_policy = SourcingPolicy()
-    link_params.link_data.sourcing_policy.load_from_backup = True
+
+    if arguments['--load_from_backup']:
+      link_params.link_data.sourcing_policy.load_from_backup = True
 
     if arguments['--logsync']:
         link_params.link_data.sourcing_policy.logsync_enabled = True
