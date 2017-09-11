@@ -16,10 +16,10 @@ import traceback
 import errno
 from socket import error as socket_error
 
-from delphixpy.delphix_engine import DelphixEngine
-from delphixpy.exceptions import HttpError,JobError
-from delphixpy.web import network, system, user, service
-from delphixpy.web.vo import PasswordCredential, User, NetworkInterface, \
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError,JobError
+from delphixpy.v1_8_0.web import network, system, user, service
+from delphixpy.v1_8_0.web.vo import PasswordCredential, User, NetworkInterface, \
     InterfaceAddress, DNSConfig, SystemInfo, NetworkRoute
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):

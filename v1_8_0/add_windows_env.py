@@ -3,9 +3,9 @@
 VERSION="v.0.0.001"
 #just a quick and dirty example of adding a windows source
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.web import environment
-from delphixpy.v1_6_0.web.vo import HostEnvironmentCreateParameters, EnvironmentUser, PasswordCredential, \
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web.vo import HostEnvironmentCreateParameters, EnvironmentUser, PasswordCredential, \
 	WindowsHostEnvironment, WindowsHostCreateParameters, WindowsHost
 
 engine_address = "192.168.2.37"

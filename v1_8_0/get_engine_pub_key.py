@@ -14,9 +14,9 @@ import time
 import traceback
 import untangle
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError,JobError
-from delphixpy.v1_6_0.web import system
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError,JobError
+from delphixpy.v1_8_0.web import system
 from lib.GetSession import GetSession
 
 

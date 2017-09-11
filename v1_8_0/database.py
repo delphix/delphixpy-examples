@@ -24,11 +24,11 @@ from dateutil import tz
 import ConfigParser
 
 #delphixpy imports
-from delphixpy.v1_7_0.delphix_engine import DelphixEngine
-from delphixpy.v1_7_0.web.database import database
-from delphixpy.v1_7_0.exceptions import RequestError
-from delphixpy.v1_7_0.exceptions import JobError
-from delphixpy.v1_7_0.exceptions import HttpError
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.web.database import database
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import HttpError
 
 
 class dlpxExceptionHandler(Exception):

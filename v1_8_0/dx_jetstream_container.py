@@ -70,11 +70,11 @@ import threading
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import jetstream, job
-from delphixpy.v1_6_0.web.vo import JSBookmark, JSBookmarkCreateParameters, JSTimelinePointLatestTimeInput 
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError, JobError
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web import jetstream, job
+from delphixpy.v1_8_0.web.vo import JSBookmark, JSBookmarkCreateParameters, JSTimelinePointLatestTimeInput 
 #from delphixpy.v1_6_0.web.vo import 
 
 def run_async(func):

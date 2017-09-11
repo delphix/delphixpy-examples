@@ -73,21 +73,21 @@ import time
 import traceback
 from time import sleep, time
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import environment
-from delphixpy.web import group
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web import timeflow
-from delphixpy.web.snapshot import snapshot
-from delphixpy.web.vo import OracleRefreshParameters
-from delphixpy.web.vo import RefreshParameters
-from delphixpy.web.vo import TimeflowPointLocation
-from delphixpy.web.vo import TimeflowPointSemantic
-from delphixpy.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web import timeflow
+from delphixpy.v1_8_0.web.snapshot import snapshot
+from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est

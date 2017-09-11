@@ -69,11 +69,11 @@ import json
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, job, source, user
-from delphixpy.v1_6_0.web.vo import ASESpecificBackupSyncParameters, ASENewBackupSyncParameters, ASELatestBackupSyncParameters, MSSqlSyncParameters
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError, JobError
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web import database, environment, group, job, source, user
+from delphixpy.v1_8_0.web.vo import ASESpecificBackupSyncParameters, ASENewBackupSyncParameters, ASELatestBackupSyncParameters, MSSqlSyncParameters
 
 
 def find_obj_by_name(engine, server, f_class, obj_name):
