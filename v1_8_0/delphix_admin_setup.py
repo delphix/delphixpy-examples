@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 '''
-Adam Bowen - May 2017
-This script grabs
+Adam Bowen - Jan 2016
+This script configures the delphix_admin user after domain0 is configured
+Will come back and properly throw this with logging, etc
 '''
-VERSION="v.2.3.003"
+VERSION="v.2.3.002"
+CONTENTDIR="/u02/app/content"
 
 import getopt
 import logging
@@ -14,26 +16,26 @@ import time
 import traceback
 import untangle
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError,JobError
-from delphixpy.v1_6_0.web import system
-from lib.GetSession import GetSession
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError, JobError
+from delphixpy.v1_8_0.web import user
+from delphixpy.v1_8_0.web.vo import CredentialUpdateParameters, PasswordCredential, User
 
 
-def system_serversess(f_engine_address, f_engine_username, f_engine_password):
+def serversess(f_engine_address, f_engine_username, f_engine_password):
     '''
     Function to grab the server session
     '''
-    server_session= DelphixEngine(f_engine_address, f_engine_username, f_engine_password, "SYSTEM")
+    server_session= DelphixEngine(f_engine_address, f_engine_username, f_engine_password, "DOMAIN")
     return server_session
 
 def help():
-    print("\n" + basename(__file__)+ " [-e <engine ip>] [-p <sysadmin password]")
-    print("\n\nScript requires two parameters, the IP of the Delphix Engine and the sysadmin password you want to use")
+    print("\n" + basename(__file__)+ " [-e <engine ip>] [-o <old delphix_admin password] [-p <new delphix_admin password]")
+    print("\n\nScript requires three parameters, the IP of the Delphix Engine, the initial delphix_admin password to connect with,  and the new delphix_admin password you want to use")
     print("-h - Prints this message")
-    print("-e <Delphix Engine IP>  - Engine must be up and console screen must be green")
-    print("-p <sysadmin password>  - sysadmin password")
-    print("-d <directory> - directory where key will be saved")
+    print("-e <Delphix Engine IP>  - Engine must be up, unconfigured, and console screen must be green")
+    print("-o <old delphix_admin password>  - will use this password to initially access the system")
+    print("-p <new delphix_admin password>  - will set the delphix_admin user to this password")
     print("-v - Print version information and exit")
     sys.exit(2)
 
@@ -102,12 +104,11 @@ def main(argv):
         logging_est()
         global time_start
         time_start = time.time()
-        dx_session_obj = GetSession()
         engine_ip = ""
         engine_pass = ""
         old_engine_pass = ""
         try:
-            opts,args = getopt.getopt(argv,"e:d:p:hv")
+            opts,args = getopt.getopt(argv,"e:o:p:hv")
         except getopt.GetoptError:
             help()
         for opt, arg in opts:
@@ -115,30 +116,31 @@ def main(argv):
                 help()
             elif opt == '-e':
                 engine_ip = arg
+            elif opt == '-o':
+                old_engine_pass = arg
             elif opt == '-p':
                 engine_pass = arg
-            elif opt == '-d':
-                key_path = arg + '/engine_key.pub'
             elif opt == '-v':
                 version()
 
-        if (engine_ip == "" or engine_pass == "") :
+        if (engine_ip == "" or engine_pass == "" or old_engine_pass == "") :
             help()
 
-        dx_session_obj.serversess(engine_ip, 'sysadmin',
-                                 engine_pass, 'SYSTEM')
-        dx_session_obj.server_wait()
+        server = serversess(engine_ip, "delphix_admin", old_engine_pass)
 
-        sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
-        system_info = system.get(sys_server)
-        print_info(system_info.ssh_public_key)
-        print_info("Writing to " + key_path)
-        target = open(key_path, 'w')
-        target.write(system_info.ssh_public_key)
-        target.close
-        print_info("File saved")
-        elapsed_minutes = time_elapsed()
-        print_info("Script took " + str(elapsed_minutes) + " minutes to get this far.")
+        if user.get(server, "USER-2").email_address == None:
+            print_debug("Setting delphix_admin's email address")
+            delphix_admin_user = User()
+            delphix_admin_user.email_address = "spam@delphix.com"
+            user.update(server, 'USER-2', delphix_admin_user)
+
+            print_debug("Setting delphix_admin's password")
+            delphix_admin_credupdate = CredentialUpdateParameters()
+            delphix_admin_credupdate.new_credential = PasswordCredential()
+            delphix_admin_credupdate.new_credential.password = engine_pass
+            user.update_credential(server, 'USER-2', delphix_admin_credupdate)
+        else:
+            print_info("The delphix_admin user has already been setup")
 
     except SystemExit as e:
         sys.exit(e)
@@ -152,18 +154,15 @@ def main(argv):
         print_error(e.job)
         elapsed_minutes = time_elapsed()
         print_info("Prime took " + str(elapsed_minutes) + " minutes to get this far.")
-        sys.exit(2)
     except KeyboardInterrupt:
         print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed()
         print_info("Prime took " + str(elapsed_minutes) + " minutes to get this far.")
-        sys.exit(2)
     except:
         print_error(sys.exc_info()[0])
         print_error(traceback.format_exc())
         elapsed_minutes = time_elapsed()
         print_info("Prime took " + str(elapsed_minutes) + " minutes to get this far.")
-        sys.exit(2)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

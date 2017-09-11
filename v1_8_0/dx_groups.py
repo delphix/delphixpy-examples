@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# Corey Brune - Feb 2017
+# Adam Bowen - Aug 2017
 #Description:
-# This script will setup replication between two hosts.
+# This script will allow you to easily manage groups in Delphix
 #
 #Requirements
 #pip install docopt delphixpy
@@ -10,37 +10,26 @@
 #this doc to also define our arguments for the script.
 """Description
 Usage:
-  dx_replication.py --rep_name <name> --target_host <target> --target_user <name> --target_pw <password> --rep_objs <objects> [--schedule <name> --bandwidth <MBs> --num_cons <connections> --enabled]
-  dx_replication.py --delete <rep_name>
-  dx_replication.py --execute <rep_name>
-  dx_replication.py --list
+  dx_groups.py (--group_name <name> [--add | --delete])
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  
-  dx_replication.py -h | --help | -v | --version
-
+    dx_groups.py (--list)
+                  [--engine <identifier> | --all]
+                  [--debug] [--parallel <n>] [--poll <n>]
+                  [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_groups.py -h | --help | -v | --version
 Description
-Setup replication between two hosts.
-Examples:
-dx_replication.py --rep_name mytest --target_host 172.16.169.141 --target_user delphix_admin --target_pw delphix --rep_objs mytest1 --schedule '55 0 19 * * ?' --enabled
-dx_replication.py --rep_name mytest --target_host 172.16.169.141 --target_user delphix_admin --target_pw delphix --rep_objs mytest1 --schedule '0 40 20 */4 * ?' --bandwidth 5 --num_cons 2 --enabled
 
-dx_replication.py --delete mytest
+Examples:
+    dx_groups.py --debug --config delphixpy-examples/dxtools_1.conf  --group_name Test --add
+    dx_groups.py --config delphixpy-examples/dxtools_1.conf  --group_name Test --delete
+    dx_groups.py --list
 
 Options:
-  --rep_name <name>         Name of the replication job.
-  --target_host <target>    Name / IP of the target replication host.
-  --target_user <name>      Username for the replication target host.
-  --target_pw <password>    Password for the user.
-  --schedule <name>         Schedule of the replication job in crontab format. (seconds, minutes, hours, day of month, month)
-                            [default: '0 0 0 */5 * ?']
-  --rep_objs <objects>      Comma delimited list of objects to replicate.
-  --delete <rep_name>       Name of the replication job to delete.
-  --bandwidth <MBs>         Limit bandwidth to MB/s.
-  --num_cons <connections>  Number of network connections for the replication job.
-  --list                    List all of the replication jobs.
-  --execute <rep_name>      Name of the replication job to execute.
+  --group_name <name>       The name of the group
+  --add                     Add the identified group
+  --delete                  Delete the identified group
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -50,7 +39,7 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_operations_vdb.log]
+                            [default: ./dx_skel.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
@@ -62,14 +51,12 @@ from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
-from delphixpy.web import database
-from delphixpy.web.replication import spec
-from delphixpy.web.vo import ReplicationSpec
-from delphixpy.web.vo import ReplicationList
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web.vo import Group
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
@@ -77,99 +64,49 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_obj_specs
+from lib.GetReferences import find_all_objects
 from lib.GetSession import GetSession
 
-
-def create_replication_job():
+def add_group(group_name):
     """
-    Create a replication job
-    :return: Reference to the spec object
+    This function adds the group
     """
-    rep_spec = ReplicationSpec()
-    rep_spec.name = arguments['--rep_name']
-    rep_spec.target_host = arguments['--target_host']
-    rep_spec.target_principal = arguments['--target_user']
-    rep_spec.target_credential = {'type': 'PasswordCredential', 'password':
-        arguments['--target_pw']}
-    rep_spec.object_specification = ReplicationList()
-    rep_spec.schedule = arguments['--schedule']
-    rep_spec.encrypted = True
+    group_obj = Group()
+    group_obj.name = group_name
 
-    if arguments['--num_cons']:
-        rep_spec.number_of_connections = int(arguments['--num_cons'])
-    if arguments['--bandwidth']:
-        rep_spec.bandwidth_limit = int(arguments['--bandwidth'])
-    if arguments['--enabled']:
-        rep_spec.enabled = True
+
     try:
-        rep_spec.object_specification.objects = find_obj_specs(
-            dx_session_obj.server_session, arguments['--rep_objs'].split(','))
+      group.create(dx_session_obj.server_session,group_obj)
+      print('Attempting to create {}'.format(group_name))
+    except (DlpxException, RequestError) as e:
+      print_exception('\nERROR: Creating the group {} '
+                      'encountered an error:\n{}'.format(group_name, e))
+      sys.exit(1)
 
-        ref = spec.create(dx_session_obj.server_session, rep_spec)
-        if dx_session_obj.server_session.last_job:
-            dx_session_obj.jobs[dx_session_obj.server_session.address] = \
-                dx_session_obj.server_session.last_job
-        print_info('Successfully created {} with reference '
-                   '{}\n'.format(arguments['--rep_name'], ref))
-
-    except (HttpError, RequestError, DlpxException) as e:
-        print_exception('Could not create replication job {}:\n{}'.format(
-            arguments['--rep_name'], e))
-
-
-def delete_replication_job():
+def delete_group(group_name):
     """
-    Delete a replication job.
-    :return: Reference to the spec object
+    This function adds the group
     """
+    group_obj = find_obj_by_name(dx_session_obj.server_session,
+                                 group, group_name)
+    
+
     try:
-        spec.delete(dx_session_obj.server_session,
-                    find_obj_by_name(dx_session_obj.server_session, spec,
-                                     arguments['--delete']).reference)
-        if dx_session_obj.server_session.last_job:
-            dx_session_obj.jobs[dx_session_obj.server_session.address] = \
-                dx_session_obj.server_session.last_job
-        print_info('Successfully deleted {}.\n'.format(arguments['--delete']))
+      group.delete(dx_session_obj.server_session,group_obj.reference)
+      print('Attempting to delete {}'.format(group_name))
+    except (DlpxException, RequestError) as e:
+      print_exception('\nERROR: Deleting the group {} '
+                      'encountered an error:\n{}'.format(group_name, e))
+      sys.exit(1)
 
-    except (HttpError, RequestError, DlpxException) as e:
-        print_exception('Was not able to delete {}:\n{}'.format(
-            arguments['--delete'], e))
-
-
-def list_replication_jobs():
+def list_groups():
     """
-    List the replication jobs on a given engine
+    This function lists all groups
     """
-    obj_names_lst = []
+    group_list = find_all_objects(dx_session_obj.server_session, group)
 
-    for rep_job in spec.get_all(dx_session_obj.server_session):
-        for obj_spec_ref in  rep_job.object_specification.objects:
-            obj_names_lst.append(database.get(dx_session_obj.server_session,
-                                              obj_spec_ref).name)
-
-        print('Name: {}\nReplicated Objects: {}\nEnabled: {}\nEncrypted: {}\n'
-              'Reference: {}\nSchedule: {}\nTarget Host: {}\n\n'.format(
-            rep_job.name, ', '.join(obj_names_lst), rep_job.enabled,
-            rep_job.encrypted, rep_job.reference, rep_job.schedule,
-            rep_job.target_host))
-
-
-def execute_replication_job(obj_name):
-    """
-    Execute a replication job immediately.
-    :param obj_name: name of object to execute.
-    """
-    try:
-        spec.execute(dx_session_obj.server_session,
-                     find_obj_by_name(dx_session_obj.server_session,
-                                      spec, obj_name).reference)
-        if dx_session_obj.server_session.last_job:
-            dx_session_obj.jobs[dx_session_obj.server_session.address] = \
-                dx_session_obj.server_session.last_job
-        print_info('Successfully executed {}.\n'.format(obj_name))
-    except (HttpError, RequestError, DlpxException, JobError) as e:
-        print_exception('Could not execute job {}:\n{}'.format(obj_name, e))
+    for group_obj in group_list:
+        print('Group: {}'.format(group_obj.name))
 
 
 def run_async(func):
@@ -213,7 +150,6 @@ def main_workflow(engine):
 
     engine: Dictionary of engines
     """
-
     try:
         #Setup the connection to the Delphix Engine
         dx_session_obj.serversess(engine['ip_address'], engine['username'],
@@ -230,14 +166,12 @@ def main_workflow(engine):
         with dx_session_obj.job_mode(single_thread):
             while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
                 if len(thingstodo) > 0:
-                    if arguments['--rep_name']:
-                        create_replication_job()
+                    if arguments['--add'] :
+                        add_group(arguments['--group_name'])
                     elif arguments['--delete']:
-                        delete_replication_job()
+                        delete_group(arguments['--group_name'])
                     elif arguments['--list']:
-                        list_replication_jobs()
-                    elif arguments['--execute']:
-                        execute_replication_job(arguments['--execute'])
+                        list_groups()
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0
@@ -245,7 +179,7 @@ def main_workflow(engine):
                     job_obj = job.get(dx_session_obj.server_session,
                                       dx_session_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: Replication operations: {}'.format(
+                    print_info('{}: Group: {}'.format(
                         engine['hostname'], job_obj.job_state))
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
@@ -264,8 +198,8 @@ def main_workflow(engine):
                         sleep(float(arguments['--poll']))
 
     except (HttpError, RequestError, JobError, DlpxException) as e:
-        print_exception('ERROR: Could not complete replication'
-                        ' operation:{}'.format(e))
+        print_exception('ERROR: Could not complete group '
+                        'operation: {}'.format(e))
 
 
 def run_job():
@@ -293,13 +227,13 @@ def run_job():
             sys.exit(1)
 
     elif arguments['--all'] is False:
-    #Else if the --engine argument was given, test to see if the engine
-      # exists in dxtools.conf
+        #Else if the --engine argument was given, test to see if the engine
+        # exists in dxtools.conf
       if arguments['--engine']:
             try:
                 engine = dx_session_obj.dlpx_engines[arguments['--engine']]
                 print_info('Executing against Delphix Engine: {}\n'.format(
-                           arguments['--engine']))
+                           (arguments['--engine'])))
 
             except (DlpxException, RequestError, KeyError) as e:
                 raise DlpxException('\nERROR: Delphix Engine {} cannot be '
@@ -312,10 +246,12 @@ def run_job():
           for delphix_engine in dx_session_obj.dlpx_engines:
               if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
                  'true':
+
                   engine = dx_session_obj.dlpx_engines[delphix_engine]
                   print_info('Executing against the default Delphix Engine '
                        'in the dxtools.conf: {}'.format(
                        dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+
               break
 
           if engine == None:
@@ -336,6 +272,8 @@ def time_elapsed():
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
     """
+    #elapsed_minutes = round((time() - time_start)/60, +1)
+    #return elapsed_minutes
     return round((time() - time_start)/60, +1)
 
 
@@ -370,6 +308,10 @@ def main(arguments):
             elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
+    except DlpxException as e:
+        print_exception('script encountered an error while processing the'
+                        'config file:\n{}'.format(e))
+
     except SystemExit as e:
         """
         This is what we use to handle our sys.exit(#)

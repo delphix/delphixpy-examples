@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # Corey Brune - Feb 2017
 #Description:
-# Update Environment
-#
+# This is a skeleton script which has all of the common functionality.
+# The developer will only need to add the necessary arguments and functions
+# then make the function calls in main_workflow().
 #Requirements
 #pip install docopt delphixpy
 
@@ -10,19 +11,17 @@
 #this doc to also define our arguments for the script.
 """Description
 Usage:
-  dx_update_env.py (--pw <name> --env_name <name>)
+  dx_skel.py ()
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_update_env.py -h | --help | -v | --version
+  dx_skel.py -h | --help | -v | --version
 Description
 
 Examples:
 
 
 Options:
-  --pw <name>               Password
-  --env_name <name>         Name of the environment
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -37,21 +36,17 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.000'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
-from delphixpy.web import environment
-from delphixpy.web.vo import ASEHostEnvironmentParameters
-from delphixpy.web.vo import UnixHostEnvironment
-
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
@@ -60,23 +55,6 @@ from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
-
-def update_ase_db_pw():
-
-    env_obj = UnixHostEnvironment()
-    env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
-    env_obj.ase_host_environment_parameters.credentials = {'type':
-                                            'PasswordCredential',
-                                                'password': arguments['--pw']}
-
-    try:
-        environment.update(dx_session_obj.server_session, find_obj_by_name(
-            dx_session_obj.server_session, environment,
-            arguments['--env_name'], env_obj).reference, env_obj)
-
-    except (HttpError, RequestError) as e:
-        print_exception('Could not update ASE DB Password:\n{}'.format(e))
-        sys.exit(1)
 
 
 def run_async(func):
@@ -120,54 +98,60 @@ def main_workflow(engine):
 
     engine: Dictionary of engines
     """
-    jobs = {}
-
     try:
         #Setup the connection to the Delphix Engine
         dx_session_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
 
+        if arguments['--vdb']:
+            #Get the database reference we are copying from the database name
+            database_obj = find_obj_by_name(dx_session_obj.server_session,
+                                            database, arguments['--vdb'])
+
     except DlpxException as e:
-        print_exception('\nERROR: Engine %s encountered an error while' 
-                        '%s:\n%s\n' % (engine['hostname'],
+        print_exception('\nERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
                         arguments['--target'], e))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
-    #reset the running job count before we begin
-    i = 0
-    with dx_session_obj.job_mode(single_thread):
-        while (len(jobs) > 0 or len(thingstodo)> 0):
-            if len(thingstodo)> 0:
-                if arguments['--pw']:
-                    update_ase_db_pw()
+    try:
+        with dx_session_obj.job_mode(single_thread):
+            while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+                if len(thingstodo) > 0:
+                    if OPERATION:
+                        method_call
 
-                #elif OPERATION:
-                #    method_call
+                    elif OPERATION:
+                        method_call
+                    thingstodo.pop()
+                # get all the jobs, then inspect them
+                i = 0
+                for j in dx_session_obj.jobs.keys():
+                    job_obj = job.get(dx_session_obj.server_session,
+                                      dx_session_obj.jobs[j])
+                    print_debug(job_obj)
+                    print_info('{}: Replication operations: {}'.format(
+                        engine['hostname'], job_obj.job_state))
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
+                        # If the job is in a non-running state, remove it
+                        # from the
+                        # running jobs list.
+                        del dx_session_obj.jobs[j]
+                    elif job_obj.job_state in 'RUNNING':
+                        # If the job is in a running state, increment the
+                        # running job count.
+                        i += 1
+                    print_info('{}: {:d} jobs running.'.format(
+                               engine['hostname'], i))
+                    # If we have running jobs, pause before repeating the
+                    # checks.
+                    if len(dx_session_obj.jobs) > 0:
+                        sleep(float(arguments['--poll']))
 
-                thingstodo.pop()
-
-            #get all the jobs, then inspect them
-            i = 0
-            for j in jobs.keys():
-                job_obj = job.get(dx_session_obj.server_session, jobs[j])
-                print_debug(job_obj)
-                print_info(engine["hostname"] + ": VDB Operations: " +
-                           job_obj.job_state)
-
-                if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the
-                    # running jobs list.
-                    del jobs[j]
-                else:
-                    #If the job is in a running state, increment the running
-                    # job count.
-                    i += 1
-
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
-            #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
-                sleep(float(arguments['--poll']))
+    except (HttpError, RequestError, JobError, DlpxException) as e:
+        print_exception('ERROR: Could not complete replication '
+                        'operation:{}'.format(e))
 
 
 def run_job():
@@ -177,6 +161,7 @@ def run_job():
     """
     #Create an empty list to store threads we create.
     threads = []
+    engine = None
 
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
@@ -190,7 +175,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n%s' % (e)
+            print 'Error encountered in run_job():\n{}'.format(e)
             sys.exit(1)
 
     elif arguments['--all'] is False:
@@ -199,14 +184,14 @@ def run_job():
       if arguments['--engine']:
             try:
                 engine = dx_session_obj.dlpx_engines[arguments['--engine']]
-                print_info('Executing against Delphix Engine: %s\n' %
-                           (arguments['--engine']))
+                print_info('Executing against Delphix Engine: {}\n'.format(
+                           (arguments['--engine'])))
 
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '
-                                    'found in %s. Please check your value '
-                                    'and try again. Exiting.\n%s\n' % (
-                                    arguments['--engine'], config_file_path, e))
+                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
+                                    'found in {}. Please check your value '
+                                    'and try again. Exiting.\n'.format(
+                                    arguments['--engine'], config_file_path))
 
       else:
           #Else search for a default engine in the dxtools.conf
@@ -216,7 +201,7 @@ def run_job():
 
                   engine = dx_session_obj.dlpx_engines[delphix_engine]
                   print_info('Executing against the default Delphix Engine '
-                       'in the dxtools.conf: %s' % (
+                       'in the dxtools.conf: {}'.format(
                        dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
 
               break
@@ -239,17 +224,17 @@ def time_elapsed():
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
     """
-    elapsed_minutes = round((time() - time_start)/60, +1)
-    return elapsed_minutes
+    #elapsed_minutes = round((time() - time_start)/60, +1)
+    #return elapsed_minutes
+    return round((time() - time_start)/60, +1)
 
 
-def main(argv):
+def main(arguments):
     #We want to be able to call on these variables anywhere in the script.
     global single_thread
     global usebackup
     global time_start
     global config_file_path
-    global database_name
     global dx_session_obj
     global debug
 
@@ -271,8 +256,8 @@ def main(argv):
         run_job()
 
         elapsed_minutes = time_elapsed()
-        print_info("script took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        print_info('script took {:d} minutes to get this far.'.format(
+            elapsed_minutes))
 
     #Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -286,7 +271,7 @@ def main(argv):
         We use this exception handler when our connection to Delphix fails
         """
         print_exception('Connection failed to the Delphix Engine'
-                        'Please check the ERROR message below')
+                        'Please check the ERROR message:\n{}'.format(e))
         sys.exit(1)
 
     except JobError as e:
@@ -296,8 +281,8 @@ def main(argv):
         """
         elapsed_minutes = time_elapsed()
         print_exception('A job failed in the Delphix Engine')
-        print_info('%s took %s minutes to get this far\n' %
-                   (basename(__file__), str(elapsed_minutes)))
+        print_info('{} took {:.2f} minutes to get this far\n{}'.format(
+                   basename(__file__), elapsed_minutes, e))
         sys.exit(3)
 
     except KeyboardInterrupt:
@@ -306,8 +291,8 @@ def main(argv):
         """
         print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed()
-        print_info('%s took %s minutes to get this far\n' %
-                   (basename(__file__), str(elapsed_minutes)))
+        print_info('{} took {:.2f} minutes to get this far\n'.format(
+                   basename(__file__), elapsed_minutes))
 
     except:
         """
@@ -315,8 +300,8 @@ def main(argv):
         """
         print_exception(sys.exc_info()[0])
         elapsed_minutes = time_elapsed()
-        print_info('%s took %s minutes to get this far\n' %
-                   (basename(__file__), str(elapsed_minutes)))
+        print_info('{} took {.2f} minutes to get this far\n'.format(
+                   basename(__file__), elapsed_minutes))
         sys.exit(1)
 
 if __name__ == "__main__":

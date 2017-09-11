@@ -78,18 +78,18 @@ import sys
 import traceback
 from time import sleep, time
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import environment
-from delphixpy.web import job
-from delphixpy.web import host
-from delphixpy.web.vo import UnixHostEnvironment
-from delphixpy.web.vo import ASEHostEnvironmentParameters
-from delphixpy.web.vo import HostEnvironmentCreateParameters
-from delphixpy.web.vo import WindowsHostEnvironment
-from delphixpy.web.vo import WindowsHost
-from delphixpy.web.vo import UnixHost
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import host
+from delphixpy.v1_8_0.web.vo import UnixHostEnvironment
+from delphixpy.v1_8_0.web.vo import ASEHostEnvironmentParameters
+from delphixpy.v1_8_0.web.vo import HostEnvironmentCreateParameters
+from delphixpy.v1_8_0.web.vo import WindowsHostEnvironment
+from delphixpy.v1_8_0.web.vo import WindowsHost
+from delphixpy.v1_8_0.web.vo import UnixHost
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession

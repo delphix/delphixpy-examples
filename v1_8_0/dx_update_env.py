@@ -1,33 +1,28 @@
 #!/usr/bin/env python
-# Corey Brune - Oct 2016
+# Corey Brune - Feb 2017
 #Description:
-# List jobs on a given engine
+# Update Environment
 #
 #Requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
-"""List jobs on an engine
+"""Description
 Usage:
-  dx_jobs.py (--list [--state <name>][--title <name>])
+  dx_update_env.py (--pw <name> --env_name <name>)
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_jobs.py -h | --help | -v | --version
-
-List jobs on an engine
+  dx_update_env.py -h | --help | -v | --version
+Description
 
 Examples:
-    dx_jobs.py --list --state failed
-    dx_jobs.py --list --title snapsync
-    dx_jobs.py --list --state failed --title snapsync
 
 
 Options:
-  --list                    List all jobs on an engine.
-  --title <name>            Filter job by title name. Note: The search is case insensitive.
-  --state <name>            Filter jobs by state: RUNNING, SUSPENDED, CANCELED, COMPLETED, FAILED
+  --pw <name>               Password
+  --env_name <name>         Name of the environment
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -42,83 +37,46 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.002'
+VERSION = 'v.0.0.001'
 
 import sys
-import re
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web.vo import ASEHostEnvironmentParameters
+from delphixpy.v1_8_0.web.vo import UnixHostEnvironment
+
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
 
+def update_ase_db_pw():
 
-def list_jobs():
+    env_obj = UnixHostEnvironment()
+    env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
+    env_obj.ase_host_environment_parameters.credentials = {'type':
+                                            'PasswordCredential',
+                                                'password': arguments['--pw']}
 
-    if arguments['--state']:
-        if re.match('RUNNING|SUSPENDED|CANCELED|COMPLETED|FAILED',
-                    arguments['--state'].upper()):
-            pass
-        else:
-            print_info('The state should be one of these options:\n'
-                  'RUNNING, SUSPENDED, CANCELED, COMPLETED, FAILED')
-            sys.exit(1)
+    try:
+        environment.update(dx_session_obj.server_session, find_obj_by_name(
+            dx_session_obj.server_session, environment,
+            arguments['--env_name'], env_obj).reference, env_obj)
 
-        for job_info in job.get_all(dx_session_obj.server_session,
-                                    job_state=arguments['--state'].upper()):
-
-            if arguments['--title']:
-                if re.search(arguments['--title'], job_info.title,
-                                       re.IGNORECASE):
-                    print('Action={}, Job State={}, Parent Action State={},'
-                           'Percent Complete={}, Reference={}, Target={},'
-                           'Target Name={}, Title={}, User={}\n'.format(
-                           job_info.action_type, job_info.job_state,
-                           job_info.parent_action_state,
-                           job_info.percent_complete, job_info.reference,
-                           job_info.target, job_info.target_name,
-                           job_info.title, job_info.user))
-            else:
-                print('Action=%s, Job State=%s, Parent Action State=%s,'
-                       'Percent Complete=%s, Reference=%s, Target=%s,'
-                       'Target Name=%s, Title=%s, User=%s\n' %
-                       (job_info.action_type, job_info.job_state,
-                        job_info.parent_action_state,
-                        job_info.percent_complete, job_info.reference,
-                        job_info.target, job_info.target_name,
-                        job_info.title, job_info.user))
-    else:
-        for job_info in job.get_all(dx_session_obj.server_session):
-
-            if arguments['--title']:
-                if re.search(arguments['--title'], job_info.title,
-                                       re.IGNORECASE):
-                    print('Action=%s, Job State=%s, Parent Action State=%s,'
-                    'Percent Complete=%s, Reference=%s, Target=%s,'
-                    'Target Name=%s, Title=%s, User=%s\n' %
-                    (job_info.action_type, job_info.job_state,
-                     job_info.parent_action_state, job_info.percent_complete,
-                     job_info.reference, job_info.target, job_info.target_name,
-                     job_info.title, job_info.user))
-            else:
-                print('Action=%s, Job State=%s, Parent Action State=%s,'
-                      'Percent Complete=%s, Reference=%s, Target=%s,'
-                      'Target Name=%s, Title=%s, User=%s\n' %
-                      (job_info.action_type, job_info.job_state,
-                       job_info.parent_action_state, job_info.percent_complete,
-                       job_info.reference, job_info.target,
-                       job_info.target_name, job_info.title, job_info.user))
-
+    except (HttpError, RequestError) as e:
+        print_exception('Could not update ASE DB Password:\n{}'.format(e))
+        sys.exit(1)
 
 
 def run_async(func):
@@ -170,42 +128,45 @@ def main_workflow(engine):
                                   engine['password'])
 
     except DlpxException as e:
-        print_exception('\nERROR: Engine {} encountered an error while' 
-                        '{}:\n{}\n'.format(engine['hostname'],
+        print_exception('\nERROR: Engine %s encountered an error while' 
+                        '%s:\n%s\n' % (engine['hostname'],
                         arguments['--target'], e))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
+    #reset the running job count before we begin
+    i = 0
     with dx_session_obj.job_mode(single_thread):
-        while len(dx_session_obj.jobs) > 0 or len(thingstodo) > 0:
-            if len(thingstodo) > 0:
+        while (len(jobs) > 0 or len(thingstodo)> 0):
+            if len(thingstodo)> 0:
+                if arguments['--pw']:
+                    update_ase_db_pw()
 
-                if arguments['--list']:
-                    list_jobs()
+                #elif OPERATION:
+                #    method_call
+
                 thingstodo.pop()
 
-            # get all the jobs, then inspect them
+            #get all the jobs, then inspect them
             i = 0
-            for j in dx_session_obj.jobs.keys():
-                job_obj = job.get(dx_session_obj.server_session,
-                                  dx_session_obj.jobs[j])
+            for j in jobs.keys():
+                job_obj = job.get(dx_session_obj.server_session, jobs[j])
                 print_debug(job_obj)
-                print_info('{}: Operations: {}'.format(engine['hostname'],
-                                                       job_obj.job_state))
+                print_info(engine["hostname"] + ": VDB Operations: " +
+                           job_obj.job_state)
+
                 if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    # If the job is in a non-running state, remove it from the
+                    #If the job is in a non-running state, remove it from the
                     # running jobs list.
-                    del dx_session_obj.jobs[j]
-                elif job_obj.job_state in 'RUNNING':
-                    # If the job is in a running state, increment the running
+                    del jobs[j]
+                else:
+                    #If the job is in a running state, increment the running
                     # job count.
                     i += 1
 
-                print_info('{}: {:d} jobs running.'.format(
-                    engine['hostname'], i))
-
-            # If we have running jobs, pause before repeating the checks.
-            if len(dx_session_obj.jobs) > 0:
+            print_info(engine["hostname"] + ": " + str(i) + " jobs running. ")
+            #If we have running jobs, pause before repeating the checks.
+            if len(jobs) > 0:
                 sleep(float(arguments['--poll']))
 
 
@@ -229,7 +190,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print 'Error encountered in run_job():\n{}'.format(e)
+            print 'Error encountered in run_job():\n%s' % (e)
             sys.exit(1)
 
     elif arguments['--all'] is False:
@@ -242,11 +203,10 @@ def run_job():
                            (arguments['--engine']))
 
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine %s cannot be '                                         'found in %s. Please check your value '
-                                    'and try again. Exiting.\n' % (
-                                    arguments['--engine'], config_file_path))
-
-
+                raise DlpxException('\nERROR: Delphix Engine %s cannot be '
+                                    'found in %s. Please check your value '
+                                    'and try again. Exiting.\n%s\n' % (
+                                    arguments['--engine'], config_file_path, e))
 
       else:
           #Else search for a default engine in the dxtools.conf
@@ -301,7 +261,6 @@ def main(argv):
         logging_est(arguments['--logdir'])
         print_debug(arguments)
         time_start = time()
-        engine = None
         single_thread = False
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary

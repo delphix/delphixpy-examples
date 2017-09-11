@@ -1,46 +1,46 @@
 #!/usr/bin/env python
-#Adam Bowen - Apr 2016
-#This script deletes a vdb
+#Adam Bowen - Jun 2016
+#dx_jetstream_container.py
+#Use this file as a starter for your python scripts, if you like
 #requirements
 #pip install docopt delphixpy
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script. This thing is brilliant.
-"""Delete a VDB
+"""Perform routine operations on Jetstream containers
 
 Usage:
-  dx_delete_db.py (--group <name> [--name <name>] | --all_dbs )
-                  [-d <identifier> | --engine <identifier> | --all]
-                  [--usebackup] [--debug] [--parallel <n>] [--poll <n>]
+  dx_jetstream_container.py --template <name> (--container <name> | --all_containers )
+                  --operation <name> [-d <identifier> | --engine <identifier> | --all]
+                  [--bookmark_name <name>] [--bookmark_tags <tags>] [--bookmark_shared <bool>]
+                  [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_delete_db.py (--host <name> [--group <name>] [--object_type <type>] 
-                  | --object_type <name> [--group <name>] [--host <type>] )
-                  [-d <identifier> | --engine <identifier> | --all]
-                  [--usebackup] [--debug] [--parallel <n>] [--poll <n>]
-                  [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_delete_db.py -h | --help | -v | --version
+  dx_jetstream_container.py -h | --help | -v | --version
 
-Delete a VDB
+Perform routine operations on a Jetstream Container
 
 Examples:
-  dx_delete_db.py --group "Sources" --object_type dsource --usebackup
-  dx_delete_db.py --name "Employee Oracle 11G DB"
-  dx_delete_db.py --host LINUXSOURCE --parallel 2 --usebackup
-  dx_delete_db.py --host LINUXSOURCE --parallel 4 --usebackup --debug -d landsharkengine
-
-
+  dx_jetstream_container.py --operation refresh --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container"
+  dx_jetstream_container.py --operation reset --template "Masked SugarCRM Application" --all_containers
+  dx_jetstream_container.py --template "Masked SugarCRM Application" --container "Sugar Automated Testing Container" --operation bookmark --bookmark_name "Testing" --bookmark_tags "one,two,three" --bookmark_shared true
 
 Options:
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
-  --all_dbs                 Run against all database objects
-  --name <name>             Name of object in Delphix to execute against.
-  --group <name>            Name of group in Delphix to execute against.
+  --all_containers          Run against all jetstream containers
+  --template <name>         Name of Jetstream template to execute against.
+  --container <name>        Name of Jetstream container to execute against.
+  --operation <name>        Name of the operation to execute
+                            Can be one of:
+                            start, stop, recover, refresh, reset, bookmark
+  --bookmark_name <name>    Name of the bookmark to create
+                            (only valid with "--operation bookmark")
+  --bookmark_tags <tags>    Comma-delimited list to tag the bookmark
+                            (only valid with "--operation bookmark")
+  --bookmark_shared <bool>  Share bookmark: true/false
+                            [default: false]
   --host <name>             Name of environment in Delphix to execute against.
-  --object_type <obj_type>  dsource or vdb.
-  --usebackup               Snapshot using "Most Recent backup".
-                            Available for MSSQL and ASE only.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
@@ -48,13 +48,13 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_snapshot_db.log]
+                            [default: ./dx_jetstream_container_refresh.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 
 """
 
-VERSION="v.0.0.001"
+VERSION="v.0.0.005"
 
 
 from docopt import docopt
@@ -65,16 +65,148 @@ import sys
 import time
 import traceback
 import json
+import threading
 
 from multiprocessing import Process
 from time import sleep, time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
-from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, job, source, user
-from delphixpy.v1_6_0.web.vo import ASESpecificBackupSyncParameters, ASENewBackupSyncParameters, ASELatestBackupSyncParameters, MSSqlSyncParameters
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError, JobError
+from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.web import jetstream, job
+from delphixpy.v1_8_0.web.vo import JSBookmark, JSBookmarkCreateParameters, JSTimelinePointLatestTimeInput 
 
+def run_async(func):
+    """
+        http://code.activestate.com/recipes/576684-simple-threading-decorator/
+        run_async(func)
+            function decorator, intended to make "func" run in a separate
+            thread (asynchronously).
+            Returns the created Thread object
+
+            E.g.:
+            @run_async
+            def task1():
+                do_something
+
+            @run_async
+            def task2():
+                do_something_too
+
+            t1 = task1()
+            t2 = task2()
+            ...
+            t1.join()
+            t2.join()
+    """
+    #from threading import Thread
+    from functools import wraps
+
+    @wraps(func)
+    def async_func(*args, **kwargs):
+        func_hl = threading.Thread(target = func, args = args, kwargs = kwargs)
+        func_hl.start()
+        return func_hl
+
+    return async_func
+
+@run_async
+def container_bookmark(engine, server, container_obj, bookmark_name, bookmark_shared, tags):
+    '''This function bookmarks the current branch on the container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Prepare the bookmark creation parameters
+    bookmark_create_params = JSBookmarkCreateParameters()
+    bookmark_create_params.bookmark = JSBookmark()
+    bookmark_create_params.bookmark.name = bookmark_name
+    bookmark_create_params.bookmark.branch = container_obj.active_branch
+    bookmark_create_params.bookmark.shared = bookmark_shared
+    bookmark_create_params.bookmark.tags = tags
+    bookmark_create_params.timeline_point_parameters = JSTimelinePointLatestTimeInput()
+    bookmark_create_params.timeline_point_parameters.source_data_layout = container_obj.reference
+
+    jetstream.bookmark.create(server, bookmark_create_params)
+
+def container_recover(engine, server, container_obj):
+    '''This function recovers a container that is in an "INCONSISTENT" state'''
+    if container_obj.state == "INCONSISTENT":
+        #if not recover it
+        job_obj = jetstream.container.recover(server, container_obj.reference)
+        #wait for the recovery action to finish
+        job_context.wait(server,job_obj.reference)
+        #get the updated object with the new state
+        container_obj = jetstream.container.get(server, container_obj.reference)
+        return container_obj
+
+@run_async   
+def container_recover_async(engine, server, container_obj):
+    '''This function recovers all specified containers asynchronously'''
+    container_recover(engine, server, container_obj)
+
+@run_async
+def container_refresh(engine, server, container_obj):
+    '''This function refreshes a container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Now let's refresh it.
+    refresh_job = jetstream.container.refresh(server, container_obj.reference)
+
+@run_async
+def container_reset(engine, server, container_obj):
+    '''This function resets a container'''
+    #But first, let's make sure it is in a CONSISTENT state
+    container_recover(engine, server, container_obj)
+    #Next let's make sure it is started
+    container_start(engine, server, container_obj)
+    #Now let's refresh it.
+    reset_job = jetstream.container.reset(server, container_obj.reference)
+
+def container_start(engine, server, container_obj):
+    '''This function starts/enables a container that is in an "OFFLINE" state'''
+    if container_obj.state == "OFFLINE":
+        #if not, enable it
+        jetstream.container.enable(server, container_obj.reference)
+
+@run_async   
+def container_start_async(engine, server, container_obj):
+    '''This function starts all specified containers asynchronously'''
+    container_start(engine, server, container_obj)
+
+def container_stop(engine, server, container_obj):
+    '''This function starts/enables a container that is in an "OFFLINE" state'''
+    if container_obj.state == "ONLINE":
+        #if not, enable it
+        jetstream.container.disable(server, container_obj.reference)
+
+@run_async   
+def container_stop_async(engine, server, container_obj):
+    '''This function starts all specified containers asynchronously'''
+    container_stop(engine, server, container_obj)
+
+def find_container_by_name_and_template_name(engine, server, container_name, template_name):
+    template_obj = find_obj_by_name(engine, server, jetstream.template, template_name)
+    
+    containers = jetstream.container.get_all(server, template=template_obj.reference)
+
+    for each in containers:
+        if each.name == container_name:
+            print_debug(engine["hostname"] + ": Found a match " + str(each.reference))
+            return each
+    print_info("Unable to find \"" + container_name + "\" in " + template_name)
+
+def find_all_containers_by_template_name(engine, server, template_name):
+    template_obj = find_obj_by_name(engine, server, jetstream.template, template_name)
+    
+    containers = jetstream.container.get_all(server, template=template_obj.reference)
+    if containers:
+        for each in containers:
+            print_debug(engine["hostname"] + ": Found a match " + str(each.reference))
+        return containers
+    print_info("Unable to find \"" + container_name + "\" in " + template_name)
 
 def find_obj_by_name(engine, server, f_class, obj_name):
     """
@@ -89,40 +221,6 @@ def find_obj_by_name(engine, server, f_class, obj_name):
         if obj.name == obj_name:
             print_debug(engine["hostname"] + ": Found a match " + str(obj.reference))
             return obj
-
-def find_all_databases_by_group_name(engine, server, group_name, exclude_js_container=False):
-    """
-    Easy way to quickly find databases by group name
-    """
-
-    #First search groups for the name specified and return its reference
-    group_obj = find_obj_by_name(engine, server, group, group_name)
-    if group_obj:
-        databases=database.get_all(server, group=group_obj.reference, no_js_container_data_source=exclude_js_container)
-        return databases
-
-def find_database_by_name_and_group_name(engine, server, group_name, database_name):
-
-    databases = find_all_databases_by_group_name(engine, server, group_name)
-
-    for each in databases:
-        if each.name == database_name:
-            print_debug(engine["hostname"] + ": Found a match " + str(each.reference))
-            return each
-    print_info("Unable to find \"" + database_name + "\" in " + group_name)
-
-def find_source_by_database(engine, server, database_obj):
-    #The source tells us if the database is enabled/disables, virtual, vdb/dSource, or is a staging database.
-    source_obj = source.get_all(server, database=database_obj.reference)
-    #We'll just do a little sanity check here to ensure we only have a 1:1 result.
-    if len(source_obj) == 0:
-        print_error(engine["hostname"] + ": Did not find a source for " + database_obj.name + ". Exiting")
-        sys.exit(1)
-    elif len(source_obj) > 1:
-        print_error(engine["hostname"] + ": More than one source returned for " + database_obj.name + ". Exiting")
-        print_error(source_obj)
-        sys.exit(1)
-    return source_obj
 
 def get_config(config_file_path):
     """
@@ -175,7 +273,7 @@ def job_mode(server):
         print_debug("These jobs will be executed asynchronously")
     return job_m
 
-def job_wait():
+def job_wait(server):
     """
     This job stops all work in the thread/process until jobs are completed.
     """
@@ -241,40 +339,6 @@ def set_exit_handler(func):
     """
     signal.signal(signal.SIGTERM, func)
 
-def run_async(func):
-    """
-        http://code.activestate.com/recipes/576684-simple-threading-decorator/
-        run_async(func)
-            function decorator, intended to make "func" run in a separate
-            thread (asynchronously).
-            Returns the created Thread object
-
-            E.g.:
-            @run_async
-            def task1():
-                do_something
-
-            @run_async
-            def task2():
-                do_something_too
-
-            t1 = task1()
-            t2 = task2()
-            ...
-            t1.join()
-            t2.join()
-    """
-    from threading import Thread
-    from functools import wraps
-
-    @wraps(func)
-    def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
-        func_hl.start()
-        return func_hl
-
-    return async_func
-
 @run_async
 def main_workflow(engine):
     """
@@ -288,98 +352,85 @@ def main_workflow(engine):
     engine_username = engine["username"]
     engine_password = engine["password"]
     #Establish these variables as empty for use later
-    databases = []
-    environment_obj = None
-    source_objs = None
+    containers = []
     jobs = {}
     
 
     #Setup the connection to the Delphix Engine
     server = serversess(engine_address, engine_username, engine_password)
 
-    #If an environment/server was specified
-    if host_name:
-        print_debug(engine["hostname"] + ": Getting environment for " + host_name)
-        #Get the environment object by the hostname
-        environment_obj = find_obj_by_name(engine, server, environment, host_name)
-        if environment_obj != None:
-            #Get all the sources running on the server
-            env_source_objs = source.get_all(server, environment=environment_obj.reference)
-            #If the server doesn't have any objects, exit.
-            if env_source_objs == None:
-                print_error(host_name + "does not have any objects. Exiting")
-                sys.exit(1)
-            #If we are only filtering by the server, then put those objects in the main list for processing
-            if not(arguments['--group'] and database_name):
-                source_objs = env_source_objs
-                all_dbs = database.get_all(server, no_js_container_data_source=False)
-                databases = []
-                for source_obj in source_objs:
-                    if source_obj.staging == False and source_obj.virtual == True:
-                        database_obj = database.get(server, source_obj.container)
-                        if database_obj in all_dbs:
-                            databases.append(database_obj)
-        else:
-            print_error(engine["hostname"] + ":No environment found for " + host_name + ". Exiting")
-            sys.exit(1)
     #If we specified a specific database by name....
-    if arguments['--name']:
-        #Get the database object from the name
-        database_obj = find_database_by_name_and_group_name(engine, server, arguments['--group'], arguments['--name'])
-        if database_obj:
-            databases.append(database_obj)
-    #Else if we specified a group to filter by....
-    elif arguments['--group']:
-        print_debug(engine["hostname"] + ":Getting databases in group " + arguments['--group'])
-        #Get all the database objects in a group.
-        databases = find_all_databases_by_group_name(engine, server, arguments['--group'])
-    #Else, if we said all vdbs ...
-    elif arguments['--all_dbs'] and not arguments['--host'] :
-        #Grab all databases
-        databases = database.get_all(server, no_js_container_data_source=False)
-    elif arguments['--object_type'] and not arguments['--host'] :
-        databases = database.get_all(server)
-    if not databases or len(databases) == 0:
-        print_error("No databases found with the criterion specified")
+    if arguments['--container']:
+        #Get the container object from the name
+        container_obj = find_container_by_name_and_template_name(engine, server, arguments['--container'], arguments['--template'])
+        if container_obj:
+            containers.append(container_obj)
+    #Else, if we said all containers ...
+    elif arguments['--all_containers']:
+        #Grab all containers in the template
+        containers = find_all_containers_by_template_name(engine, server, arguments['--template'])
+    if not containers or len(containers) == 0:
+        print_error("No containers found with the criterion specified")
         return
     #reset the running job count before we begin
     i = 0
-    with job_mode(server):
-        #While there are still running jobs or databases still to process....
-        while (len(jobs) > 0 or len(databases) > 0):
-            #While there are databases still to process and we are still under 
-            #the max simultaneous jobs threshold (if specified)
-            while len(databases) > 0 and (arguments['--parallel'] == None or i < int(arguments['--parallel'])):
-                #Give us the next database in the list, and remove it from the list
-                database_obj = databases.pop()
-                #Get the source of the database.
-                #The source tells us if the database is enabled/disables, virtual, vdb/dSource, or is a staging database.
-                source_obj = find_source_by_database(engine, server, database_obj)
-                #If we applied the environment/server filter AND group filter, find the intersecting matches
-                if environment_obj != None and (arguments['--group']):
-                    match = False
-                    for env_source_obj in env_source_objs:
-                        if source_obj[0].reference in env_source_obj.reference:
-                            match = True
-                            break
-                    if match == False:
-                        print_error(engine["hostname"] + ": " + database_obj.name + " does not exist on " + host_name + ". Exiting")
-                        return
-                #Snapshot the database
-                delete_job = delete_database(engine, server, jobs, source_obj[0], database_obj, arguments['--object_type'])
-                #If delete_job has any value, then we know that a job was initiated.
-                if delete_job:
-                    #increment the running job count
-                    i += 1
-            #Check to see if we are running at max parallel processes, and report if so.
-            if ( arguments['--parallel'] != None and i >= int(arguments['--parallel'])):
-                print_info(engine["hostname"] + ": Max jobs reached (" + str(i) + ")")
-            #reset the running jobs counter, as we are about to update the count from the jobs report.
-            i = update_jobs_dictionary(engine, server, jobs)
-            print_info(engine["hostname"] + ": " + str(i) + " jobs running. " + str(len(databases)) + " jobs waiting to run")
-            #If we have running jobs, pause before repeating the checks.
-            if len(jobs) > 0:
-                sleep(float(arguments['--poll']))
+    container_threads = []
+    #While there are still running jobs or containers still to process....
+    while (i > 0 or len(containers) > 0):
+        #While there are containers still to process and we are still under 
+        #the max simultaneous jobs threshold (if specified)
+        while len(containers) > 0 and (arguments['--parallel'] == None or i < int(arguments['--parallel'])):
+            #Give us the next database in the list, and remove it from the list
+            container_obj = containers.pop()
+            #what do we want to do?
+            if arguments['--operation'] == "refresh":
+                #refresh the container
+                container_threads.append(container_refresh(engine, server, container_obj))
+            elif arguments['--operation'] == "reset":
+                container_threads.append(container_reset(engine, server, container_obj))
+            elif arguments['--operation'] == "start":
+                container_threads.append(container_start_async(engine, server, container_obj))
+            elif arguments['--operation'] == "stop":
+                container_threads.append(container_stop_async(engine, server, container_obj))
+            elif arguments['--operation'] == "recover":
+                container_threads.append(container_recover_async(engine, server, container_obj))
+            elif arguments['--operation'] == "bookmark":
+                if arguments['--bookmark_tags']:
+                    tags = arguments['--bookmark_tags'].split(',')
+                else:
+                    tags = []
+                if arguments['--bookmark_shared']:
+                    if str(arguments['--bookmark_shared']).lower() == "true":
+                        bookmark_shared = True
+                    elif str(arguments['--bookmark_shared']).lower() == "false":
+                        bookmark_shared = False
+                    else:
+                        print_error("Invalid argument \"" + str(arguments['--bookmark_shared']).lower() + "\"  for --bookmark_shared")
+                        print_error("--bookmark_shared only takes a value of true/false.")
+                        print_error("Exiting")
+                        sys.exit(1)
+                else:
+                    bookmark_shared=False
+                container_threads.append(container_bookmark(engine, server, container_obj, arguments['--bookmark_name'], bookmark_shared, tags))
+            #For each thread in the list...
+            i = len(container_threads)
+        #Check to see if we are running at max parallel processes, and report if so.
+        if ( arguments['--parallel'] != None and i >= int(arguments['--parallel'])):
+            print_info(engine["hostname"] + ": Max jobs reached (" + str(i) + ")")
+        #reset the running jobs counter, as we are about to update the count from the jobs report.
+        i=0
+        for t in container_threads:
+            if t.isAlive():
+                i+=1
+        print_info(engine["hostname"] + ": " + str(i) + " jobs running. " + str(len(containers)) + " jobs waiting to run")
+        #If we have running jobs, pause before repeating the checks.
+        if i > 0:
+            sleep(float(arguments['--poll']))
+    print "made it out"
+    #For each thread in the list...
+    for each in container_threads:
+        #join them back together so that we wait for all threads to complete before moving on
+        each.join()
 
 def run_job(engine):
     """
@@ -432,31 +483,6 @@ def run_job(engine):
         #join them back together so that we wait for all threads to complete before moving on
         each.join()
 
-def delete_database(engine, server, jobs, source_obj, container_obj, obj_type=None):
-    """
-    This function 
-    FYI - Snapshot is also called sync
-    """
-    #Sanity check to make sure our source object has a reference
-    if source_obj.reference != None :
-        #If we specified the --object_type flag, ensure this source is a match. Skip, if not.
-        if obj_type != None and ((obj_type.lower() == "vdb" and source_obj.virtual != True ) or (obj_type.lower() == "dsource" and source_obj.virtual != False )):
-            print_warning(engine["hostname"] + ": " + container_obj.name + " is not a " + obj_type.lower() + ". Skipping sync")
-        #Ensure this source is not a staging database. We can't act upon those.
-        elif source_obj.staging == True:
-            print_warning(engine["hostname"] + ": " + container_obj.name + " is a staging database. Skipping.")
-        #Ensure the source is enabled. We can't snapshot disabled databases.
-        else:
-            print_info(engine["hostname"] + ": Deleting " + container_obj.name )
-            print_debug(engine["hostname"] + ": Type: " + source_obj.type )
-            print_debug(engine["hostname"] + ": " +source_obj.type)
-            #Delete it
-            database.delete(server, container_obj.reference)
-            #Add the job into the jobs dictionary so we can track its progress
-            jobs[container_obj] = server.last_job
-            #return the job object to the calling statement so that we can tell if a job was created or not (will return None, if no job)
-            return server.last_job
-
 def time_elapsed():
     """
     This function calculates the time elapsed since the beginning of the script.
@@ -491,12 +517,8 @@ def main(argv):
     global single_thread
     global usebackup
     global time_start
-    global host_name
-    global database_name
     global config_file_path
-    global dxtools_objects
-
-    
+    global dxtools_objects    
 
     try:
         #Declare globals that will be used throughout the script.
@@ -505,9 +527,7 @@ def main(argv):
         time_start = time()
         engine = None
         single_thread = False
-        usebackup = arguments['--usebackup'] 
-        database_name = arguments['--name']
-        host_name = arguments['--host']
+        
         config_file_path = arguments['--config']
         #Parse the dxtools.conf and put it into a dictionary
         dxtools_objects = get_config(config_file_path)
@@ -562,12 +582,7 @@ def main(argv):
 if __name__ == "__main__":
     #Grab our arguments from the doc at the top of the script
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
-    #I added this below condition to account for my --name | or AT LEAST ONE OF --group  --host --object_type
-    #I couldn't quite sort it out with docopt. Maybe I'm just dense today.
-    #Anyway, if none of the four options are given, print the __doc__ and exit.
-    if not(arguments['--name']) and not(arguments['--group']) and not(arguments['--host']) and not(arguments['--object_type']) and not(arguments['--all_dbs']):
-        print(__doc__)
-        sys.exit()
+
     #Feed our arguments to the main function, and off we go!
     print arguments
     main(arguments)

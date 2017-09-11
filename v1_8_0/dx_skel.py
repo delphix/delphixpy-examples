@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-# Adam Bowen - Aug 2017
+# Corey Brune - Feb 2017
 #Description:
-# This script will allow you to easily manage groups in Delphix
-#
+# This is a skeleton script which has all of the common functionality.
+# The developer will only need to add the necessary arguments and functions
+# then make the function calls in main_workflow().
 #Requirements
 #pip install docopt delphixpy
 
@@ -10,26 +11,17 @@
 #this doc to also define our arguments for the script.
 """Description
 Usage:
-  dx_groups.py (--group_name <name> [--add | --delete])
+  dx_skel.py ()
                   [--engine <identifier> | --all]
                   [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-    dx_groups.py (--list)
-                  [--engine <identifier> | --all]
-                  [--debug] [--parallel <n>] [--poll <n>]
-                  [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_groups.py -h | --help | -v | --version
+  dx_skel.py -h | --help | -v | --version
 Description
 
 Examples:
-    dx_groups.py --debug --config delphixpy-examples/dxtools_1.conf  --group_name Test --add
-    dx_groups.py --config delphixpy-examples/dxtools_1.conf  --group_name Test --delete
-    dx_groups.py --list
+
 
 Options:
-  --group_name <name>       The name of the group
-  --add                     Add the identified group
-  --delete                  Delete the identified group
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
   --debug                   Enable debug logging
@@ -44,19 +36,17 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.000'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
-from delphixpy.web import group
-from delphixpy.web.vo import Group
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
@@ -64,49 +54,7 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
 from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_all_objects
 from lib.GetSession import GetSession
-
-def add_group(group_name):
-    """
-    This function adds the group
-    """
-    group_obj = Group()
-    group_obj.name = group_name
-
-
-    try:
-      group.create(dx_session_obj.server_session,group_obj)
-      print('Attempting to create {}'.format(group_name))
-    except (DlpxException, RequestError) as e:
-      print_exception('\nERROR: Creating the group {} '
-                      'encountered an error:\n{}'.format(group_name, e))
-      sys.exit(1)
-
-def delete_group(group_name):
-    """
-    This function adds the group
-    """
-    group_obj = find_obj_by_name(dx_session_obj.server_session,
-                                 group, group_name)
-    
-
-    try:
-      group.delete(dx_session_obj.server_session,group_obj.reference)
-      print('Attempting to delete {}'.format(group_name))
-    except (DlpxException, RequestError) as e:
-      print_exception('\nERROR: Deleting the group {} '
-                      'encountered an error:\n{}'.format(group_name, e))
-      sys.exit(1)
-
-def list_groups():
-    """
-    This function lists all groups
-    """
-    group_list = find_all_objects(dx_session_obj.server_session, group)
-
-    for group_obj in group_list:
-        print('Group: {}'.format(group_obj.name))
 
 
 def run_async(func):
@@ -155,6 +103,11 @@ def main_workflow(engine):
         dx_session_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
 
+        if arguments['--vdb']:
+            #Get the database reference we are copying from the database name
+            database_obj = find_obj_by_name(dx_session_obj.server_session,
+                                            database, arguments['--vdb'])
+
     except DlpxException as e:
         print_exception('\nERROR: Engine {} encountered an error while' 
                         '{}:\n{}\n'.format(engine['hostname'],
@@ -166,12 +119,11 @@ def main_workflow(engine):
         with dx_session_obj.job_mode(single_thread):
             while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
                 if len(thingstodo) > 0:
-                    if arguments['--add'] :
-                        add_group(arguments['--group_name'])
-                    elif arguments['--delete']:
-                        delete_group(arguments['--group_name'])
-                    elif arguments['--list']:
-                        list_groups()
+                    if OPERATION:
+                        method_call
+
+                    elif OPERATION:
+                        method_call
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0
@@ -179,7 +131,7 @@ def main_workflow(engine):
                     job_obj = job.get(dx_session_obj.server_session,
                                       dx_session_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: Group: {}'.format(
+                    print_info('{}: Replication operations: {}'.format(
                         engine['hostname'], job_obj.job_state))
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
@@ -198,8 +150,8 @@ def main_workflow(engine):
                         sleep(float(arguments['--poll']))
 
     except (HttpError, RequestError, JobError, DlpxException) as e:
-        print_exception('ERROR: Could not complete group '
-                        'operation: {}'.format(e))
+        print_exception('ERROR: Could not complete replication '
+                        'operation:{}'.format(e))
 
 
 def run_job():

@@ -1,46 +1,38 @@
 #!/usr/bin/env python
-#Corey Brune - Sep 2016
-#This script performs a rewind of a vdb
-#requirements
-#pip install --upgrade setuptools pip docopt delphixpy
+# Corey Brune - Oct 2016
+# This script starts or stops a VDB
+# requirements
+# pip install docopt delphixpy
 
-#The below doc follows the POSIX compliant standards and allows us to use 
-#this doc to also define our arguments for the script.
-
-"""Rewinds a vdb
+# The below doc follows the POSIX compliant standards and allows us to use
+# this doc to also define our arguments for the script.
+"""List all VDBs or Start, stop, enable, disable a VDB
 Usage:
-  dx_rewind_vdb.py (--vdb <name> [--timestamp_type <type>] [--timestamp <timepoint_semantic>])
-                   [--bookmark <type>] 
-                   [ --engine <identifier> --all]
-                   [--debug] [--parallel <n>] [--poll <n>]
-                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_rewind_vdb.py -h | --help | -v | --version
+  dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
+                  [-d <identifier> | --engine <identifier> | --all]
+                  [--debug] [--parallel <n>] [--poll <n>]
+                  [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_operations_vdb.py -h | --help | -v | --version
+List all VDBs, start, stop, enable, disable a VDB
 
-Rewinds a Delphix VDB
 Examples:
-    Rollback to latest snapshot using defaults:
-      dx_rewind_vdb.py --vdb testVdbUF
-    Rollback using a specific timestamp:
-      dx_rewind_vdb.py --vdb testVdbUF --timestamp_type snapshot --timestamp 2016-11-15T11:30:17.857Z
-  
+  dx_operations_vdb.py --engine landsharkengine --vdb testvdb --stop
+  dx_operations_vdb.py --vdb testvdb --start
+  dx_operations_vdb.py --all_dbs enable
+  dx_operations_vdb.py --all_dbs disable
+  dx_operations_vdb.py --list
 
 Options:
-  --vdb <name>              Name of VDB to rewind
-  --type <database_type>    Type of database: oracle, mssql, ase, vfiles
-  --timestamp_type <type>   The type of timestamp being used for the reqwind.
-                            Acceptable Values: TIME, SNAPSHOT
-                            [default: SNAPSHOT]
-  --all                       Run against all engines.
-  --timestamp <timepoint_semantic>
-                            The Delphix semantic for the point in time on
-                            the source to rewind the VDB.
-                            Formats:
-                            latest point in time or snapshot: LATEST
-                            point in time: "YYYY-MM-DD HH24:MI:SS"
-                            snapshot name: "@YYYY-MM-DDTHH24:MI:SS.ZZZ"
-                            snapshot time from GUI: "YYYY-MM-DD HH24:MI"
-                            [default: LATEST]
+  --vdb <name>              Name of the VDB to stop or start
+  --start                   Stop the VDB
+  --stop                    Stop the VDB
+  --all_dbs <name>          Enable or disable all dSources and VDBs
+  --list                    List all databases from an engine
+  --enable                  Enable the VDB
+  --disable                 Disable the VDB
+  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
+  --all                     Run against all engines.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
@@ -48,98 +40,127 @@ Options:
   --config <path_to_file>   The path to the dxtools.conf file
                             [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_rewind_vdb.log]
+                            [default: ./dx_operations_vdb.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
 
-VERSION = "v.0.2.015"
+VERSION = 'v.0.3.015'
 
-
-from docopt import docopt
-from os.path import basename
 import sys
-from time import time, sleep
+from os.path import basename
+from time import sleep, time
 import traceback
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web.vo import RollbackParameters
-from delphixpy.web.vo import OracleRollbackParameters
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web.capacity import consumer
+from docopt import docopt
 
 from lib.DlpxException import DlpxException
-from lib.DxTimeflow import DxTimeflow
-from lib.GetReferences import find_obj_by_name
-from lib.GetSession import GetSession
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_all_objects
+from lib.GetReferences import find_obj_list
+from lib.GetSession import GetSession
 
 
-def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
+def dx_obj_operation(dlpx_obj, vdb_name, operation):
     """
-    This function performs the rewind (rollback)
+    Function to start, stop, enable or disable a VDB
 
-    dlpx_obj: Virtualization Engine session object
-    vdb_name: VDB to be rewound
-    timestamp: Point in time to rewind the VDB
-    timestamp_type: The type of timestamp being used for the rewind
+    :param dlpx_obj: Virtualization Engine session object
+    :type dlpx_obj: lib.GetSession.GetSession
+    :param vdb_name: Name of the object to stop/start/enable/disable
+    :type vdb_name: str
+    :param operation: enable or disable dSources and VDBs
+    :type operation: str
     """
 
+    print_debug('Searching for {} reference.\n'.format(vdb_name))
     engine_name = dlpx_obj.dlpx_engines.keys()[0]
-    dx_timeflow_obj = DxTimeflow(dlpx_obj.server_session)
-    container_obj = find_obj_by_name(dlpx_obj.server_session, database,
-                                     vdb_name)
-    # Sanity check to make sure our container object has a reference
-    if container_obj.reference:
-        try:
-            if container_obj.virtual is not True:
-                raise DlpxException('{} in engine {} is not a virtual object. '
-                                    'Skipping.\n'.format(container_obj.name,
-                                    engine_name))
-            elif container_obj.staging is True:
-                raise DlpxException('{} in engine {} is a virtual object. '
-                                    'Skipping.\n'.format(container_obj.name,
-                                    engine_name))
-            elif container_obj.runtime.enabled == "ENABLED":
-                print_info('\nINFO: {} Rewinding {} to {}\n'.format(
-                           engine_name, container_obj.name, timestamp))
-
-        # This exception is raised if rewinding a vFiles VDB
-        # since AppDataContainer does not have virtual, staging or
-        # enabled attributes.
-        except AttributeError:
-            pass
-
-        print_debug('{}: Type: {}'.format(engine_name, container_obj.type))
-
-        # If the vdb is a Oracle type, we need to use a OracleRollbackParameters
-        if str(container_obj.reference).startswith("ORACLE"):
-            rewind_params = OracleRollbackParameters()
-        else:
-            rewind_params = RollbackParameters()
-        rewind_params.timeflow_point_parameters = \
-            dx_timeflow_obj.set_timeflow_point(container_obj, timestamp_type,
-                                               timestamp)
-        print_debug('{}: {}'.format(engine_name, str(rewind_params)))
-        try:
-            # Rewind the VDB
-            database.rollback(dlpx_obj.server_session, container_obj.reference,
-                              rewind_params)
+    vdb_obj = find_obj_by_name(dlpx_obj.server_session, source, vdb_name)
+    try:
+        if vdb_obj:
+            if operation == 'start':
+                source.start(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'stop':
+                source.stop(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'enable':
+                source.enable(dlpx_obj.server_session, vdb_obj.reference)
+            elif operation == 'disable':
+                source.disable(dlpx_obj.server_session,
+                               vdb_obj.reference)
             dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-            print_info('VDB {} was rolled back.'.format(container_obj.name))
-        except (RequestError, HttpError, JobError) as e:
-            print_exception('ERROR: {} encountered an error on {}'
-                            ' during the rewind process:\n{}'.format(
-                engine_name, container_obj.name, e))
-    # Don't do anything if the database is disabled
-    else:
-        print_info('{}: {} is not enabled. Skipping sync.'.format(engine_name,
-                                                            container_obj.name))
+    except (RequestError, HttpError, JobError, AttributeError), e:
+        print_exception('An error occurred while performing {} on {}:\n'
+                        '{}'.format(operation, vdb_name, e))
+    print '{} was successfully performed on {}.'.format(operation, vdb_name)
+
+
+def all_databases(dlpx_obj, operation):
+    """
+    Enable or disable all dSources and VDBs on an engine
+
+    :param dlpx_obj: Virtualization Engine session object
+    :type dlpx_obj: lib.GetSession.GetSession
+    :param operation: enable or disable dSources and VDBs
+    :type operation: str
+    """
+
+    for db in database.get_all(dlpx_obj.server_session):
+        try:
+            dx_obj_operation(dlpx_obj, db.name, operation)
+        except (RequestError, HttpError, JobError):
+            pass
+        print '{} {}\n'.format(operation, db.name)
+        sleep(2)
+
+
+def list_databases(dlpx_obj):
+    """
+    Function to list all databases for a given engine
+
+    :param dlpx_obj: Virtualization Engine session object
+    :type dlpx_obj: lib.GetSession.GetSession
+    """
+
+    source_stats_lst = find_all_objects(dlpx_obj.server_session, source)
+    is_dSource = None
+    try:
+        for db_stats in find_all_objects(dlpx_obj.server_session,
+                                         consumer):
+            source_stats = find_obj_list(source_stats_lst, db_stats.name)
+            if source_stats is not None:
+                if source_stats.virtual is False:
+                    is_dSource = 'dSource'
+                elif source_stats.virtual is True:
+                    is_dSource = db_stats.parent
+                print('name: {},provision container: {},database disk '
+                      'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
+                      'Enabled: {},Status:{},'.format(str(db_stats.name),
+                      str(is_dSource),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
+                      source_stats.runtime.enabled,
+                      source_stats.runtime.status))
+            elif source_stats is None:
+                print('name = {},provision container= {},database disk '
+                      'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
+                      'Could not find source information. This could be a '
+                      'result of an unlinked object'.format(
+                      str(db_stats.name), str(db_stats.parent),
+                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
+                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
+    except (RequestError, JobError, AttributeError, DlpxException) as e:
+        print 'An error occurred while listing databases: {}'.format((e))
 
 
 def run_async(func):
@@ -149,16 +170,13 @@ def run_async(func):
             function decorator, intended to make "func" run in a separate
             thread (asynchronously).
             Returns the created Thread object
-
             E.g.:
             @run_async
             def task1():
                 do_something
-
             @run_async
             def task2():
                 do_something_too
-
             t1 = task1()
             t2 = task2()
             ...
@@ -192,34 +210,43 @@ def main_workflow(engine, dlpx_obj):
     """
 
     try:
-        #Setup the connection to the Delphix Engine
+        # Setup the connection to the Delphix Engine
         dlpx_obj.serversess(engine['ip_address'], engine['username'],
                                   engine['password'])
+
     except DlpxException as e:
-        print_exception('ERROR: Engine {} encountered an error while'
-                        'rewinding {}:\n{}\n'.format(engine['hostname'],
-                                                     arguments['--target'], e))
+        print_exception('ERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
+                        arguments['--target'], e))
+        sys.exit(1)
 
     thingstodo = ["thingtodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
             while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
-                if len(thingstodo) > 0:
-                    rewind_database(dlpx_obj, arguments['--vdb'],
-                                    arguments['--timestamp'],
-                                    arguments['--timestamp_type'])
+                if len(thingstodo)> 0:
+                    if arguments['--start']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'start')
+                    elif arguments['--stop']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'stop')
+                    elif arguments['--enable']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'], 'enable')
+                    elif arguments['--disable']:
+                        dx_obj_operation(dlpx_obj, arguments['--vdb'],
+                                         'disable')
+                    elif arguments['--list']:
+                        list_databases(dlpx_obj)
+                    elif arguments['--all_dbs']:
+                        all_databases(dlpx_obj, arguments['--all_dbs'])
                     thingstodo.pop()
-
                 # get all the jobs, then inspect them
                 i = 0
                 for j in dlpx_obj.jobs.keys():
-                    job_obj = job.get(dlpx_obj.server_session,
-                                      dlpx_obj.jobs[j])
+                    job_obj = job.get(dlpx_obj.server_session, dlpx_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: Refresh of {}: {}'.format(
-                        engine['hostname'], arguments['--vdb'],
-                        job_obj.job_state))
-                    if job_obj.job_state in ['CANCELED', 'COMPLETED', 'FAILED']:
+                    print_info('{}: Running JS Bookmark: {}'.format(
+                        engine['hostname'], job_obj.job_state))
+                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
                         # from the running jobs list.
                         del dlpx_obj.jobs[j]
@@ -234,7 +261,7 @@ def main_workflow(engine, dlpx_obj):
                     if len(dlpx_obj.jobs) > 0:
                         sleep(float(arguments['--poll']))
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print_exception('Error in dx_rewind_vdb: {}\n{}'.format(
+        print_exception('Error in js_bookmark: {}\n{}'.format(
             engine['hostname'], e))
         sys.exit(1)
 
@@ -244,7 +271,8 @@ def time_elapsed(time_start):
     This function calculates the time elapsed since the beginning of the script.
     Call this anywhere you want to note the progress in terms of time
 
-    time_start: float containing start time of the script.
+    :param time_start:  start time of the script.
+    :type time_start: float
     """
     return round((time() - time_start)/60, +1)
 
@@ -377,6 +405,7 @@ def main():
         print_info("{} took {:.2f} minutes to get this far".format(
             basename(__file__), elapsed_minutes))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     # Grab our arguments from the doc at the top of the script
