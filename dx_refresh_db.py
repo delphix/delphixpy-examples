@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#DEPRECATED
 #Adam Bowen - Apr 2016
 #This script refreshes a vdb
 # Updated by Corey Brune Oct 2016
@@ -57,7 +58,6 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
-
 VERSION = 'v.0.1.615'
 
 
@@ -899,6 +899,8 @@ def main(argv):
 
 if __name__ == "__main__":
     #Grab our arguments from the doc at the top of the script
+    print "THIS SCRIPT IS DEPRECATED. USE dx_refresh_vdb.py, instead"
+    sys.exit(1)
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
 
     #Feed our arguments to the main function, and off we go!
