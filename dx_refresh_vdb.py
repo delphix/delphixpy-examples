@@ -9,19 +9,19 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_db.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
+  dx_refresh_vdb.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
                    [--debug] [--parallel <n>] [--poll <n>]
                    [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_refresh_db.py -h | --help | -v | --version
+  dx_refresh_vdb.py -h | --help | -v | --version
 Refresh a Delphix VDB
 Examples:
-  dx_refresh_db.py --name "aseTest" --group_name "Analytics"
-  dx_refresh_db.py --dsource "dlpxdb1"
-  dx_refresh_db.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
-  dx_refresh_db.py --all_vdbs --group_name "Analytics" --all
+  dx_refresh_vdb.py --name "aseTest" --group_name "Analytics"
+  dx_refresh_vdb.py --dsource "dlpxdb1"
+  dx_refresh_vdb.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
+  dx_refresh_vdb.py --all_vdbs --group_name "Analytics" --all
 Options:
   --name <name>             Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.3.002"
 
 
 from docopt import docopt
