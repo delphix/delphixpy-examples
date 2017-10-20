@@ -9,7 +9,7 @@
 #this doc to also define our arguments for the script. This thing is brilliant.
 """Refresh a vdb
 Usage:
-  dx_refresh_vdb.py (--name <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
+  dx_refresh_vdb.py (--vdb <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
                    [--timestamp_type <type>]
                    [--timestamp <timepoint_semantic> --timeflow <timeflow>]
                    [-d <identifier> | --engine <identifier> | --all]
@@ -18,12 +18,12 @@ Usage:
   dx_refresh_vdb.py -h | --help | -v | --version
 Refresh a Delphix VDB
 Examples:
-  dx_refresh_vdb.py --name "aseTest" --group_name "Analytics"
+  dx_refresh_vdb.py --vdb "aseTest" --group_name "Analytics"
   dx_refresh_vdb.py --dsource "dlpxdb1"
   dx_refresh_vdb.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
   dx_refresh_vdb.py --all_vdbs --group_name "Analytics" --all
 Options:
-  --name <name>             Name of the object you are refreshing.
+  --vdb <name>             Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
   --dsource <name>          Name of dsource in Delphix to execute against.
   --group_name <name>       Name of the group to execute against.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.3.002"
+VERSION = "v.0.3.003"
 
 
 from docopt import docopt
@@ -245,7 +245,7 @@ def main_workflow(engine):
     with dx_session_obj.job_mode(single_thread):
         while len(dx_session_obj.jobs) > 0 or len(thingstodo) > 0:
             if len(thingstodo)> 0:
-                refresh_database(arguments['--name'],
+                refresh_database(arguments['--vdb'],
                                     arguments['--timestamp'],
                                     arguments['--timestamp_type'])
                 thingstodo.pop()
