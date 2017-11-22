@@ -1,4 +1,4 @@
 setuptools
 pip
 docopt
-delphixpy
+delphixpy==1.8.0.0
