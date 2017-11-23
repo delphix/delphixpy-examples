@@ -527,17 +527,16 @@ def main_workflow(engine):
 
 def run_job():
     """
-    This function runs the main_workflow aynchronously against all the 
-    servers specified
+    This function runs the main_workflow aynchronously against all the servers
+    specified
     """
-    engine = None
-
     #Create an empty list to store threads we create.
     threads = []
+    engine = None
 
     #If the --all argument was given, run against every engine in dxtools.conf
     if arguments['--all']:
-        print_info('Executing against all Delphix Engines in the dxtools.conf')
+        print_info("Executing against all Delphix Engines in the dxtools.conf")
 
         try:
             #For each server in the dxtools.conf...
@@ -547,50 +546,48 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print_exception('Error encountered in run_job():\n{}'.format(e))
+            print 'Error encountered in run_job():\n{}'.format(e)
             sys.exit(1)
 
     elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
-        if arguments['--engine']:
+      if arguments['--engine']:
             try:
                 engine = dx_session_obj.dlpx_engines[arguments['--engine']]
                 print_info('Executing against Delphix Engine: {}\n'.format(
-                           arguments['--engine']))
+                           (arguments['--engine'])))
 
-            except (DlpxException, KeyError) as e:
-                print_exception('\nERROR: Delphix Engine {} cannot be '
+            except (DlpxException, RequestError, KeyError) as e:
+                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
                                     'found in {}. Please check your value '
-                                    'and try again. Exiting.\n{}\n'.format(
-                    arguments['--engine'], config_file_path, e))
+                                    'and try again. Exiting.\n'.format(
+                                    arguments['--engine'], config_file_path))
 
-        else:
-            #Else search for a default engine in the dxtools.conf
-            #import pdb;pdb.set_trace()
-            for delphix_engine in dx_session_obj.dlpx_engines:
-                if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
-                        'true':
+      else:
+          #Else search for a default engine in the dxtools.conf
+          for delphix_engine in dx_session_obj.dlpx_engines:
+              if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
+                 'true':
 
-                    engine = dx_session_obj.dlpx_engines[delphix_engine]
-                    print_info('Executing against the default Delphix Engine '
-                               'in the dxtools.conf: {}'.format(
-                           dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+                  engine = dx_session_obj.dlpx_engines[delphix_engine]
+                  print_info('Executing against the default Delphix Engine '
+                       'in the dxtools.conf: {}'.format(
+                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
+              break
 
-                break
+          if engine == None:
+              raise DlpxException("\nERROR: No default engine found. Exiting")
 
-            if engine is None:
-                print_exception('\nERROR: No default engine found. Exiting')
-                sys.exit(1)
-
-        #run the job against the engine
-        threads.append(main_workflow(engine))
+    #run the job against the engine
+    threads.append(main_workflow(engine))
 
     #For each thread in the list...
     for each in threads:
         #join them back together so that we wait for all threads to complete
         # before moving on
         each.join()
+
 
 
 def time_elapsed():
