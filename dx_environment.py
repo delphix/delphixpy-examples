@@ -101,42 +101,45 @@ from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 
-def enable_environment(env_name):
+def enable_environment(dlpx_obj, env_name):
     """
     Enable the given host
     """
-    env_obj = find_obj_by_name(dx_session_obj.server_session,
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+
+    env_obj = find_obj_by_name(dlpx_obj.server_session,
                                  environment, env_name)
 
     try:
-      environment.enable(dx_session_obj.server_session,env_obj.reference)
+      environment.enable(dlpx_obj.server_session,env_obj.reference)
       print('Attempting to enable {}'.format(env_name))
     except (DlpxException, RequestError) as e:
       print_exception('\nERROR: Enabling the host {} '
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)
 
-def disable_environment(env_name):
+def disable_environment(dlpx_obj,env_name):
     """
     Enable the given host
     """
-    env_obj = find_obj_by_name(dx_session_obj.server_session,
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    env_obj = find_obj_by_name(dlpx_obj.server_session,
                                  environment, env_name)
 
     try:
-      environment.disable(dx_session_obj.server_session,env_obj.reference)
+      environment.disable(dlpx_obj.server_session,env_obj.reference)
       print('Attempting to disable {}'.format(env_name))
     except (DlpxException, RequestError) as e:
       print_exception('\nERROR: Disabling the host {} '
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)    
 
-def update_host_address(old_host_address, new_host_address):
+def update_host_address(dlpx_obj, old_host_address, new_host_address):
     """
     Update the given host
     """
-
-    old_host_obj = find_obj_by_name(dx_session_obj.server_session,
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    old_host_obj = find_obj_by_name(dlpx_obj.server_session,
                                  host, old_host_address)
     if old_host_obj.type == "WindowsHost":
       host_obj = WindowsHost()
@@ -144,7 +147,7 @@ def update_host_address(old_host_address, new_host_address):
       host_obj = UnixHost()
     host_obj.address = new_host_address
     try:
-      host.update(dx_session_obj.server_session, old_host_obj.reference, host_obj)
+      host.update(dlpx_obj.server_session, old_host_obj.reference, host_obj)
 
       print('Attempting to update {} to {}'.format(old_host_address, new_host_address))
 
@@ -153,16 +156,17 @@ def update_host_address(old_host_address, new_host_address):
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)
 
-def list_env():
+def list_env(dlpx_obj):
     """
     List all environments for a given engine
     """
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
 
-    all_envs = environment.get_all(dx_session_obj.server_session)
+    all_envs = environment.get_all(dlpx_obj.server_session)
     for env in all_envs:
-        env_user = find_obj_name(dx_session_obj.server_session,
+        env_user = find_obj_name(dlpx_obj.server_session,
                                  environment.user, env.primary_user)
-        env_host = find_obj_name(dx_session_obj.server_session,
+        env_host = find_obj_name(dlpx_obj.server_session,
                                  host, env.host)
 
         #ORACLE CLUSTER does not have env.host
@@ -176,42 +180,44 @@ def list_env():
                        ASEHostEnvironmentParameters) else 'Undefined')
 
 
-def delete_env(engine, env_name):
+def delete_env(dlpx_obj, env_name):
     """
     Deletes an environment
 
     engine: Dictionary of engines
     env_name: Name of the environment to delete
     """
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
 
-    env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
+    env_obj = find_obj_by_name(dlpx_obj.server_session, environment,
                                  env_name)
 
     if env_obj:
-        environment.delete(dx_session_obj.server_session, env_obj.reference)
-        dx_session_obj.jobs[engine['hostname']] = \
-                                   dx_session_obj.server_session.last_job
+        environment.delete(dlpx_obj.server_session, env_obj.reference)
+        dlpx_obj.jobs[engine_name] = \
+                                   dlpx_obj.server_session.last_job
 
     elif env_obj is None:
         print('Environment was not found in the Engine: {}'.format(env_name))
         sys.exit(1)
 
 
-def refresh_env(engine, env_name):
+def refresh_env(dlpx_obj, env_name):
     """
     Refresh the environment
 
     engine: Dictionary of engines
     env_name: Name of the environment to refresh
     """
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
 
     if env_name == "all":
-      env_list = find_all_objects(dx_session_obj.server_session, environment)
+      env_list = find_all_objects(dlpx_obj.server_session, environment)
       for env_obj in env_list:
         try:
-          environment.refresh(dx_session_obj.server_session, env_obj.reference)
-          dx_session_obj.jobs[engine['hostname']] = \
-                                     dx_session_obj.server_session.last_job
+          environment.refresh(dlpx_obj.server_session, env_obj.reference)
+          dlpx_obj.jobs[engine_name] = \
+                                     dlpx_obj.server_session.last_job
 
         except (DlpxException, RequestError) as e:
           print_exception('\nERROR: Refreshing the environment {} '
@@ -220,12 +226,12 @@ def refresh_env(engine, env_name):
     else:
 
       try:
-          env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
+          env_obj = find_obj_by_name(dlpx_obj.server_session, environment,
                                      env_name)
 
-          environment.refresh(dx_session_obj.server_session, env_obj.reference)
-          dx_session_obj.jobs[engine['hostname']] = \
-                                     dx_session_obj.server_session.last_job
+          environment.refresh(dlpx_obj.server_session, env_obj.reference)
+          dlpx_obj.jobs[engine_name] = \
+                                     dlpx_obj.server_session.last_job
 
       except (DlpxException, RequestError) as e:
           print_exception('\nERROR: Refreshing the environment {} '
@@ -233,10 +239,11 @@ def refresh_env(engine, env_name):
           sys.exit(1)
 
 
-def update_ase_username():
+def update_ase_username(dlpx_obj):
     """
     Update the ASE database user password
     """
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
 
     env_obj = UnixHostEnvironment()
     env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
@@ -244,8 +251,8 @@ def update_ase_username():
         arguments['--update_ase_user']
 
     try:
-        environment.update(dx_session_obj.server_session, find_obj_by_name(
-            dx_session_obj.server_session, environment, arguments['--env_name'],
+        environment.update(dlpx_obj.server_session, find_obj_by_name(
+            dlpx_obj.server_session, environment, arguments['--env_name'],
             env_obj).reference, env_obj)
 
     except (HttpError, RequestError) as e:
@@ -253,11 +260,11 @@ def update_ase_username():
                         'failed:\n{}\n'.format(e))
 
 
-def update_ase_pw():
+def update_ase_pw(dlpx_obj):
     """
     Update the ASE database user password
     """
-
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
     env_obj = UnixHostEnvironment()
     env_obj.ase_host_environment_parameters = ASEHostEnvironmentParameters()
     env_obj.ase_host_environment_parameters.credentials = {'type':
@@ -266,8 +273,8 @@ def update_ase_pw():
                                                 arguments['--update_ase_pw']}
 
     try:
-        environment.update(dx_session_obj.server_session, find_obj_by_name(
-            dx_session_obj.server_session, environment, arguments['--env_name'],
+        environment.update(dlpx_obj.server_session, find_obj_by_name(
+            dlpx_obj.server_session, environment, arguments['--env_name'],
             env_obj).reference, env_obj)
 
     except (HttpError, RequestError) as e:
@@ -275,7 +282,7 @@ def update_ase_pw():
                         'failed:\n{}\n'.format(e))
 
 
-def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
+def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
                      pw=None):
 
     """
@@ -288,18 +295,18 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
                   writable by the host_user
     pw: Password of the user. Default: None (use SSH keys instead)
     """
-
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
     env_params_obj = HostEnvironmentCreateParameters()
 
     if pw is None:
-        print_debug('Creating the environment with SSH Keys',debug)
+        print_debug('Creating the environment with SSH Keys')
         env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
                                           'credential': {
                                           'type': 'SystemKeyCredential'}}
 
     else:
-        print_debug('Creating the environment with a password',debug)
+        print_debug('Creating the environment with a password')
         env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                           'name': host_user,
                                           'credential': {
@@ -330,10 +337,10 @@ def create_linux_env(engine, env_name, host_user, ip_addr, toolkit_path,
                             ' required with the --ase flag.\n')
 
     try:
-        environment.create(dx_session_obj.server_session,
+        environment.create(dlpx_obj.server_session,
                            env_params_obj)
-        dx_session_obj.jobs[engine['hostname']] = \
-                                   dx_session_obj.server_session.last_job
+        dlpx_obj.jobs[engine_name] = \
+                                   dlpx_obj.server_session.last_job
 
     except (DlpxException, RequestError, HttpError) as e:
         print('\nERROR: Encountered an exception while creating the '
@@ -356,10 +363,11 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
                   writable by the host_user
     pw: Password of the user. Default: None (use SSH keys instead)
     """
+    engine_name = dlpx_obj.dlpx_engines.keys()[0]
 
     env_params_obj = HostEnvironmentCreateParameters()
 
-    print_debug('Creating the environment with a password',debug)
+    print_debug('Creating the environment with a password')
 
     env_params_obj.primary_user = {'type': 'EnvironmentUser',
                                       'name': host_user,
@@ -377,7 +385,7 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
     env_params_obj.host_environment.name = env_name
 
     if connector_name:
-      env_obj = find_obj_by_name(dx_session_obj.server_session, environment,
+      env_obj = find_obj_by_name(dlpx_obj.server_session, environment,
                                    connector_name)
 
       if env_obj:
@@ -387,10 +395,10 @@ def create_windows_env(engine, env_name, host_user, ip_addr,
         sys.exit(1)
 
     try:
-        environment.create(dx_session_obj.server_session,
+        environment.create(dlpx_obj.server_session,
                            env_params_obj)
-        dx_session_obj.jobs[engine['hostname']] = \
-                                   dx_session_obj.server_session.last_job
+        dlpx_obj.jobs[engine_name] = \
+                                   dlpx_obj.server_session.last_job
 
     except (DlpxException, RequestError, HttpError) as e:
         print('\nERROR: Encountered an exception while creating the '
@@ -433,32 +441,35 @@ def run_async(func):
 
 
 @run_async
-def main_workflow(engine):
+def main_workflow(engine, dlpx_obj):
     """
-    This function actually runs the jobs.
+    This function is where we create our main workflow.
     Use the @run_async decorator to run this function asynchronously.
-    This allows us to run against multiple Delphix Engine simultaneously
+    The @run_async decorator allows us to run against multiple Delphix Engine
+    simultaneously
 
+    :param engine: Dictionary of engines
+    :type engine: dictionary
+    :param dlpx_obj: Virtualization Engine session object
+    :type dlpx_obj: lib.GetSession.GetSession
     """
 
     try:
-       #Setup the connection to the Delphix Engine
-       dx_session_obj.serversess(engine['ip_address'], engine['username'],
-                                 engine['password'])
+        # Setup the connection to the Delphix Engine
+        dlpx_obj.serversess(engine['ip_address'], engine['username'],
+                                  engine['password'])
 
     except DlpxException as e:
-        print_exception('\nERROR: Engine {} encountered an error while '
-                        'provisioning {}:\n{}\n'.format(engine['hostname'],
+        print_exception('ERROR: Engine {} encountered an error while' 
+                        '{}:\n{}\n'.format(engine['hostname'],
                         arguments['--target'], e))
         sys.exit(1)
 
-    thingstodo = ['thingtodo']
-
+    thingstodo = ["thingtodo"]
     try:
-        with dx_session_obj.job_mode(single_thread):
-            while (len(dx_session_obj.jobs) > 0 or len(thingstodo)> 0):
+        with dlpx_obj.job_mode(single_thread):
+            while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
                 if len(thingstodo)> 0:
-
                     if arguments['--type'] == 'linux' or arguments['--type'] == 'windows':
                         env_name = arguments['--env_name']
                         host_user = arguments['--host_user']
@@ -467,69 +478,69 @@ def main_workflow(engine):
                         host_name = arguments['--connector_name']
                         if arguments['--type'] == 'linux':
                           toolkit_path = arguments['--toolkit']
-                          create_linux_env(engine, env_name, host_user,
+                          create_linux_env(dlpx_obj, env_name, host_user,
                                         ip_addr, toolkit_path, pw)
                         else:
-                          create_windows_env(engine, env_name, host_user,
+                          create_windows_env(dlpx_obj, env_name, host_user,
                                         ip_addr, pw, host_name,)
 
                     elif arguments['--delete']:
-                        delete_env(engine, arguments['--delete'])
+                        delete_env(dlpx_obj, arguments['--delete'])
 
                     elif arguments['--refresh']:
-                        refresh_env(engine, arguments['--refresh'])
+                        refresh_env(dlpx_obj, arguments['--refresh'])
 
                     elif arguments['--update_ase_pw']:
-                        update_ase_pw()
+                        update_ase_pw(dlpx_obj)
 
                     elif arguments['--update_ase_user']:
-                        update_ase_username()
+                        update_ase_username(dlpx_obj)
                     elif arguments['--list']:
-                        list_env()
+                        list_env(dlpx_obj)
                     elif arguments['--update_host']:
-                        update_host_address(arguments['--old_host_address'], arguments['--new_host_address'])
+                        update_host_address(dlpx_obj, arguments['--old_host_address'], arguments['--new_host_address'])
                     elif arguments['--enable']:
-                        enable_environment(arguments['--env_name'])
+                        enable_environment(dlpx_obj, arguments['--env_name'])
                     elif arguments['--disable']:
-                        disable_environment(arguments['--env_name'])
+                        disable_environment(dlpx_obj, arguments['--env_name'])
 
                     thingstodo.pop()
-
-                #get all the jobs, then inspect them
+                # get all the jobs, then inspect them
                 i = 0
-                for j in dx_session_obj.jobs.keys():
-                    job_obj = job.get(dx_session_obj.server_session,
-                                      dx_session_obj.jobs[j])
-                    print_debug(job_obj,debug)
+                for j in dlpx_obj.jobs.keys():
+                    job_obj = job.get(dlpx_obj.server_session, dlpx_obj.jobs[j])
+                    print_debug(job_obj)
                     print_info('{} Environment: {}'.format(
                                engine['hostname'], job_obj.job_state))
-
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the
-                    # running jobs list.
-                        del dx_session_obj.jobs[j]
-                    else:
-                        #If the job is in a running state, increment the
+                        # If the job is in a non-running state, remove it
+                        # from the running jobs list.
+                        del dlpx_obj.jobs[j]
+                    elif job_obj.job_state in 'RUNNING':
+                        # If the job is in a running state, increment the
                         # running job count.
                         i += 1
-                print_info('{}: {:d} jobs running.\n'.format(
-                           engine['hostname'], i))
-
-                #If we have running jobs, pause before repeating the checks.
-                if len(dx_session_obj.jobs) > 0:
-                    sleep(float(arguments['--poll']))
-
-    except (DlpxException, JobError) as e:
-        print_exception('\nError while creating the environment {}:'
-                        '\n{}'.format(arguments['--env_name'], e.message))
+                    print_info('{}: {:d} jobs running.'.format(
+                        engine['hostname'], i))
+                    # If we have running jobs, pause before repeating the
+                    # checks.
+                    if len(dlpx_obj.jobs) > 0:
+                        sleep(float(arguments['--poll']))
+    except (DlpxException, RequestError, JobError, HttpError) as e:
+        print_exception('Error while creating the environment {}\n{}'.format(
+            arguments['--env_name'], e))
         sys.exit(1)
 
+def run_job(dlpx_obj, config_file_path):
+    """
+    This function runs the main_workflow aynchronously against all the
+    servers specified
 
-def run_job():
+    dlpx_obj: Virtualization Engine session object
+    config_file_path: filename of the configuration file for virtualization
+    engines
     """
-    This function runs the main_workflow aynchronously against all the servers
-    specified
-    """
+
     #Create an empty list to store threads we create.
     threads = []
     engine = None
@@ -540,10 +551,10 @@ def run_job():
 
         try:
             #For each server in the dxtools.conf...
-            for delphix_engine in dx_session_obj.dlpx_engines:
-                engine = dx_session_obj[delphix_engine]
+            for delphix_engine in dlpx_obj.dlpx_engines:
+                engine = dlpx_obj.dlpx_engines[delphix_engine]
                 #Create a new thread and add it to the list.
-                threads.append(main_workflow(engine))
+                threads.append(main_workflow(engine, dlpx_obj))
 
         except DlpxException as e:
             print 'Error encountered in run_job():\n{}'.format(e)
@@ -552,36 +563,31 @@ def run_job():
     elif arguments['--all'] is False:
         #Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
-      if arguments['--engine']:
+        if arguments['--engine']:
             try:
-                engine = dx_session_obj.dlpx_engines[arguments['--engine']]
+                engine = dlpx_obj.dlpx_engines[arguments['--engine']]
                 print_info('Executing against Delphix Engine: {}\n'.format(
-                           (arguments['--engine'])))
-
+                           arguments['--engine']))
             except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
-                                    'found in {}. Please check your value '
-                                    'and try again. Exiting.\n'.format(
-                                    arguments['--engine'], config_file_path))
+                print_exception('\nERROR: Delphix Engine {} cannot be '
+                                'found in {}. Please check your value '
+                                'and try again. Exiting.\n'.format(
+                    arguments['--engine'], config_file_path))
+        else:
+            #Else search for a default engine in the dxtools.conf
+            for delphix_engine in dlpx_obj.dlpx_engines:
+                if dlpx_obj.dlpx_engines[delphix_engine]['default'] == \
+                    'true':
+                    engine = dlpx_obj.dlpx_engines[delphix_engine]
+                    print_info('Executing against the default Delphix Engine '
+                               'in the dxtools.conf: {}'.format(
+                       dlpx_obj.dlpx_engines[delphix_engine]['hostname']))
+                break
+            if engine is None:
+                raise DlpxException("\nERROR: No default engine found. Exiting")
 
-      else:
-          #Else search for a default engine in the dxtools.conf
-          for delphix_engine in dx_session_obj.dlpx_engines:
-              if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
-                 'true':
-
-                  engine = dx_session_obj.dlpx_engines[delphix_engine]
-                  print_info('Executing against the default Delphix Engine '
-                       'in the dxtools.conf: {}'.format(
-                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
-              break
-
-          if engine == None:
-              raise DlpxException("\nERROR: No default engine found. Exiting")
-
-    #run the job against the engine
-    threads.append(main_workflow(engine))
-
+        #run the job against the engine
+        threads.append(main_workflow(engine, dlpx_obj))
     #For each thread in the list...
     for each in threads:
         #join them back together so that we wait for all threads to complete
@@ -589,106 +595,86 @@ def run_job():
         each.join()
 
 
-
-def time_elapsed():
+def time_elapsed(time_start):
     """
     This function calculates the time elapsed since the beginning of the script.
-    Call this anywhere you want to note the progress in terms of time 
+    Call this anywhere you want to note the progress in terms of time
+
+    :param time_start:  start time of the script.
+    :type time_start: float
     """
-    elapsed_minutes = round((time() - time_start)/60, +1)
-    return elapsed_minutes
+    return round((time() - time_start)/60, +1)
 
 
-def main(argv):
+def main():
+    # We want to be able to call on these variables anywhere in the script.
     global single_thread
-    global usebackup
-    global time_start
-    global config_file_path
-    global dx_session_obj
     global debug
+
+    time_start = time()
+    single_thread = False
 
     try:
         dx_session_obj = GetSession()
-        debug = arguments['--debug']
-        logging_est(arguments['--logdir'], debug)
-        print_debug(arguments, debug)
-        time_start = time()
-        single_thread = False
+        logging_est(arguments['--logdir'])
+        print_debug(arguments)
         config_file_path = arguments['--config']
-
-        print_info('Welcome to %s version %s' % (basename(__file__),
-                   VERSION))
-
-        #Parse the dxtools.conf and put it into a dictionary
+        # Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
 
-
-        #This is the function that will handle processing main_workflow for
+        # This is the function that will handle processing main_workflow for
         # all the servers.
-        run_job()
+        run_job(dx_session_obj, config_file_path)
 
-        elapsed_minutes = time_elapsed()
-        print_info('script took %s minutes to get this far. ' %
-                   (str(elapsed_minutes)))
+        elapsed_minutes = time_elapsed(time_start)
+        print_info('script took {:.2f} minutes to get this far.'.format(
+            elapsed_minutes))
 
-    #Here we handle what we do when the unexpected happens
+    # Here we handle what we do when the unexpected happens
     except SystemExit as e:
-        """
-        This is what we use to handle our sys.exit(#)
-        """
+        # This is what we use to handle our sys.exit(#)
         sys.exit(e)
 
     except DlpxException as e:
-        """
-        We use this exception handler when an error occurs in a function call.
-        """
-
-        print('\nERROR: Please check the ERROR message below:\n%s' %
-              (e.message))
+        # We use this exception handler when an error occurs in a function call.
+        print_exception('ERROR: Please check the ERROR message below:\n'
+                        '{}'.format(e.message))
         sys.exit(2)
 
     except HttpError as e:
-        """
-        We use this exception handler when our connection to Delphix fails
-        """
-        print('\nERROR: Connection failed to the Delphix Engine. Please '
-              'check the ERROR message below:\n%s' % (e.message))
+        # We use this exception handler when our connection to Delphix fails
+        print_exception('ERROR: Connection failed to the Delphix Engine. Please'
+                        'check the ERROR message below:\n{}'.format(e.message))
         sys.exit(2)
 
     except JobError as e:
-        """
-        We use this exception handler when a job fails in Delphix so that we 
-        have actionable data
-        """
-        print('A job failed in the Delphix Engine:\n%s' % (e.job))
-        elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
+        # We use this exception handler when a job fails in Delphix so that we
+        # have actionable data
+        print_exception('A job failed in the Delphix Engine:\n{}'.format(e.job))
+        elapsed_minutes = time_elapsed(time_start)
+        print_exception('{} took {:.2f} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
         sys.exit(3)
 
     except KeyboardInterrupt:
-        """
-        We use this exception handler to gracefully handle ctrl+c exits
-        """
-        print_debug("You sent a CTRL+C to interrupt the process",debug)
-        elapsed_minutes = time_elapsed()
-        print_info(basename(__file__) + " took " + str(elapsed_minutes) +
-                   " minutes to get this far.")
-
+        # We use this exception handler to gracefully handle ctrl+c exits
+        print_debug('You sent a CTRL+C to interrupt the process')
+        elapsed_minutes = time_elapsed(time_start)
+        print_info('{} took {:.2f} minutes to get this far'.format(
+            basename(__file__), elapsed_minutes))
     except:
-        """
-        Everything else gets caught here
-        """
-        print(sys.exc_info()[0])
-        print(traceback.format_exc())
-        elapsed_minutes = time_elapsed()
-        print_info('%s took %s minutes to get this far' % (basename(__file__),
-                   str(elapsed_minutes)))
+        # Everything else gets caught here
+        print_exception('{}\n{}'.format(sys.exc_info()[0],
+                                        traceback.format_exc()))
+        elapsed_minutes = time_elapsed(time_start)
+        print_info("{} took {:.2f} minutes to get this far".format(
+            basename(__file__), elapsed_minutes))
         sys.exit(1)
+
 
 
 if __name__ == "__main__":
     #Grab our arguments from the doc at the top of the script
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
     #Feed our arguments to the main function, and off we go!
-    main(arguments)
+    main()
