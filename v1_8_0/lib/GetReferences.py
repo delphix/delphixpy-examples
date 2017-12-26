@@ -216,6 +216,7 @@ def find_obj_name(engine, f_class, obj_reference):
     obj_reference: The object reference to retrieve the name
     """
     try:
+        print 'engine obj: {}, {}'.format(engine, obj_reference)
         obj_name = f_class.get(engine, obj_reference)
         return obj_name.name
 
@@ -230,12 +231,11 @@ def find_dbrepo(engine, install_type, f_environment_ref, f_install_path):
     """
     Function to find database repository objects by environment reference and
     install path, and return the object's reference as a string
-    You might use this function to find Oracle and PostGreSQL database repos.
     engine: Virtualization Engine Session object
     install_type: Type of install - Oracle, ASE, SQL
     f_environment_ref: Reference of the environment for the repository
     f_install_path: Path to the installation directory.
-    return: delphixpy.web.vo.SourceRepository object
+    return: delphixpy.web.vo.SourceRepository
     """
 
     print_debug('Searching objects in the %s class for one with the '
