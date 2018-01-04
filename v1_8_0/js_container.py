@@ -16,7 +16,7 @@
 #
 """Create, delete, refresh and list JS containers.
 Usage:
-  js_container.py (--create_container <name> --template_name <name> --database <name> | --list_hierarchy <name> | --list | --delete_container <name> [--keep_vdbs]| --refresh_container <name> | --add_owner <name> --container_name <name> | --remove_owner <name> --container_name <name> | --restore_container <name> --bookmark_name <name>)
+  js_container.py (--create_container <name> --template_name <name> --database <name> | --reset <name> | --list_hierarchy <name> | --list | --delete_container <name> [--keep_vdbs]| --refresh_container <name> | --add_owner <name> --container_name <name> | --remove_owner <name> --container_name <name> | --restore_container <name> --bookmark_name <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -35,12 +35,14 @@ Examples:
   js_container.py --remove_owner jsuser --container_name jscontainer1
   js_container.py --refresh_container jscontainer1
   js_container.py --restore_container jscontainer1 --bookmark_name jsbookmark1
+  js_conatiner.py --reset jscontainer1
 
 Options:
   --create_container <name>  Name of the new JS Container
   --container_name <name>    Name of the JS Container
   --refresh_container <name> Name of the new JS Container
   --restore_container <name> Name of the JS Container to restore
+  --reset <name>             Reset last data operation
   --template_name <name>     Name of the JS Template to use for the container
   --add_owner <name>         Name of the JS Owner for the container
   --remove_owner <name>      Name of the JS Owner to remove
@@ -66,7 +68,7 @@ Options:
   -v --version               Show version.
 """
 
-VERSION = "v.0.0.015"
+VERSION = "v.0.0.020"
 
 from os.path import basename
 import sys
@@ -277,6 +279,22 @@ def list_containers(dlpx_obj):
                         'error was:\n\n{}'.format(e))
 
 
+def reset_container(dlpx_obj, container_name):
+    """
+    Undo the last refresh or restore operation
+    :param dlpx_obj: Virtualization Engine session object
+    :param container_name: Name of the container to reset
+    """
+    try:
+        container.reset(dlpx_obj.server_session, find_obj_by_name(
+            dlpx_obj.server_session, container, container_name).reference)
+    except RequestError as e:
+        print_exception('\nERROR: JS Container was not reset. The '
+                        'error was:\n\n{}'.format(e))
+    print 'Container {} was reset.\n'.format(container_name)
+
+
+
 def list_hierarchy(dlpx_obj, container_name):
     """
     Filter container listing.
@@ -439,6 +457,8 @@ def main_workflow(engine, dlpx_obj):
                                           arguments['--refresh_container'])
                     elif arguments['--list_hierarchy']:
                         list_hierarchy(dlpx_obj, arguments['--list_hierarchy'])
+                    elif arguments['--reset']:
+                        reset_container(dlpx_obj, arguments['--reset'])
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0

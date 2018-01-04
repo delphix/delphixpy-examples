@@ -16,7 +16,7 @@
 #
 """Creates, lists, removes a Jet Stream Bookmark
 Usage:
-  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--branch_name <name]| --list_bookmarks | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
+  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tag <tag> --description <name> --branch_name <name]| --list_bookmarks [--tag <tag] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -27,6 +27,7 @@ Creates, Lists, Removes a Jet Stream Bookmark
 Examples:
   js_bookmark.py --list_bookmarks
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1
+  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tag 1.86.2 --description "Before commit"
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
   js_bookmark.py --activate_bookmark jsbookmark1
   js_bookmark.py --update_bookmark jsbookmark1
@@ -37,6 +38,8 @@ Examples:
 Options:
   --create_bookmark <name>    Name of the new JS Bookmark
   --container_name <name>     Name of the container to use
+  --tag <tag>                 Tag to use for this bookmark
+  --description <name>        Description of this bookmark
   --update_bookmark <name>    Name of the bookmark to update
   --share_bookmark <name>     Name of the bookmark to share
   --unshare_bookmark <name>   Name of the bookmark to unshare
@@ -59,7 +62,7 @@ Options:
   -v --version                Show version.
 """
 
-VERSION="v.0.0.015"
+VERSION="v.0.0.018"
 
 from docopt import docopt
 from os.path import basename
@@ -72,7 +75,6 @@ from delphixpy.v1_8_0.web.jetstream import bookmark
 from delphixpy.v1_8_0.web.jetstream import branch
 from delphixpy.v1_8_0.web.jetstream import template
 from delphixpy.v1_8_0.web.jetstream import container
-from delphixpy.v1_8_0.web.jetstream import datasource
 from delphixpy.v1_8_0.web.vo import JSBookmarkCreateParameters
 from delphixpy.v1_8_0.web.vo import JSBookmark
 from delphixpy.v1_8_0.exceptions import RequestError
@@ -90,18 +92,23 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 
 
-def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None):
+def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
+                    tag=None, description=None):
     """
     Create the JS Bookmark
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
     :param bookmark_name: Name of the bookmark to create
-    :type bookmark_name: str
+    :type bookmark_name: basestring
     :param source_layout: Name of the source (template or container) to use
-    :type source_layout: str
+    :type source_layout: basestring
     :param branch_name: Name of the branch to use
-    :type branch_name: str
+    :type branch_name: basestring
+    :param tag_name: Tag to use for the bookmark
+    :type tag: basestring
+    :param description: Description of the bookmark
+    :type description: basestring
     """
 
     branch_ref = None
@@ -109,28 +116,41 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None):
     engine_name = dlpx_obj.dlpx_engines.keys()[0]
     js_bookmark_params = JSBookmarkCreateParameters()
     if branch_name:
-        if branch_name == 'master' or branch_name == 'default':
-            try:
-                source_layout_ref = find_obj_by_name(dlpx_obj.server_session,
-                                                     template,
-                                                     source_layout).reference
-            except DlpxException:
-                source_layout_ref = find_obj_by_name(
-                    dlpx_obj.server_session, container,
-                    source_layout).reference
-            for branch_obj in branch.get_all(dlpx_obj.server_session):
-                if branch_name == branch_obj.name and \
-                                source_layout_ref == branch_obj.data_layout:
-                    branch_ref = branch_obj.reference
-                    break
+        try:
+            source_layout_ref = find_obj_by_name(dlpx_obj.server_session,
+                                                 template,
+                                                 source_layout).reference
+        except DlpxException:
+            source_layout_ref = find_obj_by_name(
+                dlpx_obj.server_session, container,
+                source_layout).reference
+        #import pdb;pdb.set_trace()
+        for branch_obj in branch.get_all(dlpx_obj.server_session):
+            if branch_name == branch_obj.name and \
+                    source_layout_ref == branch_obj.data_layout:
+                branch_ref = branch_obj.reference
+                break
+        if branch_ref is None:
+            raise DlpxException('Set the --data_layout parameter equal to '
+                                'the data layout of the bookmark.\n')
     elif branch_name is None:
-        (source_layout_ref, branch_ref) = find_obj_by_name(
-            dlpx_obj.server_session, template, source_layout, True)
+        try:
+            (source_layout_ref, branch_ref) = find_obj_by_name(
+                dlpx_obj.server_session, template, source_layout, True)
+        except DlpxException:
+            (source_layout_ref, branch_ref) = find_obj_by_name(
+                dlpx_obj.server_session, container, source_layout, True)
         if branch_ref is None:
             raise DlpxException('Could not find {} in engine {}'.format(
                 branch_name, engine_name))
-    js_bookmark_params.bookmark = {'name': bookmark_name, 'branch': branch_ref,
-                                   'type': 'JSBookmark'}
+    js_bookmark_params.bookmark = JSBookmark()
+    js_bookmark_params.bookmark.name = bookmark_name
+    js_bookmark_params.bookmark.branch = branch_ref
+    if tag:
+        js_bookmark_params.bookmark.tags = list()
+        js_bookmark_params.bookmark.tags.append(tag)
+    if description:
+        js_bookmark_params.bookmark.description = description
     js_bookmark_params.timeline_point_parameters = {
         'sourceDataLayout': source_layout_ref, 'type':
             'JSTimelinePointLatestTimeInput'}
@@ -145,24 +165,38 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None):
                         'was:\n\n{}'.format(bookmark_name, e))
 
 
-def list_bookmarks(dlpx_obj):
+def list_bookmarks(dlpx_obj, tag_filter=None):
     """
     List all bookmarks on a given engine
 
     :param dlpx_obj: Virtualization Engine session object
+    :param tag_filter: Only list bookmarks with given tag
 
     """
 
-    header = '\nName, Reference, Branch Name, Template Name'
+    header = '\nName, Reference, Branch Name, Template Name, Tags'
     try:
         js_bookmarks = bookmark.get_all(dlpx_obj.server_session)
         print header
         for js_bookmark in js_bookmarks:
             branch_name = find_obj_name(dlpx_obj.server_session, branch,
                                         js_bookmark.branch)
-            print '{}, {}, {}, {}'.format(js_bookmark.name,
-                                          js_bookmark.reference, branch_name,
-                                          js_bookmark.template_name)
+            if tag_filter in js_bookmark.tags:
+                print '{}, {}, {}, {}, {}'.format(js_bookmark.name,
+                                                  js_bookmark.reference,
+                                                  branch_name,
+                                                  js_bookmark.template_name,
+                                                  ", ".join(tag for tag in
+                                                            js_bookmark.tags))
+            elif tag_filter is None:
+                tag = js_bookmark.tags if js_bookmark.tags else None
+                if tag:
+                    tag = ", ".join(tag for tag in js_bookmark.tags)
+                print '{}, {}, {}, {}, {}'.format(js_bookmark.name,
+                                                  js_bookmark.reference,
+                                                  branch_name,
+                                                  js_bookmark.template_name,
+                                                  tag)
         print '\n'
 
     except (DlpxException, HttpError, RequestError) as e:
@@ -331,7 +365,11 @@ def main_workflow(engine, dlpx_obj):
                                         arguments['--data_layout'],
                                         arguments['--branch_name']
                                         if arguments['--branch_name']
-                                        else None)
+                                        else None,
+                                        arguments['--tag']
+                                        if arguments['--tag'] else None,
+                                        arguments['--description']
+                                        if arguments['--description'] else None)
                     elif arguments['--delete_bookmark']:
                         delete_bookmark(dlpx_obj,
                                         arguments['--delete_bookmark'])
@@ -345,7 +383,8 @@ def main_workflow(engine, dlpx_obj):
                         unshare_bookmark(dlpx_obj,
                                          arguments['--unshare_bookmark'])
                     elif arguments['--list_bookmarks']:
-                        list_bookmarks(dlpx_obj)
+                        list_bookmarks(dlpx_obj,
+                            arguments['--tag'] if arguments['--tag'] else None)
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0

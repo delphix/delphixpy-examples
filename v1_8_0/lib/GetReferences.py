@@ -20,7 +20,7 @@ from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
 
-VERSION = 'v.0.2.0019'
+VERSION = 'v.0.2.0020'
 
 def convert_timestamp(engine, timestamp):
     """
@@ -216,7 +216,6 @@ def find_obj_name(engine, f_class, obj_reference):
     obj_reference: The object reference to retrieve the name
     """
     try:
-        print 'engine obj: {}, {}'.format(engine, obj_reference)
         obj_name = f_class.get(engine, obj_reference)
         return obj_name.name
 
