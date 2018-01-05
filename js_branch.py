@@ -16,7 +16,7 @@
 #
 """Creates, updates, deletes, activates and lists branches
 Usage:
-  js_branch.py (--create_branch <name> --container_name <name> --template_name <name>| --list_branches | --delete_branch <name> | --activate_branch <name> | --update_branch <name>)
+  js_branch.py (--create_branch <name> --container_name <name> [--template_name <name> | --bookmark_name <name>]| --list_branches | --delete_branch <name> | --activate_branch <name> | --update_branch <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -33,6 +33,7 @@ Examples:
 
 Options:
   --create_branch <name>    Name of the new JS Branch
+  --bookmark_name <name     Name of the bookmark to create the branch
   --container_name <name>   Name of the container to use
   --update_branch <name>    Name of the branch to update
   --template_name <name>    Name of the template to use
@@ -53,7 +54,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION="v.0.0.010"
+VERSION="v.0.0.015"
 
 from docopt import docopt
 from os.path import basename
@@ -67,7 +68,10 @@ from delphixpy.v1_8_0.web.jetstream import branch
 from delphixpy.v1_8_0.web.jetstream import container
 from delphixpy.v1_8_0.web.jetstream import template
 from delphixpy.v1_8_0.web.jetstream import operation
+from delphixpy.v1_8_0.web.jetstream import bookmark
 from delphixpy.v1_8_0.web.vo import JSBranchCreateParameters
+from delphixpy.v1_8_0.web.vo import JSTimelinePointBookmarkInput
+from delphixpy.v1_8_0.web.vo import JSTimelinePointLatestTimeInput
 from delphixpy.v1_8_0.web.vo import JSBranch
 from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.exceptions import JobError
@@ -83,45 +87,51 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 
 
-def create_branch(dlpx_obj, branch_name, template_name, container_name):
+def create_branch(dlpx_obj, branch_name, container_name, template_name=None,
+                  bookmark_name=None):
     """
     Create the JS Branch
 
-    dlpx_obj: Virtualization Engine session object
-    branch_name: Name of the branch to create
-    template_name: Name of the template to use
-    container_name: Name of the container to use
+    :param dlpx_obj: Virtualization Engine session object
+    :param branch_name: Name of the branch to create
+    :param container_name: Name of the container to use
+    :param template_name: Name of the template to use
+    :param bookmark_name: Name of the bookmark to use
     """
 
-    js_branch_params = JSBranchCreateParameters()
-    js_branch_params.name = branch_name
+    js_branch = JSBranchCreateParameters()
+    js_branch.name = branch_name
     engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    data_container_obj = find_obj_by_name(dlpx_obj.server_session,
+                                          container, container_name)
+    js_branch.data_container = data_container_obj.reference
+
+    if bookmark_name:
+        js_branch.timeline_point_parameters = JSTimelinePointBookmarkInput()
+        js_branch.timeline_point_parameters.bookmark = find_obj_by_name(
+            dlpx_obj.server_session, bookmark, bookmark_name).reference
+    elif template_name:
+        source_layout_ref = find_obj_by_name(dlpx_obj.server_session,
+                                             template, template_name).reference
+        js_branch.timeline_point_parameters = JSTimelinePointLatestTimeInput()
+        js_branch.timeline_point_parameters.source_data_layout = \
+            source_layout_ref
+
     try:
-        data_container_obj = find_obj_by_name(dlpx_obj.server_session,
-                                              container, container_name)
-        source_layout_obj = find_obj_by_name(dlpx_obj.server_session,
-                                             template, template_name)
-        js_branch_params.data_container = data_container_obj.reference
-        js_branch_params.timeline_point_parameters = {
-                                              'sourceDataLayout':
-                                              source_layout_obj.reference,
-                                              'type':
-                                              'JSTimelinePointLatestTimeInput'}
-        branch.create(dlpx_obj.server_session, js_branch_params)
+        branch.create(dlpx_obj.server_session, js_branch)
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        print_info('JS Branch {} was created successfully.'.format(
-            branch_name))
     except (DlpxException, RequestError, HttpError) as e:
         print_exception('\nThe branch was not created. The error was:'
                         '\n{}'.format(e))
+    print_info('JS Branch {} was created successfully.'.format(
+        branch_name))
 
 
 def list_branches(dlpx_obj):
     """
     List all branches on a given engine
 
-    dlpx_obj: Virtualization Engine session object
-    No args required
+    :param dlpx_obj: Virtualization Engine session object
     """
 
     try:
@@ -152,8 +162,8 @@ def update_branch(dlpx_obj, branch_name):
     """
     Updates a branch
 
-    dlpx_obj: Virtualization Engine session object
-    branch_name: Name of the branch to update
+    :param dlpx_obj: Virtualization Engine session object
+    :param branch_name: Name of the branch to update
     """
 
     js_branch_obj = JSBranch()
@@ -173,8 +183,8 @@ def activate_branch(dlpx_obj, branch_name):
     """
     Activates a branch
 
-    dlpx_obj: Virtualization Engine session object
-    branch_name: Name of the branch to activate
+    :param dlpx_obj: Virtualization Engine session object
+    :param branch_name: Name of the branch to activate
     """
 
     engine_name = dlpx_obj.dlpx_engines.keys()[0]
@@ -193,8 +203,8 @@ def activate_branch(dlpx_obj, branch_name):
 def delete_branch(dlpx_obj, branch_name):
     """
     Deletes a branch
-    dlpx_obj: Virtualization Engine session object
-    branch_name: Branch to delete
+    :param dlpx_obj: Virtualization Engine session object
+    :param branch_name: Branch to delete
     """
 
     try:
@@ -257,8 +267,8 @@ def main_workflow(engine, dlpx_obj):
     The @run_async decorator allows us to run against multiple Delphix Engine
     simultaneously
 
-    engine: Dictionary of engines
-    dlpx_obj: Virtualization Engine session object
+    :param engine: Dictionary of engines
+    :param dlpx_obj: Virtualization Engine session object
     """
 
     #Establish these variables as empty for use later
@@ -283,8 +293,11 @@ def main_workflow(engine, dlpx_obj):
                 if len(thingstodo) > 0:
                     if arguments['--create_branch']:
                         create_branch(dlpx_obj, arguments['--create_branch'],
-                                      arguments['--template_name'],
-                                      arguments['--container_name'])
+                                      arguments['--container_name'],
+                                      arguments['--template_name']
+                                      if arguments['--template_name'] else None,
+                                      arguments['--bookmark_name']
+                                      if arguments['--bookmark_name'] else None)
                     elif arguments['--delete_branch']:
                         delete_branch(dlpx_obj, arguments['--delete_branch'])
                     elif arguments['--update_branch']:
