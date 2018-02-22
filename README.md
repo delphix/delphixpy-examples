@@ -3,10 +3,10 @@ First, a lot of thanks to Corey Brune (@mcbrune) for all of his contributions th
 look decent.
 
 # delphixpy-examples
-These are some example python scripts I put together to serve as examples for those getting started with Delphix the delphixpy module.
+These are some example python scripts I put together to serve as examples for those getting started with Delphix the delphixpy python module.
 
 ##Wait... What's Delphix?
-In the most simplest answer, [Delphix](http://www.delphix.com) is an awesome software that allows you to provision full multi-terabyte databases and applications in minutes. It is far more than that, but that's why Google and my [blog](www.therealcloudsurgeon.com) exist.
+In the most simplest answer, [Delphix](http://www.delphix.com) is an awesome software that allows you to provision full multi-terabyte databases and applications in minutes. It is far more than that, but that's why Google and this [blog](adam.today) exist.
 
 ##What is delphixpy?
 delphixpy is a python module created by Delphix to enable users to directly invoke the Delphix API via python. 
