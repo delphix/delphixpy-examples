@@ -19,7 +19,7 @@ Usage:
     [--engine <identifier> | --all]
     [--debug] [--parallel <n>] [--poll <n>]
     [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync --load_from_backup]
+  dx_provision_dsource.py --type <name> --dsource_name <name> --dx_group <name> --db_passwd <name> --db_user <name> --stage_instance <name> --stage_env <name> --backup_path <name> [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync [--sync_mode <mode>] --load_from_backup]
     [--engine <identifier> | --all]
     [--debug] [--parallel <n>] [--poll <n>]
     [--config <path_to_file>] [--logdir <path_to_file>]
@@ -68,6 +68,8 @@ Options:
   --ase_passwd <name>       ASE DB password
   --ase_user <name>         ASE username
   --backup_path <path>      Path to the ASE/MSSQL backups
+  --sync_mode <name>        MSSQL validated sync mode
+                            [TRANSACTION_LOG|FULL_OR_DIFFERENTIAL|FULL|NONE]
   --source_user <name>      Environment username
   --stage_user <name>       Stage username
   --stage_repo <name>       Stage repository
@@ -92,7 +94,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.0016'
+VERSION = 'v.0.2.0017'
 
 import sys
 from os.path import basename
@@ -283,6 +285,9 @@ def link_mssql_dsource(engine_name):
 
     if arguments['--load_from_backup']:
       link_params.link_data.sourcing_policy.load_from_backup = True
+
+    if arguments['--sync_mode']:
+        link_params.link_data.validated_sync_mode = arguments['sync_mode']
 
     if arguments['--logsync']:
         link_params.link_data.sourcing_policy.logsync_enabled = True

@@ -10,7 +10,7 @@
 Usage:
   dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | --disable] | --list | --all_dbs <name>)
                   [-d <identifier> | --engine <identifier> | --all]
-                  [--debug] [--parallel <n>] [--poll <n>]
+                  [--force] [--debug] [--parallel <n>] [--poll <n>]
                   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_operations_vdb.py -h | --help | -v | --version
 List all VDBs, start, stop, enable, disable a VDB
@@ -33,6 +33,7 @@ Options:
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
   --all                     Run against all engines.
+  --force                   Do not clean up target in VDB disable operations
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
@@ -45,7 +46,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.3.015'
+VERSION = 'v.0.3.016'
 
 import sys
 from os.path import basename
@@ -70,6 +71,7 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_list
 from lib.GetSession import GetSession
+from delphixpy.web.vo import SourceDisableParameters
 
 
 def dx_obj_operation(dlpx_obj, vdb_name, operation):
@@ -98,6 +100,12 @@ def dx_obj_operation(dlpx_obj, vdb_name, operation):
             elif operation == 'disable':
                 source.disable(dlpx_obj.server_session,
                                vdb_obj.reference)
+            elif operation == 'force_disable':
+                disable_params = SourceDisableParameters()
+                disable_params.attempt_cleanup = False
+                source.disable(dlpx_obj.server_session,
+                               vdb_obj.reference,
+                               disable_params)
             dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
     except (RequestError, HttpError, JobError, AttributeError), e:
         print_exception('An error occurred while performing {} on {}:\n'
@@ -160,7 +168,7 @@ def list_databases(dlpx_obj):
                       db_stats.breakdown.active_space / 1024 / 1024 / 1024,
                       db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
     except (RequestError, JobError, AttributeError, DlpxException) as e:
-        print 'An error occurred while listing databases: {}'.format((e))
+        print 'An error occurred while listing databases: {}'.format(e)
 
 
 def run_async(func):
@@ -224,7 +232,7 @@ def main_workflow(engine, dlpx_obj):
     try:
         with dlpx_obj.job_mode(single_thread):
             while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
-                if len(thingstodo)> 0:
+                if len(thingstodo) > 0:
                     if arguments['--start']:
                         dx_obj_operation(dlpx_obj, arguments['--vdb'], 'start')
                     elif arguments['--stop']:
@@ -232,8 +240,12 @@ def main_workflow(engine, dlpx_obj):
                     elif arguments['--enable']:
                         dx_obj_operation(dlpx_obj, arguments['--vdb'], 'enable')
                     elif arguments['--disable']:
-                        dx_obj_operation(dlpx_obj, arguments['--vdb'],
-                                         'disable')
+                        if arguments['--force']:
+                            dx_obj_operation(
+                                dlpx_obj, arguments['--vdb'], 'force_disable')
+                        else:
+                            dx_obj_operation(
+                                dlpx_obj, arguments['--vdb'], 'disable')
                     elif arguments['--list']:
                         list_databases(dlpx_obj)
                     elif arguments['--all_dbs']:
