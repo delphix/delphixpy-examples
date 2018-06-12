@@ -16,7 +16,7 @@
 #
 """Creates, lists, removes a Jet Stream Bookmark
 Usage:
-  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tag <tag> --description <name> --branch_name <name]| --list_bookmarks [--tag <tag] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
+  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tags <tags> --description <name> --branch_name <name]| --list_bookmarks [--tag <tag] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -27,7 +27,7 @@ Creates, Lists, Removes a Jet Stream Bookmark
 Examples:
   js_bookmark.py --list_bookmarks
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1
-  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tag 1.86.2 --description "Before commit"
+  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tags 1.86.2,bobby" --description "Before commit"
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
   js_bookmark.py --activate_bookmark jsbookmark1
   js_bookmark.py --update_bookmark jsbookmark1
@@ -38,7 +38,7 @@ Examples:
 Options:
   --create_bookmark <name>    Name of the new JS Bookmark
   --container_name <name>     Name of the container to use
-  --tag <tag>                 Tag to use for this bookmark
+  --tags <tags>               Tags to use for this bookmark (comma-delimited)
   --description <name>        Description of this bookmark
   --update_bookmark <name>    Name of the bookmark to update
   --share_bookmark <name>     Name of the bookmark to share
@@ -93,7 +93,7 @@ from lib.DxLogging import print_exception
 
 
 def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
-                    tag=None, description=None):
+                    tags=None, description=None):
     """
     Create the JS Bookmark
 
@@ -146,9 +146,8 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
     js_bookmark_params.bookmark = JSBookmark()
     js_bookmark_params.bookmark.name = bookmark_name
     js_bookmark_params.bookmark.branch = branch_ref
-    if tag:
-        js_bookmark_params.bookmark.tags = list()
-        js_bookmark_params.bookmark.tags.append(tag)
+    if tags:
+        js_bookmark_params.bookmark.tags = tags.split(',')
     if description:
         js_bookmark_params.bookmark.description = description
     js_bookmark_params.timeline_point_parameters = {
@@ -366,8 +365,8 @@ def main_workflow(engine, dlpx_obj):
                                         arguments['--branch_name']
                                         if arguments['--branch_name']
                                         else None,
-                                        arguments['--tag']
-                                        if arguments['--tag'] else None,
+                                        arguments['--tags']
+                                        if arguments['--tags'] else None,
                                         arguments['--description']
                                         if arguments['--description'] else None)
                     elif arguments['--delete_bookmark']:
