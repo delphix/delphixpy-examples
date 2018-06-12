@@ -350,7 +350,7 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
             e, e.message))
 
 
-def create_windows_env(engine, env_name, host_user, ip_addr,
+def create_windows_env(dlpx_obj, env_name, host_user, ip_addr,
                      pw=None, connector_name=None):
 
     """
