@@ -1,13 +1,7 @@
-
 *.gz
-
 *.log
-
 *.swp
-
 *.pyc
-
 *.key
-
 *.pub
-.DS_Store
+*.DS_Store
