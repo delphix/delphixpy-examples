@@ -5,3 +5,4 @@
 *.key
 *.pub
 *.DS_Store
+dxtools.conf
