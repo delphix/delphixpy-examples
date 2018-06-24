@@ -16,7 +16,7 @@
 #
 """Creates, lists, removes a Jet Stream Bookmark
 Usage:
-  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tags <tags> --description <name> --branch_name <name]| --list_bookmarks [--tag <tag] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
+  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tags <tags> --description <name> --branch_name <name>]| --list_bookmarks [--tags <tags>] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
@@ -164,7 +164,7 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
                         'was:\n\n{}'.format(bookmark_name, e))
 
 
-def list_bookmarks(dlpx_obj, tag_filter=None):
+def list_bookmarks(dlpx_obj, tags=None):
     """
     List all bookmarks on a given engine
 
@@ -180,7 +180,8 @@ def list_bookmarks(dlpx_obj, tag_filter=None):
         for js_bookmark in js_bookmarks:
             branch_name = find_obj_name(dlpx_obj.server_session, branch,
                                         js_bookmark.branch)
-            if tag_filter in js_bookmark.tags:
+            tag_filter = [x.strip() for x in tags.decode('utf-8','ignore').split(',')]
+            if all(tag in js_bookmark.tags for tag in tag_filter):
                 print '{}, {}, {}, {}, {}'.format(js_bookmark.name,
                                                   js_bookmark.reference,
                                                   branch_name,
@@ -383,7 +384,7 @@ def main_workflow(engine, dlpx_obj):
                                          arguments['--unshare_bookmark'])
                     elif arguments['--list_bookmarks']:
                         list_bookmarks(dlpx_obj,
-                            arguments['--tag'] if arguments['--tag'] else None)
+                            arguments['--tags'] if arguments['--tags'] else None)
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0
