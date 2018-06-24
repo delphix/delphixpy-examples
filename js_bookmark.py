@@ -26,6 +26,7 @@ Creates, Lists, Removes a Jet Stream Bookmark
 
 Examples:
   js_bookmark.py --list_bookmarks
+  js_bookmark.py --list_bookmarks --tags "Jun 17, 25pct"
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tags "1.86.2,bobby" --description "Before commit"
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
