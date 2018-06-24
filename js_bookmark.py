@@ -27,7 +27,7 @@ Creates, Lists, Removes a Jet Stream Bookmark
 Examples:
   js_bookmark.py --list_bookmarks
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1
-  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tags 1.86.2,bobby" --description "Before commit"
+  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tags "1.86.2,bobby" --description "Before commit"
   js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
   js_bookmark.py --activate_bookmark jsbookmark1
   js_bookmark.py --update_bookmark jsbookmark1
@@ -62,7 +62,7 @@ Options:
   -v --version                Show version.
 """
 
-VERSION="v.0.0.018"
+VERSION="v.0.0.019"
 
 from docopt import docopt
 from os.path import basename
