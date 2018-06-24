@@ -1,4 +1,5 @@
 setuptools
 pip
 docopt
-delphixpy==1.8.0.0
+delphixpy
+python-dateutil
