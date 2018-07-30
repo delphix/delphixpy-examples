@@ -70,7 +70,7 @@ Options:
 
 """
 
-VERSION="v.0.3.608"
+VERSION="v.0.3.612"
 
 from docopt import docopt
 from os.path import basename
@@ -78,18 +78,18 @@ import sys
 import traceback
 from time import sleep, time
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import environment
-from delphixpy.web import job
-from delphixpy.web import host
-from delphixpy.web.vo import UnixHostEnvironment
-from delphixpy.web.vo import ASEHostEnvironmentParameters
-from delphixpy.web.vo import HostEnvironmentCreateParameters
-from delphixpy.web.vo import WindowsHostEnvironment
-from delphixpy.web.vo import WindowsHost
-from delphixpy.web.vo import UnixHost
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import host
+from delphixpy.v1_8_0.web.vo import UnixHostEnvironment
+from delphixpy.v1_8_0.web.vo import ASEHostEnvironmentParameters
+from delphixpy.v1_8_0.web.vo import HostEnvironmentCreateParameters
+from delphixpy.v1_8_0.web.vo import WindowsHostEnvironment
+from delphixpy.v1_8_0.web.vo import WindowsHost
+from delphixpy.v1_8_0.web.vo import UnixHost
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
@@ -100,6 +100,7 @@ from lib.DxLogging import logging_est
 from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+
 
 def enable_environment(dlpx_obj, env_name):
     """
@@ -118,6 +119,7 @@ def enable_environment(dlpx_obj, env_name):
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)
 
+
 def disable_environment(dlpx_obj,env_name):
     """
     Enable the given host
@@ -133,6 +135,7 @@ def disable_environment(dlpx_obj,env_name):
       print_exception('\nERROR: Disabling the host {} '
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)    
+
 
 def update_host_address(dlpx_obj, old_host_address, new_host_address):
     """
@@ -156,6 +159,7 @@ def update_host_address(dlpx_obj, old_host_address, new_host_address):
                       'encountered an error:\n{}'.format(env_name, e))
       sys.exit(1)
 
+
 def list_env(dlpx_obj):
     """
     List all environments for a given engine
@@ -166,18 +170,25 @@ def list_env(dlpx_obj):
     for env in all_envs:
         env_user = find_obj_name(dlpx_obj.server_session,
                                  environment.user, env.primary_user)
-        env_host = find_obj_name(dlpx_obj.server_session,
-                                 host, env.host)
+        try:
+            env_host = find_obj_name(dlpx_obj.server_session, host, env.host)
+        except AttributeError:
+            pass
 
-        #ORACLE CLUSTER does not have env.host
-        #Windows does not have ASE instances
-
-        print 'Environment Name: {}, Username: {}, Host: {}, Enabled: {}, ' \
-              'ASE Environment Params: {}'.format(
-            env.name, env_user, env_host, env.enabled,
-            env.ase_host_environment_parameters if
-            isinstance(env.ase_host_environment_parameters,
-                       ASEHostEnvironmentParameters) else 'Undefined')
+        if env.type == 'WindowsHostEnvironment':
+            print('Environment Name: {}, Username: {}, Host: {},'
+                'Enabled: {}, '.format(env.name, env_user, env_host,
+                                       env.enabled))
+        elif env.type == 'WindowsCluster' or env.type == 'OracleCluster':
+            print('Environment Name: {}, Username: {}' \
+                  'Enabled: {}, '.format(env.name, env_user, env.enabled))
+        else:
+            print 'Environment Name: {}, Username: {}, Host: {}, Enabled: {},'\
+                  ' ASE Environment Params: {}'.format(
+                env.name, env_user, env_host, env.enabled,
+                env.ase_host_environment_parameters if
+                isinstance(env.ase_host_environment_parameters,
+                           ASEHostEnvironmentParameters) else 'Undefined')
 
 
 def delete_env(dlpx_obj, env_name):
