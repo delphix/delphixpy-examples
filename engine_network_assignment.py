@@ -3,7 +3,7 @@
 Adam Bowen - Jan 2016
 This script configures the Delphix Engine networking.
 '''
-VERSION="v.2.3.001"
+VERSION="v.2.3.002"
 
 import getopt
 import logging
@@ -16,10 +16,10 @@ import traceback
 import errno
 from socket import error as socket_error
 
-from delphixpy.delphix_engine import DelphixEngine
-from delphixpy.exceptions import HttpError,JobError
-from delphixpy.web import network, system, user, service
-from delphixpy.web.vo import PasswordCredential, User, NetworkInterface, \
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError, JobError
+from delphixpy.v1_8_0.web import network, system, user, service
+from delphixpy.v1_8_0.web.vo import PasswordCredential, User, NetworkInterface, \
     InterfaceAddress, DNSConfig, SystemInfo, NetworkRoute
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
@@ -180,12 +180,6 @@ def main(argv):
         dns_obj.domain = []
         service.dns.set(sys_server, dns_obj)
         
-        #configure hostname
-        print_debug("Setting hostname")
-        system_info = SystemInfo()
-        system_info.hostname = "LandsharkEngine"
-        system.set(sys_server,system_info)
-
         #configue default gateway
         print_debug("Setting default gateway")
         de_routes = network.route.get_all(sys_server)
