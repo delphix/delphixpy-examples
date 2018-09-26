@@ -46,21 +46,23 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.3.016'
+VERSION = 'v.0.3.018'
 
 import sys
 from os.path import basename
 from time import sleep, time
 import traceback
-
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web import source
-from delphixpy.web.capacity import consumer
 from docopt import docopt
+
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web.capacity import consumer
+from delphixpy.v1_8_0.web.vo import SourceDisableParameters
+from delphixpy.v1_8_0.web.source import source
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
@@ -71,7 +73,6 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_list
 from lib.GetSession import GetSession
-from delphixpy.web.vo import SourceDisableParameters
 
 
 def dx_obj_operation(dlpx_obj, vdb_name, operation):
@@ -134,7 +135,7 @@ def all_databases(dlpx_obj, operation):
 
 def list_databases(dlpx_obj):
     """
-    Function to list all databases for a given engine
+    Function to list all databases and stats for an engine
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
@@ -148,27 +149,38 @@ def list_databases(dlpx_obj):
             source_stats = find_obj_list(source_stats_lst, db_stats.name)
             if source_stats is not None:
                 if source_stats.virtual is False:
-                    is_dSource = 'dSource'
+                    db_size = source_stats.runtime.database_size/1024/1024/1024
+                    print('name: {}, provision container: dSource, disk usage: '
+                          '{:.2f}GB, Size of Snapshots: {:.2f}GB, '
+                          'dSource Size: {:.2f}GB, Log Size: {:.2f}MB,'
+                          'Enabled: {}, Status: {}'.format(str(db_stats.name),
+                          db_stats.breakdown.active_space/1024/1024/1024,
+                          db_stats.breakdown.sync_space/1024/1024/1024,
+                          source_stats.runtime.database_size/1024/1024/1024,
+                          db_stats.breakdown.log_space/1024/1024,
+                          source_stats.runtime.enabled,
+                          source_stats.runtime.status))
                 elif source_stats.virtual is True:
-                    is_dSource = db_stats.parent
-                print('name: {},provision container: {},database disk '
-                      'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
-                      'Enabled: {},Status:{},'.format(str(db_stats.name),
-                      str(is_dSource),
-                      db_stats.breakdown.active_space / 1024 / 1024 / 1024,
-                      db_stats.breakdown.sync_space / 1024 / 1024 / 1024,
-                      source_stats.runtime.enabled,
-                      source_stats.runtime.status))
+                    print('name: {}, provision container: {}, disk usage: '
+                          '{:.2f}GB, Size of Snapshots: {:.2f}GB, '
+                          'Log Size: {:.2f}MB, Enabled: {}, '
+                          'Status: {}'.format(str(db_stats.name),
+                          db_stats.parent,
+                          db_stats.breakdown.active_space/1024/1024/1024,
+                          db_stats.breakdown.sync_space/1024/1024/1024,
+                          db_stats.breakdown.log_space/1024/1024,
+                          source_stats.runtime.enabled,
+                          source_stats.runtime.status))
             elif source_stats is None:
-                print('name = {},provision container= {},database disk '
+                print('name: {},provision container: {},database disk '
                       'usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,'
                       'Could not find source information. This could be a '
                       'result of an unlinked object'.format(
                       str(db_stats.name), str(db_stats.parent),
                       db_stats.breakdown.active_space / 1024 / 1024 / 1024,
                       db_stats.breakdown.sync_space / 1024 / 1024 / 1024))
-    except (RequestError, JobError, AttributeError, DlpxException) as e:
-        print 'An error occurred while listing databases: {}'.format(e)
+    except (RequestError, JobError, AttributeError, DlpxException) as err:
+        print 'An error occurred while listing databases: {}'.format(err)
 
 
 def run_async(func):
