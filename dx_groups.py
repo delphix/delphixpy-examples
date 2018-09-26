@@ -44,19 +44,19 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.001'
+VERSION = 'v.0.0.002'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
-from delphixpy.web import group
-from delphixpy.web.vo import Group
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web.vo import Group
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est

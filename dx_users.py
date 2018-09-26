@@ -5,7 +5,7 @@
 # This script currently only supports Native authentication
 #
 #Requirements
-#pip install docopt delphixpy
+#pip install docopt delphixpy.v1_8_0
 
 #The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
@@ -28,7 +28,7 @@ Description
 
 Examples:
     dx_users.py --add --user_name dev --password delphix --email "test@something.com" --jsonly
-    dx_users.py --debug --config delphixpy-examples/dxtools_1.conf  --update --user_name dev --password not_delphix --email "test@somethingelse.com"
+    dx_users.py --debug --config delphixpy.v1_8_0-examples/dxtools_1.conf  --update --user_name dev --password not_delphix --email "test@somethingelse.com"
     dx_users.py --delete --user_name dev
     dx_users.py --list
 
@@ -54,24 +54,24 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.003'
+VERSION = 'v.0.0.004'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import authorization
-from delphixpy.web import job
-from delphixpy.web import user
-from delphixpy.web import role
-from delphixpy.web.vo import Authorization
-from delphixpy.web.vo import User
-from delphixpy.web.vo import PasswordCredential
-from delphixpy.web.vo import CredentialUpdateParameters
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import authorization
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import user
+from delphixpy.v1_8_0.web import role
+from delphixpy.v1_8_0.web.vo import Authorization
+from delphixpy.v1_8_0.web.vo import User
+from delphixpy.v1_8_0.web.vo import PasswordCredential
+from delphixpy.v1_8_0.web.vo import CredentialUpdateParameters
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est

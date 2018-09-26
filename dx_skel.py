@@ -5,7 +5,7 @@
 # The developer will only need to add the necessary arguments and functions
 # then make the function calls in main_workflow().
 #Requirements
-#pip install docopt delphixpy
+#pip install docopt delphixpy.v1_8_0
 
 #The below doc follows the POSIX compliant standards and allows us to use
 #this doc to also define our arguments for the script.
@@ -36,17 +36,17 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.000'
+VERSION = 'v.0.0.001'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import job
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import job
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est

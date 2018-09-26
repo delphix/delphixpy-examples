@@ -94,34 +94,33 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.2.0017'
+VERSION = 'v.0.2.0018'
 
 import sys
 from os.path import basename
 from time import sleep, time
 from docopt import docopt, DocoptExit
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import sourceconfig
-from delphixpy.web import group
-from delphixpy.web import job
-from delphixpy.web import environment
-from delphixpy.web import repository
-#from delphixpy.web.database import link
-from delphixpy.web import database
-from delphixpy.web.vo import OracleSIConfig
-from delphixpy.web.vo import OracleInstance
-from delphixpy.web.vo import LinkParameters
-from delphixpy.web.vo import OracleLinkData
-from delphixpy.web.vo import OracleSourcingPolicy
-from delphixpy.web.vo import ASELinkData
-from delphixpy.web.vo import ASELatestBackupSyncParameters
-from delphixpy.web.vo import ASENewBackupSyncParameters
-from delphixpy.web.vo import ASESpecificBackupSyncParameters
-from delphixpy.web.vo import MSSqlLinkData
-from delphixpy.web.vo import SourcingPolicy
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import sourceconfig
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import repository
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web.vo import OracleSIConfig
+from delphixpy.v1_8_0.web.vo import OracleInstance
+from delphixpy.v1_8_0.web.vo import LinkParameters
+from delphixpy.v1_8_0.web.vo import OracleLinkData
+from delphixpy.v1_8_0.web.vo import OracleSourcingPolicy
+from delphixpy.v1_8_0.web.vo import ASELinkData
+from delphixpy.v1_8_0.web.vo import ASELatestBackupSyncParameters
+from delphixpy.v1_8_0.web.vo import ASENewBackupSyncParameters
+from delphixpy.v1_8_0.web.vo import ASESpecificBackupSyncParameters
+from delphixpy.v1_8_0.web.vo import MSSqlLinkData
+from delphixpy.v1_8_0.web.vo import SourcingPolicy
 
 from lib.DlpxException import DlpxException
 from lib.GetReferences import find_obj_by_name

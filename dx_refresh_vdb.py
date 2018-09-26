@@ -3,7 +3,7 @@
 #This script refreshes a vdb
 # Updated by Corey Brune Oct 2016
 #requirements
-#pip install --upgrade setuptools pip docopt delphixpy
+#pip install --upgrade setuptools pip docopt delphixpy.v1_8_0
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script. This thing is brilliant.
@@ -58,7 +58,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.3.003"
+VERSION = "v.0.3.004"
 
 
 from docopt import docopt
@@ -67,21 +67,21 @@ import sys
 from time import time, sleep
 import traceback
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web import environment
-from delphixpy.web import group
-from delphixpy.web import source
-from delphixpy.web import timeflow
-from delphixpy.web.snapshot import snapshot
-from delphixpy.web.vo import OracleRefreshParameters
-from delphixpy.web.vo import RefreshParameters
-from delphixpy.web.vo import TimeflowPointLocation
-from delphixpy.web.vo import TimeflowPointSemantic
-from delphixpy.web.vo import TimeflowPointTimestamp
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import environment
+from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web import timeflow
+from delphixpy.v1_8_0.web.snapshot import snapshot
+from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
+from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
+from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
+from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
 
 from lib.DlpxException import DlpxException
 from lib.DxTimeflow import DxTimeflow

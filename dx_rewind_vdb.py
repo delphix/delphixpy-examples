@@ -2,7 +2,7 @@
 #Corey Brune - Sep 2016
 #This script performs a rewind of a vdb
 #requirements
-#pip install --upgrade setuptools pip docopt delphixpy
+#pip install --upgrade setuptools pip docopt delphixpy.v1_8_0
 
 #The below doc follows the POSIX compliant standards and allows us to use 
 #this doc to also define our arguments for the script.
@@ -53,7 +53,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = "v.0.2.015"
+VERSION = "v.0.2.016"
 
 
 from docopt import docopt
@@ -62,13 +62,13 @@ import sys
 from time import time, sleep
 import traceback
 
-from delphixpy.exceptions import HttpError
-from delphixpy.exceptions import JobError
-from delphixpy.exceptions import RequestError
-from delphixpy.web import database
-from delphixpy.web import job
-from delphixpy.web.vo import RollbackParameters
-from delphixpy.web.vo import OracleRollbackParameters
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web.vo import RollbackParameters
+from delphixpy.v1_8_0.web.vo import OracleRollbackParameters
 
 from lib.DlpxException import DlpxException
 from lib.DxTimeflow import DxTimeflow
