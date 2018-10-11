@@ -53,9 +53,9 @@ def main():
     log_into_dlpx_engine(api_version)
     print "SUCCESS - Logged in as " + dlpx_user
 
-    response = dlpx_get("delphix/database")
-    for database in response["result"]:
-        print(database["name"])
+    response = dlpx_get("delphix/user")
+    for item in response["result"]:
+        print(item["name"])
     # exit with success
     sys.exit(0)
 
