@@ -11,6 +11,7 @@
 import json
 import ssl
 from time import sleep
+from distutils.version import LooseVersion
 
 from delphixpy.v1_8_0.delphix_engine import DelphixEngine
 from delphixpy.v1_8_0.exceptions import RequestError
@@ -19,13 +20,14 @@ from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0 import job_context
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import system
+from delphixpy.v1_8_0.web.vo import SystemInfo 
 
 from lib.DlpxException import DlpxException
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
 
 
-VERSION = 'v.0.2.09'
+VERSION = 'v.0.2.10'
 
 
 class GetSession(object):
@@ -130,7 +132,12 @@ class GetSession(object):
         #Or asynchronously
         elif single_thread is False:
             print_debug("These jobs will be executed asynchronously")
-            return job_context.async(self.server_session)
+            #5.3.5 changed the async method to asyncly, so we need to do a version check
+            build_version = system.get(self.server_session).build_version
+            if LooseVersion("%s.%s.%s" % (build_version.major, build_version.minor, build_version.micro)) < LooseVersion("5.3.5"):
+                return job_context.async(self.server_session)
+            else:
+                return job_context.asyncly(self.server_session)
 
 
     def job_wait(self):
