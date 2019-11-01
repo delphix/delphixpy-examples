@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Program Name : js_bookmark.py
+#!/usr/bin/env python3
+# Program Name : ss_bookmark.py
 # Description  : Delphix implementation script
 # Author       : Corey Brune
 # Created: March 4 2016
@@ -14,30 +14,30 @@
 # Warranty details provided in external file
 # for customers who have purchased support.
 #
-"""Creates, lists, removes a Jet Stream Bookmark
+"""Creates, lists, removes a Self Service Bookmark
 Usage:
-  js_bookmark.py (--create_bookmark <name> --data_layout <name> [--tags <tags> --description <name> --branch_name <name>]| --list_bookmarks [--tags <tags>] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
+  ss_bookmark.py (--create_bookmark <name> --data_layout <name> [--tags <tags> --description <name> --branch_name <name>]| --list_bookmarks [--tags <tags>] | --delete_bookmark <name> | --activate_bookmark <name> | --update_bookmark <name> | --share_bookmark <name> | --unshare_bookmark <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
-  js_bookmark.py -h | --help | -v | --version
+  ss_bookmark.py -h | --help | -v | --version
 
-Creates, Lists, Removes a Jet Stream Bookmark
+Creates, Lists, Removes a Self Service Bookmark
 
 Examples:
-  js_bookmark.py --list_bookmarks
-  js_bookmark.py --list_bookmarks --tags "Jun 17, 25pct"
-  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1
-  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --tags "1.86.2,bobby" --description "Before commit"
-  js_bookmark.py --create_bookmark jsbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
-  js_bookmark.py --activate_bookmark jsbookmark1
-  js_bookmark.py --update_bookmark jsbookmark1
-  js_bookmark.py --delete_bookmark jsbookmark1
-  js_bookmark.py --share_bookmark jsbookmark1
-  js_bookmark.py --unshare_bookmark jsbookmark1
+  ss_bookmark.py --list_bookmarks
+  ss_bookmark.py --list_bookmarks --tags "Jun 17, 25pct"
+  ss_bookmark.py --create_bookmark ssbookmark1 --data_layout jstemplate1
+  ss_bookmark.py --create_bookmark ssbookmark1 --data_layout jstemplate1 --tags "1.86.2,bobby" --description "Before commit"
+  ss_bookmark.py --create_bookmark ssbookmark1 --data_layout jstemplate1 --branch_name jsbranch1
+  ss_bookmark.py --activate_bookmark ssbookmark1
+  ss_bookmark.py --update_bookmark ssbookmark1
+  ss_bookmark.py --delete_bookmark ssbookmark1
+  ss_bookmark.py --share_bookmark ssbookmark1
+  ss_bookmark.py --unshare_bookmark ssbookmark1
 
 Options:
-  --create_bookmark <name>    Name of the new JS Bookmark
+  --create_bookmark <name>    Name of the new SS Bookmark
   --container_name <name>     Name of the container to use
   --tags <tags>               Tags to use for this bookmark (comma-delimited)
   --description <name>        Description of this bookmark
@@ -47,7 +47,7 @@ Options:
   --branch_name <name>        Optional: Name of the branch to use
   --data_layout <name>        Name of the data layout (container or template) to use
   --activate_bookmark <name>  Name of the bookmark to activate
-  --delete_bookmark <name>    Delete the JS Bookmark
+  --delete_bookmark <name>    Delete the SS Bookmark
   --list_bookmarks            List the bookmarks on a given engine
   --engine <type>             Alt Identifier of Delphix engine in dxtools.conf.
   --all                       Run against all engines.
@@ -58,12 +58,12 @@ Options:
   --config <path_to_file>     The path to the dxtools.conf file
                               [default: ./dxtools.conf]
   --logdir <path_to_file>     The path to the logfile you want to use.
-                              [default: ./js_bookmark.log]
+                              [default: ./ss_bookmark.log]
   -h --help                   Show this screen.
   -v --version                Show version.
 """
 
-VERSION="v.0.0.019"
+VERSION="v.0.3.000"
 
 from docopt import docopt
 from os.path import basename
@@ -71,16 +71,16 @@ import sys
 from time import sleep, time
 import traceback
 
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web.jetstream import bookmark
-from delphixpy.v1_8_0.web.jetstream import branch
-from delphixpy.v1_8_0.web.jetstream import template
-from delphixpy.v1_8_0.web.jetstream import container
-from delphixpy.v1_8_0.web.vo import JSBookmarkCreateParameters
-from delphixpy.v1_8_0.web.vo import JSBookmark
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_10_2.web import job
+from delphixpy.v1_10_2.web.selfservice import bookmark
+from delphixpy.v1_10_2.web.selfservice import branch
+from delphixpy.v1_10_2.web.selfservice import template
+from delphixpy.v1_10_2.web.selfservice import container
+from delphixpy.v1_10_2.web.vo import JSBookmarkCreateParameters
+from delphixpy.v1_10_2.web.vo import JSBookmark
+from delphixpy.v1_10_2.exceptions import RequestError
+from delphixpy.v1_10_2.exceptions import JobError
+from delphixpy.v1_10_2.exceptions import HttpError
 
 from lib.DlpxException import DlpxException
 from lib.GetSession import GetSession
@@ -96,7 +96,7 @@ from lib.DxLogging import print_exception
 def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
                     tags=None, description=None):
     """
-    Create the JS Bookmark
+    Create the SS Bookmark
 
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
@@ -115,7 +115,7 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
     branch_ref = None
     source_layout_ref = None
     engine_name = dlpx_obj.dlpx_engines.keys()[0]
-    js_bookmark_params = JSBookmarkCreateParameters()
+    ss_bookmark_params = SSBookmarkCreateParameters()
     if branch_name:
         try:
             source_layout_ref = find_obj_by_name(dlpx_obj.server_session,
@@ -144,25 +144,25 @@ def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
         if branch_ref is None:
             raise DlpxException('Could not find {} in engine {}'.format(
                 branch_name, engine_name))
-    js_bookmark_params.bookmark = JSBookmark()
-    js_bookmark_params.bookmark.name = bookmark_name
-    js_bookmark_params.bookmark.branch = branch_ref
+    ss_bookmark_params.bookmark = SSBookmark()
+    ss_bookmark_params.bookmark.name = bookmark_name
+    ss_bookmark_params.bookmark.branch = branch_ref
     if tags:
-        js_bookmark_params.bookmark.tags = tags.split(',')
+        ss_bookmark_params.bookmark.tags = tags.split(',')
     if description:
-        js_bookmark_params.bookmark.description = description
-    js_bookmark_params.timeline_point_parameters = {
-        'sourceDataLayout': source_layout_ref, 'type':
-            'JSTimelinePointLatestTimeInput'}
+        ss_bookmark_params.bookmark.description = description
+    ss_bookmark_params.timeline_point_parameters = {
+        "sourceDataLayout": source_layout_ref, "type":
+            "SSTimelinePointLatestTimeInput"}
     try:
-        bookmark.create(dlpx_obj.server_session, js_bookmark_params)
+        bookmark.create(dlpx_obj.server_session, ss_bookmark_params)
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        print_info('JS Bookmark {} was created successfully.'.format(
+        print_info('SS Bookmark {} was created successfully.'.format(
             bookmark_name))
 
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('\nThe bookmark {} was not created. The error '
-                        'was:\n\n{}'.format(bookmark_name, e))
+    except (DlpxException, RequestError, HttpError) as err:
+        print_exception("\nThe bookmark {} was not created. The error "
+                        "was:\n\n{}".format(bookmark_name, err))
 
 
 def list_bookmarks(dlpx_obj, tags=None):
@@ -174,35 +174,36 @@ def list_bookmarks(dlpx_obj, tags=None):
 
     """
 
-    header = '\nName, Reference, Branch Name, Template Name, Tags'
+    header = "\nName, Reference, Branch Name, Template Name, Tags"
     try:
-        js_bookmarks = bookmark.get_all(dlpx_obj.server_session)
-        print header
-        for js_bookmark in js_bookmarks:
+        ss_bookmarks = bookmark.get_all(dlpx_obj.server_session)
+        print(header)
+        for ss_bookmark in ss_bookmarks:
             branch_name = find_obj_name(dlpx_obj.server_session, branch,
-                                        js_bookmark.branch)
-            tag_filter = [x.strip() for x in tags.decode('utf-8','ignore').split(',')]
-            if all(tag in js_bookmark.tags for tag in tag_filter):
-                print '{}, {}, {}, {}, {}'.format(js_bookmark.name,
-                                                  js_bookmark.reference,
+                                        ss_bookmark.branch)
+            tag_filter = [x.strip() for x in tags.decode("utf-8",
+                                                         "ignore").split(",")]
+            if all(tag in ss_bookmark.tags for tag in tag_filter):
+                print("{}, {}, {}, {}, {}").format(ss_bookmark.name,
+                                                  ss_bookmark.reference,
                                                   branch_name,
-                                                  js_bookmark.template_name,
+                                                  ss_bookmark.template_name,
                                                   ", ".join(tag for tag in
-                                                            js_bookmark.tags))
+                                                            ss_bookmark.tags))
             elif tag_filter is None:
-                tag = js_bookmark.tags if js_bookmark.tags else None
+                tag = ss_bookmark.tags if ss_bookmark.tags else None
                 if tag:
-                    tag = ", ".join(tag for tag in js_bookmark.tags)
-                print '{}, {}, {}, {}, {}'.format(js_bookmark.name,
-                                                  js_bookmark.reference,
+                    tag = ", ".join(tag for tag in ss_bookmark.tags)
+                print("{}, {}, {}, {}, {}").format(ss_bookmark.name,
+                                                  ss_bookmark.reference,
                                                   branch_name,
-                                                  js_bookmark.template_name,
+                                                  ss_bookmark.template_name,
                                                   tag)
-        print '\n'
+        print("\n")
 
     except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: The bookmarks on could not be listed. The '
-                        'error was:\n\n{}'.format(e))
+        print_exception("\nERROR: The bookmarks on could not be listed. The "
+                        "error was:\n\n{}".format(e))
 
 
 def unshare_bookmark(dlpx_obj, bookmark_name):
@@ -217,11 +218,11 @@ def unshare_bookmark(dlpx_obj, bookmark_name):
         bookmark.unshare(dlpx_obj.server_session,
                          get_obj_reference(dlpx_obj.server_session,
                                            bookmark, bookmark_name).pop())
-        print_info('JS Bookmark {} was unshared successfully.'.format(
+        print_info("SS Bookmark {} was unshared successfully.".format(
             bookmark_name))
-    except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: The bookmark {} could not be unshared. '
-                        'The error was:\n\n{}'.format(bookmark_name, e))
+    except (DlpxException, HttpError, RequestError) as err:
+        print_exception("\nERROR: The bookmark {} could not be unshared. "
+                        "The error was:\n\n{}".format(bookmark_name, err))
 
 
 def share_bookmark(dlpx_obj, bookmark_name):
@@ -235,12 +236,13 @@ def share_bookmark(dlpx_obj, bookmark_name):
     try:
         bookmark.share(dlpx_obj.server_session,
                        get_obj_reference(dlpx_obj.server_session,
-                                         bookmark, bookmark_name).pop())
-        print_info('JS Bookmark {} was shared successfully.'.format(
-            bookmark_name))
-    except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: The bookmark {} could not be shared. The '
-                        'error was:\n\n{}'.format(bookmark_name, e))
+                                         bookmark,
+                                         bookmark_name).pop())
+        print_info("SS Bookmark {} was shared successfully.".format(
+                                                             bookmark_name))
+    except (DlpxException, HttpError, RequestError) as err:
+        print_exception("\nERROR: The bookmark {} could not be shared. The "
+                        "error was:\n\n{}".format(bookmark_name, err))
 
 
 def update_bookmark(dlpx_obj, bookmark_name):
@@ -251,17 +253,17 @@ def update_bookmark(dlpx_obj, bookmark_name):
     :param bookmark_name: Name of the bookmark to update
     """
 
-    js_bookmark_obj = JSBookmark()
+    ss_bookmark_obj = SSBookmark()
     
     try:
         bookmark.update(dlpx_obj.server_session,
                         get_obj_reference(dlpx_obj.server_session,
-                                          bookmark, bookmark_name).pop(),
-                        js_bookmark_obj)
-
-    except (DlpxException, HttpError, RequestError) as e:
-        print_exception('ERROR: The bookmark {} could not be updated. The '
-                        'error was:\n{}'.format(bookmark_name, e))
+                                          bookmark,
+                                          bookmark_name).pop(),
+                        ss_bookmark_obj)
+    except (DlpxException, HttpError, RequestError) as err:
+        print_exception("ERROR: The bookmark {} could not be updated. The "
+                        "error was:\n{}".format(bookmark_name, err))
 
 
 def delete_bookmark(dlpx_obj, bookmark_name):
@@ -278,11 +280,11 @@ def delete_bookmark(dlpx_obj, bookmark_name):
         bookmark.delete(dlpx_obj.server_session,
                         get_obj_reference(dlpx_obj.server_session,
                                           bookmark, bookmark_name).pop())
-        print_info('The bookmark {} was deleted successfully.'.format(
+        print_info("The bookmark {} was deleted successfully.".format(
             bookmark_name))
     except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: The bookmark {} was not deleted. The '
-                        'error was:\n\n{}'.format(bookmark_name, e.message))
+        print_exception("\nERROR: The bookmark {} was not deleted. The "
+                        "error was:\n\n{}".format(bookmark_name, e.message))
 
 
 def run_async(func):
@@ -347,12 +349,14 @@ def main_workflow(engine, dlpx_obj):
 
     try:
         # Setup the connection to the Delphix Engine
-        dlpx_obj.serversess(engine['ip_address'], engine['username'],
-                            engine['password'])
-    except DlpxException as e:
-        print_exception('ERROR: js_bookmark encountered an error authenticating'
-                        ' to {} {}:\n{}\n'.format(engine['hostname'],
-                                                  arguments['--target'], e))
+        dlpx_obj.serversess(engine["ip_address"], engine["username"],
+                            engine["password"])
+    except DlpxException as err:
+        print_exception("ERROR: ss_bookmark encountered an error "
+                        "authenticating to {} {}:\n{}\n".format(
+                                                         engine["hostname"],
+                                                         arguments["--target"],
+                                                         err))
         sys.exit(1)
 
     thingstodo = ["thingtodo"]
@@ -393,7 +397,7 @@ def main_workflow(engine, dlpx_obj):
                     job_obj = job.get(dlpx_obj.server_session,
                                       dlpx_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: Running JS Bookmark: {}'.format(
+                    print_info('{}: Running SS Bookmark: {}'.format(
                         engine['hostname'], job_obj.job_state))
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
@@ -410,7 +414,7 @@ def main_workflow(engine, dlpx_obj):
                     if len(dlpx_obj.jobs) > 0:
                         sleep(float(arguments['--poll']))
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print_exception('Error in js_bookmark: {}\n{}'.format(
+        print_exception('Error in ss_bookmark: {}\n{}'.format(
             engine['hostname'], e))
         sys.exit(1)
 

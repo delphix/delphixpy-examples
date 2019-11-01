@@ -1,0 +1,8 @@
+************* Module delphixpy-examples.lib.run_jobs
+run_jobs.py:53:0: C0301: Line too long (105/100) (line-too-long)
+run_jobs.py:6:0: E0401: Unable to import 'lib' (import-error)
+run_jobs.py:7:0: E0401: Unable to import 'lib' (import-error)
+
+------------------------------------------------------------------
+Your code has been rated at 6.21/10 (previous run: 6.21/10, +0.00)
+
