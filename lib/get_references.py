@@ -11,7 +11,7 @@ from delphixpy.v1_10_2 import web
 
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.000'
+VERSION = 'v.0.3.001'
 
 
 def convert_timestamp(engine, timestamp):
@@ -205,3 +205,27 @@ def find_source_by_database(engine, database_obj):
                                             f'one source returned for '
                                             f'{database_obj.name}')
     return source_obj
+
+
+def build_data_source_params(dlpx_obj, obj, data_source):
+    """
+    Builds the datasource parameters
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param obj: object type to use when finding db
+    :type obj: Type of object to build DS params
+    :param data_source: Name of the database to use when building the
+    parameters
+    :type data_source: str
+    """
+    ds_params = vo.JSDataSourceCreateParameters()
+    ds_params.source = vo.JSDataSource()
+    ds_params.source.name = data_source
+    try:
+        db_obj = get_references.find_obj_by_name(
+            dlpx_obj.server_session, obj, data_source)
+        ds_params.container = db_obj.reference
+        return ds_params
+    except exceptions.RequestError as err:
+        dx_logging.print_exception(f'\nCould not find {data_source}\n{err}')
+
