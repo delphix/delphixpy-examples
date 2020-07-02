@@ -17,19 +17,18 @@ from lib import get_references
 
 class GetReferencesTests(unittest.TestCase):
     """
-    XXXXXXXXXXXXXXXXXXXXXXX
+    Unit tests for the GetReferences class
 
-    Requirements: XXXXXXXXXXXXXXXXXXXXXXX
-    XXXXXXXXXXXXXXXXXXXXXXX
+    Requirements: Customize variables under the setUpClass() method.
     """
 
     @classmethod
     def setUpClass(cls):
         super(GetReferencesTests, cls).setUpClass()
         cls.server_obj = GetSession()
-        cls.server_obj.serversess("172.16.98.44", "delphix_admin",
-                                  "delphix", "DOMAIN")
-        cls.server_obj.dlpx_engines["engine_name"] = "test_engine"
+        cls.server_obj.dlpx_session('172.16.98.44', 'delphix_admin',
+                                    'delphix', 'DOMAIN')
+        cls.server_obj.dlpx_ddps['engine_name'] = 'test_engine'
         cls.zulu_timestamp = '2018-08-24T19:14:14'
         cls.db_name = 'classic'
         cls.db_reference = 'ORACLE_DB_CONTAINER-508'
@@ -61,9 +60,9 @@ class GetReferencesTests(unittest.TestCase):
         self.assertIsInstance(obj_ref,
                               web.objects.UnixHostEnvironment.UnixHostEnvironment)
 
-    def test_find_source_by_dbname(self):
+    def test_find_source_by_db_name(self):
         print('TEST - Find source by database name')
-        src_obj = get_references.find_source_by_dbname(
+        src_obj = get_references.find_source_by_db_name(
                    self.server_obj.server_session, self.child_vdb)
         self.assertIsInstance(src_obj,
              web.objects.OracleVirtualSource.OracleVirtualSource)

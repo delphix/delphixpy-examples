@@ -9,6 +9,8 @@
 """
 
 import json
+import ssl
+import os
 from time import sleep
 
 from delphixpy.v1_10_2.delphix_engine import DelphixEngine
@@ -17,8 +19,7 @@ from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2 import job_context
 
 from lib import dlpx_exceptions
-from .DxLogging import print_debug
-from .DxLogging import print_info
+from lib import dx_logging
 
 VERSION = 'v.0.3.000'
 
@@ -30,10 +31,10 @@ class GetSession:
 
     def __init__(self):
         self.server_session = None
-        self.dlpx_engines = {}
+        self.dlpx_ddps = {}
         self.jobs = {}
 
-    def get_config(self, config_file_path="./dxtools.conf"):
+    def get_config(self, config_file_path='./dxtools.conf'):
         """
         This method reads in the dxtools.conf file
 
@@ -54,10 +55,8 @@ class GetSession:
                 f'\nERROR: Was unable to read {config_file_path} as json. '
                 f'Please check if the file is in a json format and try '
                 f'again.\n {err}')
-        # Create a dictionary of engines (removing the data node from the
-        # dxtools.json, for easier parsing)
-        for each in config['data']:
-            self.dlpx_engines[each['hostname']] = each
+        for each in config.keys():
+            self.dlpx_ddps[each] = config[each].pop()
 
     def dlpx_session(self, f_engine_address, f_engine_username,
                      f_engine_password=None, enable_https=True):
@@ -74,6 +73,10 @@ class GetSession:
         :return: delphixpy.v1_10_2.delphix_engine.DelphixEngine object
         """
         f_engine_namespace = 'DOMAIN'
+        # Remove the next 3 lines if using in a production environment.
+        if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
+                getattr(ssl, '_create_unverified_context', None)):
+            ssl._create_default_https_context = ssl._create_unverified_context
         try:
             self.server_session = DelphixEngine(
                 f_engine_address, f_engine_username, f_engine_password,
@@ -100,7 +103,7 @@ class GetSession:
             return job_context.sync(self.server_session)
         # Or asynchronously
         elif single_thread is False:
-            return job_context.async(self.server_session)
+            return job_context.asyncly(self.server_session)
 
     def job_wait(self):
         """
@@ -112,9 +115,10 @@ class GetSession:
         # For each job in the list, check to see if it is running (not ended)
         for job_obj in all_jobs:
             if not (job_obj.job_state in ['CANCELED', 'COMPLETED', 'FAILED']):
-                print_debug(f'\nDEBUG: Waiting for {job_obj.reference} '
-                            f'(currently: {job_obj.job_state}) to finish '
-                            f'running against the container.\n')
+                dx_logging.print_debug(
+                    f'\nDEBUG: Waiting for {job_obj.reference} '
+                    f'(currently: {job_obj.job_state}) to finish running '
+                    f'against the container.\n')
                 # If so, wait
                 job_context.wait(self.server_session, job_obj.reference)
 
@@ -128,5 +132,5 @@ class GetSession:
                 break
             except (exceptions.HttpError, exceptions.RequestError):
                 pass
-            print_info('Waiting for Delphix DDP to be ready')
+            dx_logging.print_info('Waiting for Delphix DDP to be ready')
             sleep(3)

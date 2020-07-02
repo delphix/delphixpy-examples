@@ -2,6 +2,7 @@
 Custom exception class for delphixpy scripts
 """
 
+
 class DlpxException(BaseException):
     """
     Delphix Exception class. Exit signals are handled by calling method.
@@ -17,6 +18,7 @@ class DlpxException(BaseException):
         Return an DlpxException object describing this error.
         """
         return self.error
+
 
 class DlpxObjectNotFound(BaseException):
     """

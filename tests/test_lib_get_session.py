@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
 """
-Unit tests for DPP Timeflows
+Unit tests for DPP GetSession
 """
 
 import unittest
 import types
 from io import StringIO
 import sys
+import os
+import ssl
 
-from delphixpy.v1_10_2 import web
+from delphixpy.v1_10_2.web import database
 
 from lib.get_session import GetSession
 from lib import get_references
@@ -17,43 +19,52 @@ from lib import get_references
 
 class GetSessionTests(unittest.TestCase):
     """
-    XXXXXXXXXXXXXXXXXXXXXXX
+    Unit test for GetSession
 
-    Requirements: XXXXXXXXXXXXXXXXXXXXXXX
-    XXXXXXXXXXXXXXXXXXXXXXX
+    Requirements: Customize variables under the setUpClass() method.
     """
     @classmethod
     def setUpClass(cls):
         super(GetSessionTests, cls).setUpClass()
         cls.server_obj = GetSession()
+        cls.engine_ip = '172.16.98.44'
+        cls.engine_user = 'delphix_admin'
+        cls.engine_pass = 'delphix'
 
     def test_get_config(self):
         print('TEST - Get config')
         self.server_obj.get_config()
-        self.assertNotEqual(0, len(self.server_obj.dlpx_engines))
+        self.assertNotEqual(0, len(self.server_obj.dlpx_ddps))
 
     def test_server_session(self):
         print('TEST - Server session')
-        for engine in self.server_obj.dlpx_engines.keys():
-            self.server_obj.dlpx_session(
-               self.server_obj.dlpx_engines[engine]['ip_address'],
-               self.server_obj.dlpx_engines[engine]['username'],
-               self.server_obj.dlpx_engines[engine]['password'],
-               self.server_obj.dlpx_engines[engine]['use_https'])
-            self.assertIsNotNone(self.server_obj.dlpx_engines[engine])
+        for engine in self.server_obj.dlpx_ddps.keys():
+            ddps_dct = self.server_obj.dlpx_ddps[engine].pop()
+            self.server_obj.dlpx_session(ddps_dct['ip_address'],
+                                         ddps_dct['username'],
+                                         ddps_dct['password'],
+                                         ddps_dct['use_https'])
 
     def test_job_mode_sync(self):
         print('TEST - Job mode sync')
-        self.server_obj.job_mode()
-        with self.server_obj:
-            web.database.get_all(self.server_obj)
+        self.server_obj.dlpx_session(self.engine_ip, self.engine_user,
+                                     self.engine_pass, "DOMAIN")
+        with self.server_obj.job_mode():
+            database.get_all(self.server_obj.server_session)
 
     def test_job_mode_async(self):
         print('TEST - Job mode async')
-        self.server_obj.job_mode(False)
-        with self.server_obj:
-            web.database.get_all(self.server_obj)
+        self.server_obj.dlpx_session(self.engine_ip, self.engine_user,
+                                     self.engine_pass, "DOMAIN")
+        with self.server_obj.job_mode(False):
+            database.get_all(self.server_obj.server_session)
 
-# Run the test case
+    def test_server_wait(self):
+        print('TEST - Server wait')
+        self.server_obj.dlpx_session(self.engine_ip, self.engine_user,
+                                     self.engine_pass, "DOMAIN")
+        self.server_obj.server_wait()
+
+# Run the unit tests
 if __name__ == "__main__":
     unittest.main(module=__name__, buffer=True)

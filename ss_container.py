@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Program Name : ss_container.py
 # Description  : Delphix implementation script
 # Author       : Corey Brune
@@ -12,25 +12,33 @@
 #
 """Create, delete, refresh and list JS containers.
 Usage:
-  ss_container.py (--create_container <name> --template_name <name> --database <name> | --reset <name> | --list_hierarchy <name> | --list | --delete_container <name> [--keep_vdbs]| --refresh_container <name> | --add_owner <name> --container_name <name> | --remove_owner <name> --container_name <name> | --restore_container <name> --bookmark_name <name>)
+  ss_container.py (--create_container <name> --template_name <name>
+                   --database <name> | --reset <name> |
+                   --list_hierarchy <name> | --list
+                   | --delete_container <name> [--keep_vdbs] |
+                   --refresh_container <name>
+                   | --add_owner <name> --container_name <name> |
+                    --remove_owner <name> --container_name <name> |
+                    --restore_container <name> --bookmark_name <name>)
                    [--engine <identifier> | --all] [--parallel <n>]
                    [--poll <n>] [--debug]
                    [--config <path_to_file>] [--logdir <path_to_file>]
   ss_container.py -h | --help | -v | --version
 
-Creates, Lists, Removes a Jet Stream Template
+Creates, Lists, Removes a Self-Service Data Pod
 
 Examples:
   ss_container.py --list
   ss_container.py --list_hierarchy sscontainer1
   ss_container.py --add_owner jsuser
-  ss_container.py --create_container sscontainer1 --database <name> --template_name jstemplate1
+  ss_container.py --create_container sscontainer1 --database <name> \
+  --template_name jstemplate1
   ss_container.py --delete_container sscontainer1
   ss_container.py --refresh_container sscontainer1
   ss_container.py --add_owner jsuser --container_name sscontainer1
   ss_container.py --remove_owner jsuser --container_name sscontainer1
   ss_container.py --refresh_container sscontainer1
-  ss_container.py --restore_container sscontainer1 --bookmark_name jsbookmark1
+  ss_container.py --restore_container sscontainer1 --bookmark_name ssbookmark1
   js_conatiner.py --reset sscontainer1
 
 Options:
@@ -50,12 +58,9 @@ Options:
   --database <name>          Name of the child database(s) to use for the
                                 SS Container
   --list_containers          List the containers on a given engine
-  --engine <type>            Alt Identifier of Delphix engine in dxtools.conf.
+  --engine <type>            Alt Identifier of Delphix DDP in dxtools.conf.
   --all                      Run against all engines.
   --debug                    Enable debug logging
-  --parallel <n>             Limit number of jobs to maxjob
-  --poll <n>                 The number of seconds to wait between job polls
-                             [default: 10]
   --config <path_to_file>    The path to the dxtools.conf file
                              [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
@@ -63,456 +68,429 @@ Options:
   -h --help                  Show this screen.
   -v --version               Show version.
 """
-
-VERSION = "v.0.0.020"
-
 from os.path import basename
 import sys
-import traceback
-from time import sleep, time
+import time
 from docopt import docopt
 
-from delphixpy.v1_8_0.web.jetstream import container
-from delphixpy.v1_8_0.web.jetstream import bookmark
-from delphixpy.v1_8_0.web.jetstream import template
-from delphixpy.v1_8_0.web.jetstream import datasource
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import user
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web.vo import JSDataContainerCreateParameters
-from delphixpy.v1_8_0.web.vo import JSDataSourceCreateParameters
-from delphixpy.v1_8_0.web.vo import JSTimelinePointBookmarkInput
-from delphixpy.v1_8_0.web.vo import JSDataContainerModifyOwnerParameters
-from delphixpy.v1_8_0.web.vo import JSDataContainerDeleteParameters
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_10_2.web import selfservice
+from delphixpy.v1_10_2.web import database
+from delphixpy.v1_10_2.web import user
+from delphixpy.v1_10_2.web import vo
+from delphixpy.v1_10_2 import exceptions
 
-from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_obj_name
-from lib.GetReferences import convert_timestamp
-from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
-from lib.DxLogging import print_exception
-from lib.DxLogging import print_debug
+from lib import dlpx_exceptions
+from lib import get_session
+from lib import get_references
+from lib import dx_logging
+from lib import run_job
+from lib.run_async import run_async
+
+VERSION = 'v.0.3.000'
 
 
 def create_container(dlpx_obj, template_name, container_name, database_name):
     """
-    Create the JS container
-
-    dlpx_obj: Virtualization Engine session object
-    container_name: Name of the container to create
-    database_name: Name of the database(s) to use in the container
+    Create the SS container
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param template_name: name of the self-service template
+    :type template_name: str
+    :param container_name: Name of the container to create
+    :type container_name: str
+    :param database_name: Name of the database(s) to use in the container
+    :type database_name: str
+    :return created container reference
+    :rtype str
     """
-
-    ss_container_params = JSDataContainerCreateParameters()
+    ss_container_params = vo.JSDataContainerCreateWithoutRefreshParameters()
     container_ds_lst = []
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
-    for db in database_name.split(':'):
-        container_ds_lst.append(build_ds_params(dlpx_obj, database, db))
-
+    engine_name = dlpx_obj.dlpx_ddps['engine_name']
+    for data_set in database_name.split(':'):
+        container_ds_lst.append(
+            get_references.build_data_source_params(dlpx_obj, database,
+                                                    data_set))
     try:
-        js_template_obj = find_obj_by_name(dlpx_obj.server_session,
-                                           template, template_name)
-        ss_container_params.template = js_template_obj.reference
-        ss_container_params.timeline_point_parameters = {
-            'sourceDataLayout': js_template_obj.reference,
-            'type': 'JSTimelinePointLatestTimeInput'}
+        ss_template_ref = get_references.find_obj_by_name(
+            dlpx_obj.server_session, selfservice.template,
+            template_name).reference
+        ss_container_params.template = ss_template_ref
+        ss_container_params.timeline_point_parameters = \
+            vo.JSTimelinePointLatestTimeInput()
+        ss_container_params.timeline_point_parameters.sourceDataLayout = \
+            ss_template_ref
         ss_container_params.data_sources = container_ds_lst
         ss_container_params.name = container_name
-        container.create(dlpx_obj.server_session, ss_container_params)
+        container_ref = selfservice.container.create(dlpx_obj.server_session,
+                                                     ss_container_params)
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        print_info('SS Container {} was created successfully.'.format(
-            container_name))
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('Container {} was not created. The error '
-                        'was:\n{}\n'.format(container_name, e))
+        return container_ref
+    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'Container {container_name} was not '
+                                   f'created. The error was: {err}')
 
 
 def remove_owner(dlpx_obj, owner_name, container_name):
     """
     Removes an owner from a container
-
-    dlpx_obj: Virtualization Engine session object
-    owner_name: Name of the owner to remove
-    container_name: Name of the container
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param owner_name: Name of the owner to remove
+    :type owner_name: str
+    :param container_name: Name of the container
+    :type container_name: str
     """
-
-    owner_params = JSDataContainerModifyOwnerParameters()
+    owner_params = vo.JSDataContainerModifyOwnerParameters()
     try:
-        user_ref = find_obj_by_name(dlpx_obj.server_session,
-                                    user, owner_name).reference
-        owner_params.owner = user_ref
-        container_obj = find_obj_by_name(dlpx_obj.server_session,
-                                         container, container_name)
-        container.remove_owner(dlpx_obj.server_session,
-                               container_obj.reference, owner_params)
-        print_info('User {} was granted access to {}'.format(owner_name,
-                                                             container_name))
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('The user was not added to container {}. The '
-                        'error was:\n{}\n'.format(container_name, e))
+        owner_params.owner = get_references.find_obj_by_name(
+            dlpx_obj.server_session, user, owner_name).reference
+        container_obj = get_references.find_obj_by_name(
+            dlpx_obj.server_session, selfservice.container, container_name)
+        selfservice.container.remove_owner(dlpx_obj.server_session,
+                                           container_obj.reference,
+                                           owner_params)
+    except (dlpx_exceptions.DlpxObjectNotFound, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'The user was not added to container '
+                                   f'{container_name}. The error was:\n{err}')
 
 
 def restore_container(dlpx_obj, container_name, bookmark_name):
     """
     Restores a container to a given JS bookmark
-
-    dlpx_obj: Virtualization Engine session object
-    container_name: Name of the container
-    bookmark_name: Name of the bookmark to restore
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param container_name: Name of the container
+    :type container_name: str
+    :param bookmark_name: Name of the bookmark to restore
+    :type bookmark_name: str
     """
-    bookmark_params = JSTimelinePointBookmarkInput()
-    bookmark_params.bookmark = get_obj_reference(dlpx_obj.server_session,
-                                                 bookmark, bookmark_name).pop()
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    bookmark_params = vo.JSDataContainerRestoreParameters()
+    bookmark_params.timeline_point_parameters = \
+        vo.JSTimelinePointBookmarkInput()
+    bookmark_params.timeline_point_parameters.bookmark = \
+        get_references.find_obj_by_name(
+            dlpx_obj.server_session, selfservice.bookmark,
+            bookmark_name).reference
+    bookmark_params.force_option = False
+    engine_name = dlpx_obj.dlpx_ddps['engine_name']
     try:
-        container.restore(dlpx_obj.server_session, get_obj_reference(
-            dlpx_obj.server_session, container, container_name).pop(),
-                          bookmark_params)
+        selfservice.container.restore(
+            dlpx_obj.server_session, get_references.find_obj_by_name(
+                dlpx_obj.server_session, selfservice.container,
+                container_name).reference, bookmark_params)
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        print_info('Container {} was restored successfully with '
-                   'bookmark {}'.format(container_name, bookmark_name))
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('The user was not added to container {}. The '
-                        'error was:\n{}\n'.format(container_name, e))
+    except (dlpx_exceptions.DlpxObjectNotFound, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'The container was not restored:\n{err}')
 
 
 def add_owner(dlpx_obj, owner_name, container_name):
     """
     Adds an owner to a container
-
-    dlpx_obj: Virtualization Engine session object
-    owner_name: Grant authorizations for the given user on this container and
-        parent template
-    container_name: Name of the container
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param owner_name: Grant authorizations for the given user on this
+    container and parent template
+    :type owner_name: str
+    :param container_name: Name of the container
+    :type container_name: str
     """
-
-    owner_params = JSDataContainerModifyOwnerParameters()
+    owner_params = vo.JSDataContainerModifyOwnerParameters()
     try:
-        owner_params.owner = get_obj_reference(dlpx_obj.server_session,
-                                               user, owner_name).pop()
-        container.add_owner(dlpx_obj.server_session,
-                            get_obj_reference(dlpx_obj.server_session,
-                                              container, container_name).pop(),
-                            owner_params)
-        print_info('User {} was granted access to {}'.format(owner_name,
-                                                             container_name))
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('The user was not added to container {}. The error'
-                        ' was:\n{}\n'.format(container_name, e))
+        owner_params.owner = get_references.find_obj_by_name(
+            dlpx_obj.server_session, user, owner_name).reference
+        selfservice.container.add_owner(
+            dlpx_obj.server_session, get_references.find_obj_by_name(
+                dlpx_obj.server_session, selfservice.container,
+                container_name).reference, owner_params)
+    except (dlpx_exceptions.DlpxObjectNotFound, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'The user was not removed from the '
+                                   f'container {container_name}:\n{err}')
 
 
 def refresh_container(dlpx_obj, container_name):
     """
     Refreshes a container
-
-    dlpx_obj: Virtualization Engine session object
-    container_name: Name of the container to refresh
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param container_name: Name of the container to refresh
+    :type container_name: str
     """
-
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = dlpx_obj.dlpx_ddps['engine_name']
     try:
-        container.refresh(dlpx_obj.server_session,
-                          get_obj_reference(dlpx_obj.server_session,
-                          container, container_name).pop())
+        selfservice.container.refresh(
+            dlpx_obj.server_session, get_references.find_obj_by_name(
+                dlpx_obj.server_session, selfservice.container,
+                container_name).reference)
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        print_info('The container {} was refreshed.'.format(container_name))
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('\nContainer {} was not refreshed. The error '
-                        'was:\n{}\n'.format(container_name, e))
+    except (dlpx_exceptions.DlpxObjectNotFound, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'Container {container_name} was not '
+                                   f'refreshed. The error was:\n{err}')
 
 
 def delete_container(dlpx_obj, container_name, keep_vdbs=False):
     """
     Deletes a container
-
-    dlpx_obj: Virtualization Engine session object
-    container_name: Container to delete
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param container_name: Name of the container to delete
+    :type container_name: str
+    :param keep_vdbs: When deleting the container, delete the VDBs as well
+    if set to True
+    :type keep_vdbs: bool
     """
-
     try:
         if keep_vdbs:
-            ss_container_params = JSDataContainerDeleteParameters()
+            ss_container_params = vo.JSDataContainerDeleteParameters()
             ss_container_params.delete_data_sources = False
-            container.delete(dlpx_obj.server_session,
-                             get_obj_reference(dlpx_obj.server_session,
-                                               container, container_name).pop(),
-                             ss_container_params)
+            selfservice.container.delete(
+                dlpx_obj.server_session, get_references.find_obj_by_name(
+                    dlpx_obj.server_session, selfservice.container,
+                    container_name).reference, ss_container_params)
         elif keep_vdbs is False:
-            container.delete(dlpx_obj.server_session,
-                             get_obj_reference(dlpx_obj.server_session,
-                                               container, container_name).pop())
-    except (DlpxException, RequestError, HttpError) as e:
-        print_exception('\nContainer {} was not deleted. The error '
-                         'was:\n{}\n'.format(container_name, e))
+            selfservice.container.delete(
+                dlpx_obj.server_session, get_references.find_obj_by_name(
+                    dlpx_obj.server_session, selfservice.container,
+                    container_name).reference)
+    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'\nContainer {container_name} was not '
+                                   f'deleted. The error was:\n{err}')
 
 
 def list_containers(dlpx_obj):
     """
     List all containers on a given engine
-
-    dlpx_obj: Virtualization Engine session object
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
     """
-
     header = 'Name, Active Branch, Owner, Reference, Template, Last Updated'
-    ss_containers = container.get_all(dlpx_obj.server_session)
+    ss_containers = selfservice.container.get_all(dlpx_obj.server_session)
     try:
-        print header
+        print(header)
         for ss_container in ss_containers:
-            last_updated = convert_timestamp(dlpx_obj.server_session,
-                                             ss_container.last_updated[:-5])
-            print_info('{}, {}, {}, {}, {}, {}'.format(ss_container.name,
-                       ss_container.active_branch, str(ss_container.owner),
-                       str(ss_container.reference), str(ss_container.template),
-                       last_updated))
-    except (DlpxException, HttpError, RequestError) as e:
-        print_exception('\nERROR: SS Containers could not be listed. The '
-                        'error was:\n\n{}'.format(e))
+            last_updated = get_references.convert_timestamp(
+                dlpx_obj.server_session, ss_container.last_updated[:-5])
+            dx_logging.print_info(
+                f'{ss_container.name}, {ss_container.active_branch}, '
+                f'{ss_container.owner}, {ss_container.reference},'
+                f'{ss_container.template}, {last_updated}')
+    except (dlpx_exceptions.DlpxException, exceptions.HttpError,
+            exceptions.RequestError) as err:
+        dx_logging.print_exception(f'\nERROR: SS Containers could not '
+                                   f'be listed. The error was:\n{err}')
 
 
 def reset_container(dlpx_obj, container_name):
     """
     Undo the last refresh or restore operation
-    :param dlpx_obj: Virtualization Engine session object
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
     :param container_name: Name of the container to reset
+    :type container_name: str
     """
     try:
-        container.reset(dlpx_obj.server_session, find_obj_by_name(
-            dlpx_obj.server_session, container, container_name).reference)
-    except RequestError as e:
-        print_exception('\nERROR: SS Container was not reset. The '
-                        'error was:\n\n{}'.format(e))
-    print 'Container {} was reset.\n'.format(container_name)
-
+        selfservice.container.reset(dlpx_obj.server_session,
+                                    get_references.find_obj_by_name(
+                                        dlpx_obj.server_session,
+                                        selfservice.container,
+                                        container_name).reference)
+    except exceptions.RequestError as err:
+        dx_logging.print_exception(f'\nERROR: SS Container was not reset. '
+                                   f'The error was:\n{err}')
 
 
 def list_hierarchy(dlpx_obj, container_name):
     """
     Filter container listing.
-
-    dlpx_obj: Virtualization Engine session object
-    container_name: Name of the container to list child VDBs.
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param container_name: Name of the container to list child VDBs
+    :type container_name: str
     """
-
     database_dct = {}
-    layout_ref = find_obj_by_name(dlpx_obj.server_session, container,
-                                  container_name).reference
-    for ds in datasource.get_all(dlpx_obj.server_session,
-                                 data_layout=layout_ref):
-        db_name = (find_obj_name(dlpx_obj.server_session,
-                                          database, ds.container))
-        if hasattr(ds.runtime, 'jdbc_strings'):
-            database_dct[db_name] = ds.runtime.jdbc_strings
+    layout_ref = get_references.find_obj_by_name(
+        dlpx_obj.server_session, selfservice.container,
+        container_name).reference
+    for data_source in selfservice.datasource.get_all(dlpx_obj.server_session,
+                                                      data_layout=layout_ref):
+        db_name = (get_references.find_obj_name(
+            dlpx_obj.server_session, database, data_source.container))
+        if hasattr(data_source.runtime, 'jdbc_strings'):
+            database_dct[db_name] = data_source.runtime.jdbc_strings
         else:
             database_dct[db_name] = 'None'
     try:
-        print_info('Container: {}\nRelated VDBs: {}\n'.format(
-            container_name, convert_dct_str(database_dct)))
-    except (AttributeError, DlpxException) as e:
-        print_exception(e)
+        dx_logging.print_info(f'Container: {container_name}\n'
+                              f'Related VDBs: '
+                              f'{convert_dct_str(database_dct)}\n')
+    except (AttributeError, dlpx_exceptions.DlpxException) as err:
+        dx_logging.print_exception(err)
 
 
 def convert_dct_str(obj_dct):
     """
     Convert dictionary into a string for printing
-
-    obj_dct: Dictionary to convert into a string
+    :param obj_dct: Dictionary to convert into a string
+    :type obj_dct: dict
     :return: string object
     """
     js_str = ''
-
     if isinstance(obj_dct, dict):
-        for js_db, js_jdbc in obj_dct.iteritems():
+        for js_db, js_jdbc in obj_dct.items():
             if isinstance(js_jdbc, list):
                 js_str += '{}: {}\n'.format(js_db, ', '.join(js_jdbc))
             elif isinstance(js_jdbc, str):
                 js_str += '{}: {}\n'.format(js_db, js_jdbc)
     else:
-        raise DlpxException('Passed a non-dictionary object to '
-                            'convert_dct_str(): {}'.format(type(obj_dct)))
+        raise dlpx_exceptions.DlpxException(
+            f'Passed a non-dictionary object to convert_dct_str(): '
+            f'{type(obj_dct)}')
     return js_str
 
 
-def build_ds_params(dlpx_obj, obj, db):
-    """
-    Builds the datasource parameters
-
-    dlpx_obj: Virtualization Engine session object
-    obj: object type to use when finding db
-    db: Name of the database to use when building the parameters
-    """
-    ds_params = JSDataSourceCreateParameters()
-    ds_params.source = {'type': 'JSDataSource', 'name': db}
-    try:
-        db_obj = find_obj_by_name(dlpx_obj.server_session, obj, db)
-        ds_params.container = db_obj.reference
-        return ds_params
-    except RequestError as e:
-        print_exception('\nCould not find {}\n{}'.format(db, e.message))
-
-
 @run_async
-def main_workflow(engine, dlpx_obj):
+def main_workflow(engine, dlpx_obj, single_thread):
     """
     This function is where we create our main workflow.
     Use the @run_async decorator to run this function asynchronously.
     The @run_async decorator allows us to run against multiple Delphix Engine
     simultaneously
-
-    engine: Dictionary of engines
-    dlpx_obj: Virtualization Engine session object
+    :param engine: Dictionary of engines in the config file
+    :type engine: dict
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param single_thread: True - run single threaded, False - run multi-thread
+    :type single_thread: bool
     """
-
     try:
-        #Setup the connection to the Delphix Engine
+        # Setup the connection to the Delphix Engine
         dlpx_obj.serversess(engine['ip_address'], engine['username'],
-                                  engine['password'])
-
-    except DlpxException as e:
-        print_exception('\nERROR: Engine {} encountered an error while '
-                        'creating the session:\n{}\n'.format(
-            dlpx_obj.dlpx_engines['hostname'], e))
-        sys.exit(1)
-
-    thingstodo = ["thingtodo"]
+                            engine['password'])
+    except dlpx_exceptions.DlpxObjectNotFound as err:
+        dx_logging.print_exception(
+            f'ERROR: Engine {dlpx_obj.dlpx_engines["hostname"]} encountered '
+            f'an error while creating the session:\n{err}\n')
+    thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
-                if len(thingstodo) > 0:
-                    if arguments['--create_container']:
+            while dlpx_obj.jobs or thingstodo:
+                if thingstodo:
+                    if ARGUMENTS['--create_container']:
                         create_container(dlpx_obj,
-                                         arguments['--template_name'],
-                                         arguments['--create_container'],
-                                         arguments['--database'])
-                    elif arguments['--delete_container']:
+                                         ARGUMENTS['--template_name'],
+                                         ARGUMENTS['--create_container'],
+                                         ARGUMENTS['--database'])
+                        dx_logging.print_info(
+                            f'SS Container {ARGUMENTS["--create_container"]}'
+                            f'was created successfully.')
+                    elif ARGUMENTS['--delete_container']:
                         delete_container(dlpx_obj,
-                                         arguments['--delete_container'],
-                                         arguments['--keep_vdbs'])
-                    elif arguments['--list']:
+                                         ARGUMENTS['--delete_container'],
+                                         ARGUMENTS['--keep_vdbs'])
+                    elif ARGUMENTS['--list']:
                         list_containers(dlpx_obj)
-                    elif arguments['--remove_owner']:
-                        remove_owner(dlpx_obj, arguments['--remove_owner'],
-                                     arguments['--container_name'])
-                    elif arguments['--restore_container']:
+                    elif ARGUMENTS['--remove_owner']:
+                        remove_owner(dlpx_obj, ARGUMENTS['--remove_owner'],
+                                     ARGUMENTS['--container_name'])
+                        dx_logging.print_info(
+                            f'User {ARGUMENTS["--remove_owner"]} had '
+                            f'access revoked from '
+                            f'{ARGUMENTS["--container_name"]}')
+                    elif ARGUMENTS['--restore_container']:
                         restore_container(dlpx_obj,
-                                          arguments['--restore_container'],
-                                          arguments['--bookmark_name'])
-                    elif arguments['--add_owner']:
-                        add_owner(dlpx_obj, arguments['--add_owner'],
-                                  arguments['--container_name'])
-                    elif arguments['--refresh_container']:
+                                          ARGUMENTS['--restore_container'],
+                                          ARGUMENTS['--bookmark_name'])
+                        dx_logging.print_info(
+                            f'Container {ARGUMENTS["--restore_container"]} '
+                            f'was restored successfully with bookmark '
+                            f'{ARGUMENTS["--bookmark_name"]}')
+                    elif ARGUMENTS['--add_owner']:
+                        add_owner(dlpx_obj, ARGUMENTS['--add_owner'],
+                                  ARGUMENTS['--container_name'])
+                        dx_logging.print_info(
+                            f'User {ARGUMENTS["--add_owner"]} was granted '
+                            f'access to {ARGUMENTS["--container_name"]}')
+                    elif ARGUMENTS['--refresh_container']:
                         refresh_container(dlpx_obj,
-                                          arguments['--refresh_container'])
-                    elif arguments['--list_hierarchy']:
-                        list_hierarchy(dlpx_obj, arguments['--list_hierarchy'])
-                    elif arguments['--reset']:
-                        reset_container(dlpx_obj, arguments['--reset'])
+                                          ARGUMENTS['--refresh_container'])
+                        dx_logging.print_info(
+                            f'The container {ARGUMENTS["--refresh_container"]}'
+                            f' was refreshed.')
+                    elif ARGUMENTS['--list_hierarchy']:
+                        list_hierarchy(dlpx_obj, ARGUMENTS['--list_hierarchy'])
+                    elif ARGUMENTS['--reset']:
+                        reset_container(dlpx_obj, ARGUMENTS['--reset'])
+                        print(f'Container {ARGUMENTS["--reset"]} was reset.')
                     thingstodo.pop()
-                # get all the jobs, then inspect them
-                i = 0
-                for j in dlpx_obj.jobs.keys():
-                    job_obj = job.get(dlpx_obj.server_session,
-                                      dlpx_obj.jobs[j])
-                    print_debug(job_obj)
-                    print_info('{}: SS Container operations: {}'.format(
-                        engine['hostname'], job_obj.job_state))
-                    if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                        # If the job is in a non-running state, remove it
-                        # from the
-                        # running jobs list.
-                        del dlpx_obj.jobs[j]
-                    elif job_obj.job_state in 'RUNNING':
-                        # If the job is in a running state, increment the
-                        # running job count.
-                        i += 1
-                    print_info('{}: {:d} jobs running.'.format(
-                        engine['hostname'], i))
-                    # If we have running jobs, pause before repeating the
-                    # checks.
-                    if len(dlpx_obj.jobs) > 0:
-                        sleep(float(arguments['--poll']))
-
-    except (DlpxException, RequestError, JobError, HttpError) as e:
-        print '\nError in ss_container: {}:\n{}'.format(engine['hostname'], e)
-        sys.exit(1)
+    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
+            exceptions.JobError, exceptions.HttpError) as err:
+        dx_logging.print_exception(f'Error in ss_container:'
+                                   f'{engine["hostname"]}\n{err}')
+    run_job.find_job_state(engine, dlpx_obj)
 
 
 def main():
     """
     Main function - setup global variables and timer
     """
-    #We want to be able to call on these variables anywhere in the script.
-    global single_thread
-    global time_start
-    global debug
-
-    if arguments['--debug']:
-        debug = True
+    time_start = time.time()
     try:
-        dx_session_obj = GetSession()
-        logging_est(arguments['--logdir'])
-        print_debug(arguments)
-        time_start = time()
-        single_thread = False
-        config_file_path = arguments['--config']
-        #Parse the dxtools.conf and put it into a dictionary
+        dx_session_obj = get_session.GetSession()
+        dx_logging.logging_est(ARGUMENTS['--logdir'])
+        config_file_path = ARGUMENTS['--config']
+        single_thread = ARGUMENTS['--single_thread']
+        engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
-
-        #This is the function that will handle processing main_workflow for
+        dx_logging.print_debug(ARGUMENTS)
+        # Parse the dxtools.conf and put it into a dictionary
+        dx_session_obj.get_config(config_file_path)
+        # This is the function that will handle processing main_workflow for
         # all the servers.
-        run_job(dx_session_obj, config_file_path)
-
-        elapsed_minutes = time_elapsed()
-        print_info('script took {:.2f} minutes to get this far.'.format(
-            elapsed_minutes))
-
-    #Here we handle what we do when the unexpected happens
-    except SystemExit as e:
-        #This is what we use to handle our sys.exit(#)
-        sys.exit(e)
-    except DlpxException as e:
-        #We use this exception handler when an error occurs in a function call.
-        print_exception('\nERROR: Please check the ERROR message '
-                        'below:\n{}'.format(e.message))
+        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
+                                    single_thread):
+            # join them back together so that we wait for all threads to
+            # complete
+            each.join()
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
+                              f'get this far.')
+    # Here we handle what we do when the unexpected happens
+    except SystemExit as err:
+        # This is what we use to handle our sys.exit(#)
+        sys.exit(err)
+    except dlpx_exceptions.DlpxException as err:
+        # We use this exception handler when an error occurs in a function.
+        dx_logging.print_exception(f'\nERROR: Please check the ERROR message '
+                                   f'below:\n{err}')
         sys.exit(2)
-    except HttpError as e:
-        #We use this exception handler when our connection to Delphix fails
-        print '\nERROR: Connection failed to the Delphix Engine. Please ' \
-              'check the ERROR message below:\n{}'.format(e.message)
+    except exceptions.HttpError as err:
+        # We use this exception handler when our connection to Delphix fails
+        print(f'\nERROR: Connection failed to the Delphix Engine. Please '
+              f'check the error message below:\n{err}')
         sys.exit(2)
-    except JobError as e:
-        #We use this exception handler when a job fails in Delphix so that we
-        #have actionable data
-        print 'A job failed in the Delphix Engine:\n{}'.format(e.job)
-        elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far'.format(
-            basename(__file__), elapsed_minutes))
+    except exceptions.JobError as err:
+        # We use this exception handler when a job fails in Delphix so that we
+        # have actionable data
+        print(f'A job failed in the Delphix Engine:\n{err.job}')
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes}'
+                              f' minutes to get this far')
         sys.exit(3)
     except KeyboardInterrupt:
-        #We use this exception handler to gracefully handle ctrl+c exits
-        print_debug("You sent a CTRL+C to interrupt the process")
-        elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far'.format(
-            basename(__file__), elapsed_minutes))
-    except:
-        #Everything else gets caught here
-        print sys.exc_info()[0]
-        print traceback.format_exc()
-        elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far'.format(
-            basename(__file__), elapsed_minutes))
-        sys.exit(1)
+        # We use this exception handler to gracefully handle ctrl+c exits
+        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
+                              f'minutes to get this far')
 
 
 if __name__ == "__main__":
-    #Grab our arguments from the doc at the top of the script
-    arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
-
-    #Feed our arguments to the main function, and off we go!
-    print('Must replace calls to get_obj_reference() with find_obj_by_name()')
-    sleep(2)
+    # Grab our ARGUMENTS from the doc at the top of the script
+    ARGUMENTS = docopt(__doc__, version=basename(__file__) + " " + VERSION)
+    # Feed our ARGUMENTS to the main function, and off we go!
     main()

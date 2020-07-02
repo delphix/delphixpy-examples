@@ -1,64 +1,109 @@
 """
 This does stuff
 """
+import time
+
 from delphixpy.v1_10_2 import exceptions
+from delphixpy.v1_10_2.web import job
 
 from lib import dx_logging
 from lib import dlpx_exceptions
 
 
-def run_job(main_func, dx_obj, config_file='./dxtools.conf', engine='all'):
+def run_job(main_func, dx_obj, engine='default', single_thread=True):
     """
     This method runs the main_func asynchronously against all the
     servers specified
-    :param main_func: Name of the function to execute the job against
+    :param main_func: function to run against the DDP(s).
+     In these examples, it's main_workflow().
     :type main_func: function
-    :param dx_obj: Delphix session object containing all engines from config
+    :param dx_obj: Delphix session object from config
     :type dx_obj: lib.get_session.GetSession object
-    :param config_file: Name of the configuration file, commonly dxtools.conf
-    :type config_file: str
     :param engine: name of an engine, all or None
     :type engine: str
-    :return: Generator of dlpx_engines
+    :param single_thread: Run as single thread (True) or
+                    multiple threads (False)
+    :type single_thread: bool
     """
-    threads = []
     # If "all" argument was given, run against every engine in config_file
     if engine == 'all':
-        dx_logging.print_info(f'Executing against all Delphix DDP in '
-                              f'the {config_file}')
+        dx_logging.print_info(f'Executing against all Delphix DDPs')
         try:
-            for delphix_engine in dx_obj.dlpx_engines:
-                dx_engine = dx_obj[delphix_engine]
-                # Create a new thread and add it to the list.
-                threads.append(main_func(dx_engine))
+            for delphix_ddp in dx_obj.dlpx_ddps:
+                yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
+                                single_thread)
         except dlpx_exceptions.DlpxException as err:
             dx_logging.print_exception(f'Error encountered in run_job():'
                                        f'\n{err}')
+    elif engine == 'default':
+        try:
+            for delphix_ddp in dx_obj.dlpx_ddps.keys():
+                if dx_obj.dlpx_ddps[delphix_ddp]['default'] == 'True':
+                    dx_obj_default = dx_obj
+                    dx_obj_default.dlpx_ddps = {
+                        delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
+                    dx_logging.print_info(f'Executing against default DDP')
+                    yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
+                                    single_thread)
+                break
+        except TypeError as err:
+            raise dlpx_exceptions.DlpxException(f'Error in run_job: {err}')
     else:
         # Test to see if the engine exists in config_file
-        if engine:
-            try:
-                dx_engine = dx_obj.dlpx_engines[engine]
-                dx_logging.print_info(
-                    f'Executing against Delphix DDP: {dx_engine}\n')
-            except (exceptions.RequestError, KeyError) as err:
-                raise dlpx_exceptions.DlpxException(
-                    f'\nERROR: Delphix DDP {engine} cannot be found in '
-                    f'{config_file}. Please check your value and try again.')
-        else:
-            # Else search for a default engine in config_file
-            for delphix_engine in dx_obj.dlpx_engines:
-                if dx_obj.dlpx_engines[delphix_engine]['default'] == 'true':
-                    dx_engine = dx_obj.dlpx_engines[delphix_engine]
-                    dx_logging.print_info(f'Executing against the default '
-                                          f'Delphix DDP in {config_file}.')
-                break
-        if engine is None:
-            raise dlpx_exceptions.DlpxException(f'ERROR: No default Delphix '
-                                                f'DDP found in {config_file}.')
-    # run the job against the engine
-    threads.append(main_func(dx_engine))
-    for each in threads:
-        # join them back together so that we wait for all threads to complete
-        # before moving on
-        each.join()
+        try:
+            yield main_func(dx_obj.dlpx_ddps[engine], dx_obj, single_thread)
+            dx_logging.print_info(f'Executing against Delphix DDP: '
+                                  f'{dx_obj.dlpx_engines[engine]}')
+        except (exceptions.RequestError, KeyError):
+            raise dlpx_exceptions.DlpxException(
+                f'\nERROR: Delphix DDP {engine} cannot be found. Please '
+                f'check your value and try again.')
+    if engine is None:
+        raise dlpx_exceptions.DlpxException(f'ERROR: No default Delphix '
+                                            f'DDP found.')
+
+
+def find_job_state(engine, dx_obj, poll=10):
+    """
+    Retrieves running job state
+    :param engine: Dictionary containing info on the DDP (IP, username, etc.)
+    :param poll: How long to sleep between querying jobs
+    :param dx_obj: Delphix session object from config
+    :type dx_obj: lib.get_session.GetSession object
+    :type poll: int
+    :return:
+    """
+    # get all the jobs, then inspect them
+    i = 0
+    for j in dx_obj.jobs.keys():
+        job_obj = job.get(dx_obj.server_session,
+                          dx_obj.jobs[j])
+        dx_logging.print_debug(job_obj)
+        dx_logging.print_info(
+            f'{engine["ddp_identifier"]}: Running job: {job_obj.job_state}')
+        if job_obj.job_state in ['CANCELED', 'COMPLETED',
+                                 'FAILED']:
+            # If the job is in a non-running state, remove it
+            # from the running jobs list.
+            del dx_obj.jobs[j]
+        elif job_obj.job_state in 'RUNNING':
+            # If the job is in a running state, increment the
+            # running job count.
+            i += 1
+        dx_logging.print_info(f'{engine["ddp_identifier"]}: '
+                              f'{i} jobs running.')
+        # If we have running jobs, pause before repeating the
+        # checks.
+        if dx_obj.jobs:
+            time.sleep(poll)
+
+
+def time_elapsed(time_start):
+    """
+    This function calculates the time elapsed since the beginning of the script.
+    Call this anywhere you want to note the progress in terms of time
+
+    :param time_start: start time of the script.
+    :type time_start: float
+    """
+    return round((time.time() - time_start)/60, +1)
