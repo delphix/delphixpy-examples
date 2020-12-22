@@ -3,32 +3,30 @@
 # This script refreshes a vdb
 # Updated by Corey Brune Oct 2016
 # requirements
-# pip install --upgrade setuptools pip docopt delphixpy.v1_8_0
+# pip install --upgrade setuptools pip docopt delphixpy
 
 # The below doc follows the POSIX compliant standards and allows us to use
-# this doc to also define our arguments for the script. This thing is brilliant.
+# this doc to also define our ARGUMENTS for the script.
 """Refresh a vdb
 Usage:
-  dx_refresh_vdb.py (--vdb <name> | --dsource <name> | --all_vdbs [--group_name <name>]| --host <name> | --list_timeflows | --list_snapshots)
-                   [--timestamp_type <type>]
-                   [--timestamp <timepoint_semantic> --timeflow <timeflow>]
-                   [-d <identifier> | --engine <identifier> | --all]
-                   [--debug] [--parallel <n>] [--poll <n>]
-                   [--config <path_to_file>] [--logdir <path_to_file>]
+  dx_refresh_vdb.py --vdb <name>
+  [--timestamp_type <type> --timestamp <timepoint_semantic> ]
+  [--timeflow <timeflow> -d <identifier> | --engine <identifier> | --all]
+  [--debug] [--parallel <n>] [--poll <n>] [--single_thread <bool>]
+  [--config <path_to_file>] [--logdir <path_to_file>]
   dx_refresh_vdb.py -h | --help | -v | --version
 Refresh a Delphix VDB
 Examples:
-  dx_refresh_vdb.py --vdb "aseTest" --group_name "Analytics"
-  dx_refresh_vdb.py --dsource "dlpxdb1"
-  dx_refresh_vdb.py --all_vdbs --host LINUXSOURCE --parallel 4 --debug -d landsharkengine
+  dx_refresh_vdb.py --vdb "aseTest"
+  dx_refresh_vdb.py --all_vdbs --host LINUXSOURCE -d landsharkengine
   dx_refresh_vdb.py --all_vdbs --group_name "Analytics" --all
 Options:
-  --vdb <name>             Name of the object you are refreshing.
+  --vdb <name>              Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
-  --dsource <name>          Name of dsource in Delphix to execute against.
   --group_name <name>       Name of the group to execute against.
-  --list_timeflows          List all timeflows
-  --list_snapshots          List all snapshots
+  --single_thread           Run as a single thread. False if running multiple
+                            threads.
+                            [default: True]
   --host <name>             Name of environment in Delphix to execute against.
   --timestamp_type <type>   The type of timestamp you are specifying.
                             Acceptable Values: TIME, SNAPSHOT
@@ -44,7 +42,8 @@ Options:
                             [default: LATEST]
   --timeflow <name>         Name of the timeflow to refresh a VDB
   -d <identifier>           Identifier of Delphix engine in dxtools.conf.
-  --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
+  --engine <name>           Alt Identifier of Delphix DDP in dxtools.conf.
+                              [default: default]
   --all                     Run against all engines.
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -58,364 +57,192 @@ Options:
   -v --version              Show version.
 """
 
-from docopt import docopt
 from os.path import basename
 import sys
-from time import time, sleep
+import time
+import docopt
 
-from delphixpy.v1_8_0.exceptions import HttpError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web.vo import OracleRefreshParameters
-from delphixpy.v1_8_0.web.vo import RefreshParameters
+from delphixpy.v1_10_2 import exceptions
+from delphixpy.v1_10_2.web import database
+from delphixpy.v1_10_2.web import vo
 
-from lib.DlpxException import DlpxException
-from lib.DxTimeflow import DxTimeflow
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_source_by_dbname
-from lib.GetSession import GetSession
-from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
-from lib.DxLogging import print_debug
-from lib.DxLogging import print_exception
+from lib import dlpx_exceptions
+from lib import dx_timeflow
+from lib import get_session
+from lib import get_references
+from lib import dx_logging
+from lib import run_job
+from lib.run_async import run_async
 
-VERSION = "v.0.3.004"
+VERSION = 'v.0.3.001'
 
 
-def refresh_database(vdb_name,timestamp, timestamp_type='SNAPSHOT'):
+def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
     """
     This function actually performs the refresh
     engine:
-    dlpx_obj: Virtualization Engine session object
-    vdb_name: VDB to be refreshed
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param vdb_name: VDB to be refreshed
+    :type vdb_name: str
+    :param timestamp: The Delphix semantic for the point in time on the
+        source from which you want to refresh your VDB
+    :type timestamp: str
+    :param timestamp_type: either SNAPSHOT or TIME
+    :type timestamp_type: str
     """
-
-    # Sanity check to make sure our source object has a reference
-    dx_timeflow_obj = DxTimeflow(dx_session_obj.server_session)
-    container_obj = find_obj_by_name(dx_session_obj.server_session,
-                                     database,
-                                     vdb_name)
-    source_obj = find_source_by_dbname(dx_session_obj.server_session,
-                                      database,
-                                      vdb_name)
-
+    dx_timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
+    container_obj = get_references.find_obj_by_name(
+        dlpx_obj.server_session, database, vdb_name)
+    source_obj = get_references.find_source_by_db_name(
+        dlpx_obj.server_session, vdb_name)
     # Sanity check to make sure our container object has a reference
     if container_obj.reference:
         try:
-            if container_obj.virtual is not True:
-                raise DlpxException("{} is not a virtual object. "
-                                    "Skipping.\n".format(container_obj.name))
-            elif container_obj.staging is True:
-                raise DlpxException("{} is a virtual object. "
-                                    "Skipping.\n".format(container_obj.name))
-            elif container_obj.runtime.enabled == "ENABLED":
-                print_info("\nINFO: Refrshing {} to {}\n".format(
-                           container_obj.name, timestamp))
-
-        # This exception is raised if rewinding a vFiles VDB
-        # since AppDataContainer does not have virtual, staging or
-        # enabled attributes.
+            if container_obj.virtual is not True or \
+                    container_obj.staging is True:
+                dx_logging.print_exception(
+                    f'{container_obj.name} is not a virtual object.\n')
+            elif container_obj.runtime.enabled == 'ENABLED':
+                dx_logging.print_info(f'INFO: Refreshing {container_obj.name} '
+                                      f'to {timestamp}\n')
+        # This exception is raised if refreshing a vFiles VDB since
+        # AppDataContainer does not have virtual, staging or enabled attributes
         except AttributeError:
             pass
-
     if source_obj.reference:
-        # We can only refresh VDB's
-        if source_obj.virtual is not True:
-            print_info("\nINFO: {} is not a virtual object."
-                       " Skipping.\n".format(container_obj.name))
-        # Ensure this source is not a staging database.
-        # We can't act upon those.
-        elif source_obj.staging is True:
-            print_info("\nINFO: {} is a staging database. Skipping.\n".format(
-                            container_obj.name))
-
-        #Ensure the source is enabled. We can't refresh disabled databases.
-        elif source_obj.runtime.enabled == "ENABLED" :
-            source_db = database.get(dx_session_obj.server_session,
+        try:
+            source_db = database.get(dlpx_obj.server_session,
                                      container_obj.provision_container)
-            if not source_db:
-                print_exception(f"\nERROR: Was unable to retrieve the source "
-                                f"container for {container_obj.name} \n")
-            print_info(f"\nINFO: Refreshing {container_obj.name} "
-                       f" from {source_db.name}\n")
-
-            # If the vdb is a Oracle type, we need to use a 
-            # OracleRefreshParameters
-            rewind_params = RollbackParameters()
-            rewind_params.timeflow_point_parameters = \
+        except (exceptions.RequestError, exceptions.JobError) as err:
+            raise dlpx_exceptions.DlpxException(
+                f'Encountered error while refreshing {vdb_name}:\n{err}')
+        rewind_params = vo.RollbackParameters()
+        rewind_params.timeflow_point_parameters = \
             dx_timeflow_obj.set_timeflow_point(container_obj, timestamp_type,
                                                timestamp)
-            print_debug('{}: {}'.format(engine_name, str(rewind_params)))
-            
-            if str(container_obj.reference).startswith("ORACLE"):
-                refresh_params = OracleRefreshParameters()
-            else:
-                refresh_params = RefreshParameters()
-            
-            try:
-                refresh_params.timeflow_point_parameters = \
-                dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
-                                               timestamp)
-                print_info('\nINFO: Refresh prams {}\n'.format(
-                            refresh_params))
-
-                #Sync it
-                database.refresh(dx_session_obj.server_session, container_obj.reference, 
-                                 refresh_params)
-                dx_session_obj.jobs[dx_session_obj.server_session.address] = \
-                dx_session_obj.server_session.last_job
-
-            except RequestError as e:
-                print('\nERROR: Could not set timeflow point:\n%s\n' % (
-                      e.message.action))
-                sys.exit(1)
-
-            except DlpxException as e:
-                print 'ERROR: Could not set timeflow point:\n%s\n' % (e.message)
-                sys.exit(1)
-
-        #Don't do anything if the database is disabled
+        if str(container_obj.reference).startswith("ORACLE"):
+            refresh_params = vo.OracleRefreshParameters()
         else:
-            print_info('\nINFO: {} is not enabled. Skipping sync.\n'.format(
-                            container_obj.name))
+            refresh_params = vo.RefreshParameters()
+        try:
+            refresh_params.timeflow_point_parameters = \
+                dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
+                                                   timestamp)
+            database.refresh(dlpx_obj.server_session, container_obj.reference,
+                             refresh_params)
+            dlpx_obj.jobs[dlpx_obj.server_session.address] = \
+                dlpx_obj.server_session.last_job
+        except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
+            raise dlpx_exceptions.DlpxObjectNotFound(
+                f'ERROR: Could not set timeflow point:\n{err}')
+        # Don't do anything if the database is disabled
+        else:
+            dx_logging.print_info(f'INFO: {container_obj.name} is not '
+                                  f'enabled. Skipping sync.\n')
 
-def run_async(func):
-    """
-        http://code.activestate.com/recipes/576684-simple-threading-decorator/
-        run_async(func)
-            function decorator, intended to make "func" run in a separate
-            thread (asynchronously).
-            Returns the created Thread object
-            E.g.:
-            @run_async
-            def task1():
-                do_something
-            @run_async
-            def task2():
-                do_something_too
-            t1 = task1()
-            t2 = task2()
-            ...
-            t1.join()
-            t2.join()
-    """
-    from threading import Thread
-    from functools import wraps
-
-    @wraps(func)
-    def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
-        func_hl.start()
-        return func_hl
-
-    return async_func
 
 @run_async
-def main_workflow(engine):
+def main_workflow(engine, dlpx_obj, single_thread):
     """
-    This function actually runs the jobs.
+    This function is where we create our main workflow.
     Use the @run_async decorator to run this function asynchronously.
-    This allows us to run against multiple Delphix Engine simultaneously
-
-    engine: Dictionary of engines
+    The @run_async decorator allows us to run against multiple Delphix Engine
+    simultaneously
+    :param engine: Dictionary of engines
+    :type engine: dictionary
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param single_thread: True - run single threaded, False - run multi-thread
+    :type single_thread: bool
     """
-    jobs = {}
-
     try:
-        # Setup the connection to the Delphix Engine
-        dx_session_obj.serversess(engine['ip_address'], engine['username'],
-                                  engine['password'])
-
-    except DlpxException as e:
-        print_exception('\nERROR: Engine {} encountered an error while' 
-                        '{}:\n{}\n'.format(engine['hostname'],
-                        arguments['--target'], e))
-        sys.exit(1)
-
-    thingstodo = ["thingtodo"]
-    with dx_session_obj.job_mode(single_thread):
-        while len(dx_session_obj.jobs) > 0 or len(thingstodo) > 0:
-            if len(thingstodo)> 0:
-                refresh_database(arguments['--vdb'],
-                                    arguments['--timestamp'],
-                                    arguments['--timestamp_type'])
+        # Setup the connection to the Delphix DDP
+        dlpx_obj.dlpx_session(engine['ip_address'], engine['username'],
+                              engine['password'])
+    except dlpx_exceptions.DlpxException as err:
+        dx_logging.print_exception(
+            f'ERROR: dx_refresh_vdb encountered an error authenticating to '
+            f'{engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}\n')
+    thingstodo = ['thingstodo']
+    try:
+        with dlpx_obj.job_mode(single_thread):
+            while dlpx_obj.jobs or thingstodo:
+                if thingstodo:
+                    refresh_vdb(
+                        dlpx_obj, ARGUMENTS['--vdb'], ARGUMENTS['--timestamp'],
+                        ARGUMENTS['--timestamp_type'])
                 thingstodo.pop()
-            # get all the jobs, then inspect them
-            i = 0
-            for j in dx_session_obj.jobs.keys():
-                job_obj = job.get(dx_session_obj.server_session,
-                                  dx_session_obj.jobs[j])
-                print_debug(job_obj)
-                print_info('{}: Operations: {}'.format(engine['hostname'],
-                                                       job_obj.job_state))
-                if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
-                    #If the job is in a non-running state, remove it from the
-                    # running jobs list.
-                    del dx_session_obj.jobs[j]
-                elif job_obj.job_state in 'RUNNING':
-                    #If the job is in a running state, increment the running
-                    # job count.
-                    i += 1
-
-                print_info('{}: {:d} jobs running.'.format(
-                    engine['hostname'], i))
-
-            #If we have running jobs, pause before repeating the checks.
-            if len(dx_session_obj.jobs) > 0:
-                sleep(float(arguments['--poll']))
+    except (dlpx_exceptions.DlpxException, dlpx_exceptions.DlpxObjectNotFound,
+            exceptions.RequestError, exceptions.JobError,
+            exceptions.HttpError) as err:
+        dx_logging.print_exception(f'Error in dx_refresh_vdb:'
+                                   f'{engine["hostname"]}\n{err}')
+        run_job.find_job_state(engine, dlpx_obj)
 
 
-def run_job():
+def main():
     """
-    This function runs the main_workflow asynchronously against all the servers
-    specified
+    main function - creates session and runs jobs
     """
-    # Create an empty list to store threads we create.
-    threads = []
-    engine = None
-
-    # If the --all argument was given, run against every engine in
-    # dxtools.conf
-    if arguments['--all']:
-        print_info("Executing against all Delphix Engines in the dxtools.conf")
-
-        try:
-            # For each server in the dxtools.conf...
-            for delphix_engine in dx_session_obj.dlpx_engines:
-                engine = dx_session_obj[delphix_engine]
-                # Create a new thread and add it to the list.
-                threads.append(main_workflow(engine))
-        except DlpxException as err:
-            print(f'Error encountered in run_job():\n{err}')
-            sys.exit(1)
-    else:
-        # Else if the --engine argument was given, test to see if the engine
-        # exists in dxtools.conf
-      if arguments['--engine']:
-            try:
-                engine = dx_session_obj.dlpx_engines[arguments['--engine']]
-                print_info(f'Executing against Delphix Engine: '
-                           f'{arguments["--engine"]}\n')
-            except (DlpxException, RequestError, KeyError) as e:
-                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
-                                    'found in {}. Please check your value '
-                                    'and try again. Exiting.\n'.format(
-                                    arguments['--engine'], config_file_path))
-
-      else:
-          # Else search for a default engine in the dxtools.conf
-          for delphix_engine in dx_session_obj.dlpx_engines:
-              if dx_session_obj.dlpx_engines[delphix_engine]['default'] == \
-                 'true':
-
-                  engine = dx_session_obj.dlpx_engines[delphix_engine]
-                  print_info('Executing against the default Delphix Engine '
-                       'in the dxtools.conf: {}'.format(
-                       dx_session_obj.dlpx_engines[delphix_engine]['hostname']))
-              break
-          if engine is None:
-              raise DlpxException('\nERROR: No default engine found. Exiting')
-    # run the job against the engine
-    threads.append(main_workflow(engine))
-
-    # For each thread in the list...
-    for each in threads:
-        # join them back together so that we wait for all threads to complete
-        # before moving on
-        each.join()
-
-
-def time_elapsed():
-    """
-    This function calculates the time elapsed since the beginning of the script.
-    Call this anywhere you want to note the progress in terms of time
-    """
-    #elapsed_minutes = round((time() - time_start)/60, +1)
-    #return elapsed_minutes
-    return round((time() - time_start)/60, +1)
-
-
-def main(arguments):
-    #We want to be able to call on these variables anywhere in the script.
-    global single_thread
-    global usebackup
-    global time_start
-    global config_file_path
-    global dx_session_obj
-    global debug
-
-    if arguments['--debug']:
-        debug = True
-
+    time_start = time.time()
     try:
-        dx_session_obj = GetSession()
-        logging_est(arguments['--logdir'])
-        print_debug(arguments)
-        time_start = time()
-        engine = None
-        single_thread = False
-        config_file_path = arguments['--config']
-        #Parse the dxtools.conf and put it into a dictionary
+        dx_session_obj = get_session.GetSession()
+        dx_logging.logging_est(ARGUMENTS['--logdir'])
+        config_file_path = ARGUMENTS['--config']
+        single_thread = ARGUMENTS['--single_thread']
+        engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
-
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        run_job()
+        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
+                                    single_thread):
+            # join them back together so that we wait for all threads to
+            # complete
+            each.join()
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
+                              f'get this far.')
+    # Here we handle what we do when the unexpected happens
+    except SystemExit as err:
+        # This is what we use to handle our sys.exit(#)
+        sys.exit(err)
 
-        #elapsed_minutes = time_elapsed()
-        print_info('script took {:.2f} minutes to get this far.'.format(
-            time_elapsed()))
+    except dlpx_exceptions.DlpxException as err:
+        # We use this exception handler when an error occurs in a function
+        # call.
+        dx_logging.print_exception(f'ERROR: Please check the ERROR message '
+                                   f'below:\n {err.error}')
+        sys.exit(2)
 
-    #Here we handle what we do when the unexpected happens
-    except SystemExit as e:
-        """
-        This is what we use to handle our sys.exit(#)
-        """
-        sys.exit(e)
+    except exceptions.HttpError as err:
+        # We use this exception handler when our connection to Delphix fails
+        dx_logging.print_exception(
+            f'ERROR: Connection failed to the Delphix DDP. Please check '
+            f'the ERROR message below:\n{err.status}')
+        sys.exit(2)
 
-    except HttpError as e:
-        """
-        We use this exception handler when our connection to Delphix fails
-        """
-        print_exception('Connection failed to the Delphix Engine'
-                        'Please check the ERROR message:\n{}\n').format(e)
-        sys.exit(1)
-
-    except JobError as e:
-        """
-        We use this exception handler when a job fails in Delphix so that
-        we have actionable data
-        """
-        elapsed_minutes = time_elapsed()
-        print_exception('A job failed in the Delphix Engine')
-        print_info('{} took {:.2f} minutes to get this far:\n{}\n'.format(
-                   basename(__file__), elapsed_minutes, e))
+    except exceptions.JobError as err:
+        # We use this exception handler when a job fails in Delphix so that we
+        # have actionable data
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_exception(
+            f'A job failed in the Delphix Engine:\n{err.job}.'
+            f'{basename(__file__)} took {elapsed_minutes} minutes to get '
+            f'this far')
         sys.exit(3)
 
     except KeyboardInterrupt:
-        """
-        We use this exception handler to gracefully handle ctrl+c exits
-        """
-        print_debug("You sent a CTRL+C to interrupt the process")
-        elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far\n'.format(
-                   basename(__file__), elapsed_minutes))
+        # We use this exception handler to gracefully handle ctrl+c exits
+        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        elapsed_minutes = run_job.time_elapsed(time_start)
+        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
+                              f'minutes to get this far.')
 
-    except:
-        """
-        Everything else gets caught here
-        """
-        print_exception(sys.exc_info()[0])
-        elapsed_minutes = time_elapsed()
-        print_info('{} took {:.2f} minutes to get this far\n'.format(
-                   basename(__file__), elapsed_minutes))
-        sys.exit(1)
 
 if __name__ == "__main__":
-    # Grab our arguments from the doc at the top of the script
-    arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
-    # Feed our arguments to the main function, and off we go!
-    raise NotImplementedError
-    main(arguments)
+    # Grab our ARGUMENTS from the doc at the top of the script
+    ARGUMENTS = docopt.docopt(__doc__,
+                              version=basename(__file__) + " " + VERSION)
+    # Feed our ARGUMENTS to the main function, and off we go!
+    main()

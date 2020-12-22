@@ -17,7 +17,7 @@ from delphixpy.v1_10_2.web import group
 
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.3.002'
 
 
 def convert_timestamp(engine, timestamp):
@@ -134,11 +134,11 @@ def find_db_repo(engine, install_type, f_environment_ref, f_install_path):
         if install_type == 'OracleInstall':
             if (install_type == obj.type and
                     obj.installation_home == f_install_path):
-                return obj
+                return obj.reference
         elif install_type == 'MSSqlInstance':
             if (obj.type == install_type and
                     obj.instance_name == f_install_path):
-                return obj
+                return obj.reference
         else:
             raise dlpx_exceptions.DlpxException(
                 f'Only OracleInstall or MSSqlInstance types are supported.\n')
@@ -234,3 +234,18 @@ def build_data_source_params(dlpx_obj, obj, data_source):
     except exceptions.RequestError as err:
         raise dlpx_exceptions.DlpxObjectNotFound(
             f'\nCould not find {data_source}\n{err}')
+
+
+def find_all_objects(engine, f_class):
+    """
+    Return all objects from a given class
+    :param engine: A Delphix engine session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param f_class: The objects class. I.E. database or timeflow.
+    :return: generator
+    """
+    try:
+        yield f_class.get_all(engine)
+    except (exceptions.JobError, exceptions.HttpError) as err:
+        raise dlpx_exceptions.DlpxException(
+            f'{engine.address} Error encountered in {f_class}: {err}\n')

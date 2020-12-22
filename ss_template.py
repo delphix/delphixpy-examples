@@ -51,10 +51,10 @@ Options:
   -v --version              Show version.
 """
 
-from docopt import docopt
 from os.path import basename
 import sys
 import time
+from docopt import docopt
 
 from delphixpy.v1_10_2.web import selfservice
 from delphixpy.v1_10_2.web import database

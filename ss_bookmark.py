@@ -83,7 +83,7 @@ from lib import run_job
 from lib.run_async import run_async
 
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.3.002'
 
 
 def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,
@@ -273,7 +273,7 @@ def delete_bookmark(dlpx_obj, bookmark_name):
         dx_logging.print_info(f'{bookmark_name} was deleted successfully.')
     except (dlpx_exceptions.DlpxException, exceptions.HttpError,
             exceptions.RequestError) as err:
-        dx_logging.print_exception(f'\nERROR: The bookmark {bookmark_name} '
+        dx_logging.print_exception(f'ERROR: The bookmark {bookmark_name} '
                                    f'was not deleted. The error was:\n{err}')
 
 
