@@ -334,7 +334,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in ss_bookmark:'
-                                   f'{engine["hostname"]}\n{err}')
+                                   f'{engine["ip_address"]}\n{err}')
     run_job.find_job_state(engine, dlpx_obj)
 
 
