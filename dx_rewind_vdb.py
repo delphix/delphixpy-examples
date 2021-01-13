@@ -59,7 +59,7 @@ import time
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
-from delphixpy.v1_10_2 import web
+from delphixpy.v1_10_2.web import database
 from delphixpy.v1_8_0.web import vo
 
 from lib import dlpx_exceptions
@@ -70,7 +70,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.000'
+VERSION = 'v.0.3.003'
 
 
 def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
@@ -88,7 +88,7 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
     engine_name = dlpx_obj.dlpx_ddps['engine_name']
     dx_timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
     container_obj = get_references.find_obj_by_name(
-        dlpx_obj.server_session, web.database, vdb_name)
+        dlpx_obj.server_session, database, vdb_name)
     # Sanity check to make sure our container object has a reference
     if container_obj.reference:
         try:
@@ -115,8 +115,8 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
                                                timestamp)
         try:
             # Rewind the VDB
-            web.database.rollback(dlpx_obj.server_session,
-                                  container_obj.reference, rewind_params)
+            database.rollback(dlpx_obj.server_session,
+                              container_obj.reference, rewind_params)
             dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
         except (exceptions.RequestError, exceptions.HttpError,
                 exceptions.JobError) as err:
@@ -128,6 +128,7 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
     else:
         dx_logging.print_info(f'{engine_name}: {container_obj.name} is not '
                               f'enabled. Skipping sync.')
+
 
 @run_async
 def main_workflow(engine, dlpx_obj, single_thread):
@@ -162,12 +163,12 @@ def main_workflow(engine, dlpx_obj, single_thread):
                                     ARGUMENTS['--timestamp_type']
                                     )
                     thingstodo.pop()
+                    run_job.find_job_state(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxException, dlpx_exceptions.DlpxObjectNotFound,
             exceptions.RequestError, exceptions.JobError,
             exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in dx_rewind_vdb:'
                                    f'{engine["ip_address"]}\n{err}')
-        run_job.find_job_state(engine, dlpx_obj)
 
 
 def main():

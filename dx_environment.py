@@ -100,7 +100,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.612'
+VERSION = 'v.0.3.613'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -322,7 +322,7 @@ def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
     :param ip_addr: DNS name or IP address of the environment
     :type ip_addr: str
     :param passwd: Password of the user. Default: None (use SSH keys instead)
-    :type passed: str
+    :type passwd: str
     :param connector_name: Name of the Delphix connector
     :type connector_name: str
     """
@@ -393,7 +393,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         host_name = ARGUMENTS['--connector_name']
                         create_windows_env(dlpx_obj, env_name, host_user,
                                            ip_addr, passwd, host_name)
-                    if ARGUMENTS['--type'] == 'linux':
+                    elif ARGUMENTS['--type'] == 'linux':
                         toolkit_path = ARGUMENTS['--toolkit']
                         create_linux_env(dlpx_obj, env_name, host_user,
                                          ip_addr, toolkit_path, passwd)
@@ -412,12 +412,12 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     elif ARGUMENTS['--disable']:
                         disable_environment(dlpx_obj, ARGUMENTS['--env_name'])
                     thingstodo.pop()
+                    run_job.find_job_state(engine, dlpx_obj)
 
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in dx_environment: '
                                    f'{engine["hostname"]}\n{err}')
-        run_job.find_job_state(engine, dlpx_obj)
 
 
 def main():

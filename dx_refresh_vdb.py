@@ -136,10 +136,10 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
         except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
             raise dlpx_exceptions.DlpxObjectNotFound(
                 f'ERROR: Could not set timeflow point:\n{err}')
-        # Don't do anything if the database is disabled
-        else:
-            dx_logging.print_info(f'INFO: {container_obj.name} is not '
-                                  f'enabled. Skipping sync.\n')
+    # Don't do anything if the database is disabled
+    else:
+        dx_logging.print_info(f'INFO: {container_obj.name} is not '
+                              f'enabled. Skipping sync.\n')
 
 
 @run_async
@@ -173,12 +173,12 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         dlpx_obj, ARGUMENTS['--vdb'], ARGUMENTS['--timestamp'],
                         ARGUMENTS['--timestamp_type'])
                 thingstodo.pop()
+                run_job.find_job_state(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxException, dlpx_exceptions.DlpxObjectNotFound,
             exceptions.RequestError, exceptions.JobError,
             exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in dx_refresh_vdb:'
-                                   f'{engine["hostname"]}\n{err}')
-        run_job.find_job_state(engine, dlpx_obj)
+                                   f'{engine["ip_address"]}\n{err}')
 
 
 def main():
