@@ -7,3 +7,5 @@
 *.DS_Store
 dxtools.conf*
 venv
+.DS_Store
+**/.idea

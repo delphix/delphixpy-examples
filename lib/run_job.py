@@ -30,11 +30,9 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
         dx_logging.print_info(f'Executing against all Delphix DDPs')
         try:
             for delphix_ddp in dx_obj.dlpx_ddps:
-                yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
-                                single_thread)
+                yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
         except dlpx_exceptions.DlpxException as err:
-            dx_logging.print_exception(f'Error encountered in run_job():'
-                                       f'\n{err}')
+            dx_logging.print_exception(f'Error encountered in run_job():\n{err}')
     elif engine == 'default':
         try:
             for delphix_ddp in dx_obj.dlpx_ddps.keys():
@@ -43,8 +41,7 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
                     dx_obj_default.dlpx_ddps = {
                         delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
                     dx_logging.print_info(f'Executing against default DDP')
-                    yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
-                                    single_thread)
+                    yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
                 break
         except TypeError as err:
             raise dlpx_exceptions.DlpxException(f'Error in run_job: {err}')
@@ -53,7 +50,7 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
         try:
             yield main_func(dx_obj.dlpx_ddps[engine], dx_obj, single_thread)
             dx_logging.print_info(f'Executing against Delphix DDP: '
-                                  f'{dx_obj.dlpx_engines[engine]}')
+                                  f'{dx_obj.dlpx_ddps[engine]}')
         except (exceptions.RequestError, KeyError):
             raise dlpx_exceptions.DlpxException(
                 f'\nERROR: Delphix DDP {engine} cannot be found. Please '
@@ -76,13 +73,10 @@ def find_job_state(engine, dx_obj, poll=10):
     # get all the jobs, then inspect them
     i = 0
     for j in dx_obj.jobs.keys():
-        job_obj = job.get(dx_obj.server_session,
-                          dx_obj.jobs[j])
+        job_obj = job.get(dx_obj.server_session, dx_obj.jobs[j])
         dx_logging.print_debug(job_obj)
-        dx_logging.print_info(
-            f'{engine["ddp_identifier"]}: Running job: {job_obj.job_state}')
-        if job_obj.job_state in ['CANCELED', 'COMPLETED',
-                                 'FAILED']:
+        dx_logging.print_info( f'{engine["ddp_identifier"]}: Running job: {job_obj.job_state}')
+        if job_obj.job_state in ['CANCELED', 'COMPLETED', 'FAILED']:
             # If the job is in a non-running state, remove it
             # from the running jobs list.
             del dx_obj.jobs[j]
@@ -90,13 +84,35 @@ def find_job_state(engine, dx_obj, poll=10):
             # If the job is in a running state, increment the
             # running job count.
             i += 1
-        dx_logging.print_info(f'{engine["ddp_identifier"]}: '
-                              f'{i} jobs running.')
+        dx_logging.print_info(f'{engine["ddp_identifier"]}: {i} jobs running.')
         # If we have running jobs, pause before repeating the
         # checks.
         if dx_obj.jobs:
             time.sleep(poll)
 
+
+def find_job_state_by_jobid(engine, dx_obj,job_id, poll=20):
+    """
+    Retrieves running job state
+    :param engine: Dictionary containing info on the DDP (IP, username, etc.)
+    :param poll: How long to sleep between querying jobs
+    :param dx_obj: Delphix session object from config
+    :type dx_obj: lib.get_session.GetSession object
+    :param job_id: Job ID to check the state
+    :type poll: int
+    :return:
+    """
+    # get the job object
+    job_obj = job.get(dx_obj.server_session, job_id)
+    dx_logging.print_debug(job_obj)
+    dx_logging.print_info(f' Polling for : {job_id} to finish')
+    while job_obj.job_state == 'RUNNING':
+        time.sleep(poll)
+        job_obj = job.get(dx_obj.server_session, job_id)
+    dx_logging.print_info(f'Job: {job_id} completed with status: {job_obj.job_state}')
+    if job_obj.job_state =='FAILED':
+        raise dlpx_exceptions.DlpxException('Job: {job_id} failed. Please check the error and retry.')
+    # TODO: Pass the error message back to calling function.
 
 def time_elapsed(time_start):
     """
