@@ -5,9 +5,8 @@ import time
 
 from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2.web import job
-
-from lib import dx_logging
 from lib import dlpx_exceptions
+from lib import dx_logging
 
 
 def run_job(main_func, dx_obj, engine='default', single_thread=True):

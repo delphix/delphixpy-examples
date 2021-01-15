@@ -4,17 +4,16 @@
 Unit tests for DPP GetSession
 """
 
-import unittest
-import types
-from io import StringIO
-import sys
 import os
 import ssl
+import sys
+import types
+import unittest
+from io import StringIO
 
 from delphixpy.v1_10_2.web import database
-
-from lib.get_session import GetSession
 from lib import get_references
+from lib.get_session import GetSession
 
 
 class GetSessionTests(unittest.TestCase):

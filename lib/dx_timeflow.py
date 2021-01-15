@@ -7,16 +7,15 @@ import sys
 from distutils.version import LooseVersion
 
 from delphixpy.v1_10_2 import exceptions
+from delphixpy.v1_10_2 import job_context
+from delphixpy.v1_10_2.web import database
 from delphixpy.v1_10_2.web import snapshot
 from delphixpy.v1_10_2.web import timeflow
-from delphixpy.v1_10_2.web import database
-from delphixpy.v1_10_2 import job_context
-from delphixpy.v1_10_2.web.timeflow import bookmark
 from delphixpy.v1_10_2.web import vo
-
+from delphixpy.v1_10_2.web.timeflow import bookmark
 from lib import dlpx_exceptions
-from lib import get_references
 from lib import dx_logging
+from lib import get_references
 
 VERSION = "v.0.3.000"
 

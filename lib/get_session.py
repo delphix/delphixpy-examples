@@ -9,15 +9,14 @@
 """
 
 import json
-import ssl
 import os
+import ssl
 from time import sleep
 
-from delphixpy.v1_10_2.delphix_engine import DelphixEngine
-from delphixpy.v1_10_2 import web
 from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2 import job_context
-
+from delphixpy.v1_10_2 import web
+from delphixpy.v1_10_2.delphix_engine import DelphixEngine
 from lib import dlpx_exceptions
 from lib import dx_logging
 

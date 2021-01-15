@@ -4,15 +4,14 @@
 Unit tests for DPP Timeflows
 """
 
-import unittest
-import types
-from io import StringIO
 import sys
+import types
+import unittest
+from io import StringIO
 
 from delphixpy.v1_10_2 import web
-
-from lib.get_session import GetSession
 from lib import get_references
+from lib.get_session import GetSession
 
 
 class GetReferencesTests(unittest.TestCase):
