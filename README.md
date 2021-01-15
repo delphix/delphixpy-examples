@@ -67,6 +67,19 @@ The two main autoformatters that we use are
  - `black`: General Python formatting
  - `isort`: Import sorting
 
+
+### Unittests
+
+The unittests are run through the `tox` tool. To run in Python2 run:
+```
+tox -e py27
+```
+
+To run in Python3 run:
+```
+tox -e py36
+```
+
 ## Statement of Support
 
 This software is provided as-is, without warranty of any kind or
