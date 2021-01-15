@@ -56,35 +56,36 @@ Options:
 
 VERSION="v.0.0.015"
 
-from docopt import docopt
-from os.path import basename
+import re
 import sys
 import traceback
-import re
-from time import time, sleep
+from os.path import basename
+from time import sleep
+from time import time
 
+from docopt import docopt
+
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web.jetstream import bookmark
 from delphixpy.v1_8_0.web.jetstream import branch
 from delphixpy.v1_8_0.web.jetstream import container
-from delphixpy.v1_8_0.web.jetstream import template
 from delphixpy.v1_8_0.web.jetstream import operation
-from delphixpy.v1_8_0.web.jetstream import bookmark
+from delphixpy.v1_8_0.web.jetstream import template
+from delphixpy.v1_8_0.web.vo import JSBranch
 from delphixpy.v1_8_0.web.vo import JSBranchCreateParameters
 from delphixpy.v1_8_0.web.vo import JSTimelinePointBookmarkInput
 from delphixpy.v1_8_0.web.vo import JSTimelinePointLatestTimeInput
-from delphixpy.v1_8_0.web.vo import JSBranch
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
-
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_obj_name
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_obj_name
+from lib.GetSession import GetSession
 
 
 def create_branch(dlpx_obj, branch_name, container_name, template_name=None,

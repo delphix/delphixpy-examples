@@ -4,10 +4,11 @@
 Unit tests for DVE authorizations
 """
 
-import unittest
 import sys
+import unittest
 
 import dx_authorization
+
 from lib.GetSession import GetSession
 
 

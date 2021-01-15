@@ -4,14 +4,13 @@
 # Copyright (c) 2018 by Delphix. All rights reserved.
 #
 
+import argparse
+import httplib
+import json
 import os
 import sys
-import json
-import argparse
-from argparse import RawTextHelpFormatter
 import urllib
-import httplib
-
+from argparse import RawTextHelpFormatter
 
 SCRIPT_DESCRIPTION = """\
 Connect to Delphix engine to run some queries using the http lib library

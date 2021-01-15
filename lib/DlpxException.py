@@ -4,6 +4,7 @@ Custom exception class for delphixpy scripts
 
 from DxLogging import print_exception
 
+
 class DlpxException(Exception):
     """
     Delphix Exception class. Exit signals are handled by calling method.

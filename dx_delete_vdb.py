@@ -57,23 +57,33 @@ Options:
 VERSION="v.0.0.001"
 
 
-from docopt import docopt
+import json
 import logging
-from os.path import basename
 import signal
 import sys
 import time
 import traceback
-import json
-
 from multiprocessing import Process
-from time import sleep, time
+from os.path import basename
+from time import sleep
+from time import time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from docopt import docopt
+
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import database, environment, group, job, source, user
-from delphixpy.v1_6_0.web.vo import ASESpecificBackupSyncParameters, ASENewBackupSyncParameters, ASELatestBackupSyncParameters, MSSqlSyncParameters
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
+from delphixpy.v1_6_0.web import database
+from delphixpy.v1_6_0.web import environment
+from delphixpy.v1_6_0.web import group
+from delphixpy.v1_6_0.web import job
+from delphixpy.v1_6_0.web import source
+from delphixpy.v1_6_0.web import user
+from delphixpy.v1_6_0.web.vo import ASELatestBackupSyncParameters
+from delphixpy.v1_6_0.web.vo import ASENewBackupSyncParameters
+from delphixpy.v1_6_0.web.vo import ASESpecificBackupSyncParameters
+from delphixpy.v1_6_0.web.vo import MSSqlSyncParameters
 
 
 def find_obj_by_name(engine, server, f_class, obj_name):

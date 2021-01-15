@@ -5,22 +5,31 @@ This script configures the Delphix Engine networking.
 '''
 VERSION="v.2.3.002"
 
+import errno
 import getopt
 import logging
-from os.path import basename
 import signal
 import sys
 import time
 import traceback
-
-import errno
+from os.path import basename
 from socket import error as socket_error
 
 from delphixpy.v1_8_0.delphix_engine import DelphixEngine
-from delphixpy.v1_8_0.exceptions import HttpError, JobError
-from delphixpy.v1_8_0.web import network, system, user, service
-from delphixpy.v1_8_0.web.vo import PasswordCredential, User, NetworkInterface, \
-    InterfaceAddress, DNSConfig, SystemInfo, NetworkRoute
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.web import network
+from delphixpy.v1_8_0.web import service
+from delphixpy.v1_8_0.web import system
+from delphixpy.v1_8_0.web import user
+from delphixpy.v1_8_0.web.vo import DNSConfig
+from delphixpy.v1_8_0.web.vo import InterfaceAddress
+from delphixpy.v1_8_0.web.vo import NetworkInterface
+from delphixpy.v1_8_0.web.vo import NetworkRoute
+from delphixpy.v1_8_0.web.vo import PasswordCredential
+from delphixpy.v1_8_0.web.vo import SystemInfo
+from delphixpy.v1_8_0.web.vo import User
+
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
     '''

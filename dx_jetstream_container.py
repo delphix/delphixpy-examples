@@ -57,24 +57,30 @@ Options:
 VERSION="v.0.0.005"
 
 
-from docopt import docopt
+import json
 import logging
-from os.path import basename
 import signal
 import sys
+import threading
 import time
 import traceback
-import json
-import threading
-
 from multiprocessing import Process
-from time import sleep, time
+from os.path import basename
+from time import sleep
+from time import time
 
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from docopt import docopt
+
 from delphixpy.v1_6_0 import job_context
-from delphixpy.v1_6_0.web import jetstream, job
-from delphixpy.v1_6_0.web.vo import JSBookmark, JSBookmarkCreateParameters, JSTimelinePointLatestTimeInput 
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
+from delphixpy.v1_6_0.web import jetstream
+from delphixpy.v1_6_0.web import job
+from delphixpy.v1_6_0.web.vo import JSBookmark
+from delphixpy.v1_6_0.web.vo import JSBookmarkCreateParameters
+from delphixpy.v1_6_0.web.vo import JSTimelinePointLatestTimeInput
+
 #from delphixpy.v1_6_0.web.vo import 
 
 def run_async(func):

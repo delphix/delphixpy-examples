@@ -4,10 +4,11 @@
 Unit tests for DVE operations
 """
 
-import unittest
 import sys
+import unittest
 
 import dx_operations
+
 from lib.GetSession import GetSession
 
 

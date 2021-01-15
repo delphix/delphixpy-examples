@@ -4,21 +4,21 @@ Module that provides lookups of references and names of Delphix objects.
 
 import re
 from datetime import datetime
+
 from dateutil import tz
-
-from delphixpy.v1_8_0.web.service import time
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import HttpError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.web import repository
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import source
-from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web import sourceconfig
-
 from DlpxException import DlpxException
 from DxLogging import print_debug
 from DxLogging import print_exception
+
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import job
+from delphixpy.v1_8_0.web import repository
+from delphixpy.v1_8_0.web import source
+from delphixpy.v1_8_0.web import sourceconfig
+from delphixpy.v1_8_0.web.service import time
 
 VERSION = 'v.0.2.0019'
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.web import group, database
 from delphixpy.v1_6_0 import job_context
+from delphixpy.v1_6_0.delphix_engine import DelphixEngine
+from delphixpy.v1_6_0.web import database
+from delphixpy.v1_6_0.web import group
+
 group_name = "Dev Copies"
 #database_name = "Employee DB - Dev"
 

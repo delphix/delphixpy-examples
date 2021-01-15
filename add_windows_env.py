@@ -5,8 +5,12 @@ VERSION="v.0.0.001"
 
 from delphixpy.delphix_engine import DelphixEngine
 from delphixpy.web import environment
-from delphixpy.web.vo import HostEnvironmentCreateParameters, EnvironmentUser, PasswordCredential, \
-	WindowsHostEnvironment, WindowsHostCreateParameters, WindowsHost
+from delphixpy.web.vo import EnvironmentUser
+from delphixpy.web.vo import HostEnvironmentCreateParameters
+from delphixpy.web.vo import PasswordCredential
+from delphixpy.web.vo import WindowsHost
+from delphixpy.web.vo import WindowsHostCreateParameters
+from delphixpy.web.vo import WindowsHostEnvironment
 
 engine_address = "192.168.2.37"
 engine_username = "delphix_admin"
