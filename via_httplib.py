@@ -12,7 +12,7 @@ import sys
 import urllib
 from argparse import RawTextHelpFormatter
 
-SCRIPT_DESCRIPTION = """\
+SCRIPT_DESCRIPTION = """
 Connect to Delphix engine to run some queries using the http lib library
 """
 
