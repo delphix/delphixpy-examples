@@ -164,12 +164,20 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.0000'
+VERSION = "v.0.3.0000"
 
 
-def create_ora_sourceconfig(dlpx_obj, db_name, env_name, db_install_path,
-                            dx_group, db_user, ip_addr, dsource_name,
-                            port_num=1521):
+def create_ora_sourceconfig(
+    dlpx_obj,
+    db_name,
+    env_name,
+    db_install_path,
+    dx_group,
+    db_user,
+    ip_addr,
+    dsource_name,
+    port_num=1521,
+):
     """
     Create the sourceconfig used for provisioning an Oracle dSource
     :param dlpx_obj: DDP session object
@@ -192,20 +200,22 @@ def create_ora_sourceconfig(dlpx_obj, db_name, env_name, db_install_path,
     :type port_num: int
     """
     create_ret = None
-    engine_name = dlpx_obj.dlpx_ddps['engine_name']
+    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
     env_obj = get_references.find_obj_by_name(
-        dlpx_obj.server_session, environment, env_name)
+        dlpx_obj.server_session, environment, env_name
+    )
     port_num = str(port_num)
     try:
         sourceconfig_ref = get_references.find_obj_by_name(
-            dlpx_obj.server_session, sourceconfig, db_name)
+            dlpx_obj.server_session, sourceconfig, db_name
+        )
     except dlpx_exceptions.DlpxException:
         sourceconfig_ref = None
     repo_ref = get_references.find_db_repo(
-        dlpx_obj.server_session, 'OracleInstall', env_obj.reference,
-        db_install_path)
+        dlpx_obj.server_session, "OracleInstall", env_obj.reference, db_install_path
+    )
     dsource_params = vo.OracleSIConfig()
-    connect_str = f'jdbc:oracle:thin:@{ip_addr}:{port_num}:{db_name}'
+    connect_str = f"jdbc:oracle:thin:@{ip_addr}:{port_num}:{db_name}"
     dsource_params.database_name = db_name
     dsource_params.unique_name = db_name
     dsource_params.repository = repo_ref
@@ -216,39 +226,53 @@ def create_ora_sourceconfig(dlpx_obj, db_name, env_name, db_install_path,
     dsource_params.jdbcConnectionString = connect_str
     try:
         if sourceconfig_ref is None:
-            create_ret = sourceconfig.create(dlpx_obj.server_session,
-                                             dsource_params)
-            link_ora_dsource(dlpx_obj, create_ret, env_obj.primary_user,
-                             dx_group, db_user, dsource_name
-                             )
+            create_ret = sourceconfig.create(dlpx_obj.server_session, dsource_params)
+            link_ora_dsource(
+                dlpx_obj,
+                create_ret,
+                env_obj.primary_user,
+                dx_group,
+                db_user,
+                dsource_name,
+            )
         elif sourceconfig_ref is not None:
-            create_ret = link_ora_dsource(dlpx_obj, sourceconfig_ref,
-                                          env_obj.primary_user, dx_group,
-                                          db_user, dsource_name)
-        dx_logging.print_info(f'Created and linked the dSource {db_name} with '
-                              f'reference {create_ret}.\n')
+            create_ret = link_ora_dsource(
+                dlpx_obj,
+                sourceconfig_ref,
+                env_obj.primary_user,
+                dx_group,
+                db_user,
+                dsource_name,
+            )
+        dx_logging.print_info(
+            f"Created and linked the dSource {db_name} with "
+            f"reference {create_ret}.\n"
+        )
         link_job_ref = dlpx_obj.server_session.last_job
         link_job_obj = job.get(dlpx_obj.server_session, link_job_ref)
         while link_job_obj.job_state not in ["CANCELED", "COMPLETED", "FAILED"]:
-            dx_logging.print_info('Waiting three seconds for link job to'
-                                  'complete, and sync to begin')
+            dx_logging.print_info(
+                "Waiting three seconds for link job to" "complete, and sync to begin"
+            )
             time.sleep(3)
             link_job_obj = job.get(dlpx_obj.server_session, link_job_ref)
         # Add the snapsync job to the jobs dictionary
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-        dlpx_obj.jobs[engine_name] = \
-            get_references.get_running_job(dlpx_obj.server_session,
-                                           get_references.find_obj_by_name(
-                                               dlpx_obj.server_session,
-                                               database,
-                                               dsource_name).reference)
+        dlpx_obj.jobs[engine_name] = get_references.get_running_job(
+            dlpx_obj.server_session,
+            get_references.find_obj_by_name(
+                dlpx_obj.server_session, database, dsource_name
+            ).reference,
+        )
     except (exceptions.HttpError, exceptions.RequestError) as err:
-        raise dlpx_exceptions.DlpxException(f'ERROR: Could not create the'
-                                            f'sourceconfig:\n{err}')
+        raise dlpx_exceptions.DlpxException(
+            f"ERROR: Could not create the" f"sourceconfig:\n{err}"
+        )
 
 
-def link_ora_dsource(dlpx_obj, srcconfig_ref, primary_user_ref, dx_group,
-                     db_user, dsource_name):
+def link_ora_dsource(
+    dlpx_obj, srcconfig_ref, primary_user_ref, dx_group, db_user, dsource_name
+):
     """
     Link the dSource in Delphix
     :param dlpx_obj: DDP session object
@@ -270,25 +294,27 @@ def link_ora_dsource(dlpx_obj, srcconfig_ref, primary_user_ref, dx_group,
     link_params.link_data.sourcing_policy = vo.OracleSourcingPolicy()
     link_params.name = dsource_name
     link_params.group = get_references.find_obj_by_name(
-        dlpx_obj.server_session, group, dx_group).reference
+        dlpx_obj.server_session, group, dx_group
+    ).reference
     link_params.link_data.compressedLinkingEnabled = True
     link_params.link_data.environment_user = primary_user_ref
     link_params.link_data.db_user = db_user
-    link_params.link_data.number_of_connections = \
-        int(ARGUMENTS['--num_connections'])
-    link_params.link_data.link_now = bool(ARGUMENTS['--link_now'])
-    link_params.link_data.files_per_set = int(ARGUMENTS['--files_per_set'])
-    link_params.link_data.rman_channels = int(ARGUMENTS['--rman_channels'])
-    link_params.link_data.db_credentials = {'type': 'PasswordCredential',
-                                            'password':
-                                                ARGUMENTS['--db_passwd']}
+    link_params.link_data.number_of_connections = int(ARGUMENTS["--num_connections"])
+    link_params.link_data.link_now = bool(ARGUMENTS["--link_now"])
+    link_params.link_data.files_per_set = int(ARGUMENTS["--files_per_set"])
+    link_params.link_data.rman_channels = int(ARGUMENTS["--rman_channels"])
+    link_params.link_data.db_credentials = {
+        "type": "PasswordCredential",
+        "password": ARGUMENTS["--db_passwd"],
+    }
     link_params.link_data.sourcing_policy.logsync_enabled = True
     link_params.link_data.config = srcconfig_ref
     try:
         return database.link(dlpx_obj.server_session, link_params)
     except (exceptions.RequestError, exceptions.HttpError) as err:
-        raise dlpx_exceptions.DlpxException(f'Database link failed for '
-                                            f'{dsource_name}:\n{err}\n')
+        raise dlpx_exceptions.DlpxException(
+            f"Database link failed for " f"{dsource_name}:\n{err}\n"
+        )
 
 
 # def link_mssql_dsource(dlpx_obj, dsource_name, stage_env, stage_instance,
@@ -427,6 +453,7 @@ def link_ora_dsource(dlpx_obj, srcconfig_ref, primary_user_ref, dx_group,
 #                                            f'{dsource_name}:\n{err}')
 #
 
+
 @run_async
 def main_workflow(engine, dlpx_obj, single_thread):
     """
@@ -443,57 +470,74 @@ def main_workflow(engine, dlpx_obj, single_thread):
     """
     try:
         # Setup the connection to the Delphix DDP
-        dlpx_obj.dlpx_session(engine['ip_address'], engine['username'],
-                              engine['password'])
+        dlpx_obj.dlpx_session(
+            engine["ip_address"], engine["username"], engine["password"]
+        )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f'ERROR: {basename(__file__)} encountered an error authenticating'
-            f' to {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}')
-    thingstodo = ['thingstodo']
+            f"ERROR: {basename(__file__)} encountered an error authenticating"
+            f' to {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}'
+        )
+    thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
             while dlpx_obj.jobs or thingstodo:
                 if thingstodo:
-                    if ARGUMENTS['--type'].lower() == 'oracle':
+                    if ARGUMENTS["--type"].lower() == "oracle":
                         create_ora_sourceconfig(
-                            dlpx_obj, ARGUMENTS['--db_name'],
-                            ARGUMENTS['--env_name'],
-                            ARGUMENTS['--db_install_path'],
-                            ARGUMENTS['--dx_group'], ARGUMENTS['--dx_user'],
-                            ARGUMENTS['--ip_addr'], ARGUMENTS['--dsource_name']
+                            dlpx_obj,
+                            ARGUMENTS["--db_name"],
+                            ARGUMENTS["--env_name"],
+                            ARGUMENTS["--db_install_path"],
+                            ARGUMENTS["--dx_group"],
+                            ARGUMENTS["--dx_user"],
+                            ARGUMENTS["--ip_addr"],
+                            ARGUMENTS["--dsource_name"],
                         )
-                    elif ARGUMENTS['--type'].lower() == 'sybase':
+                    elif ARGUMENTS["--type"].lower() == "sybase":
                         ase_obj = dsource_link_ase.DsourceLinkASE(
-                            dlpx_obj, ARGUMENTS['--dsource_name'],
-                            ARGUMENTS['--db_passwd'], ARGUMENTS['--db_user'],
-                            ARGUMENTS['--dx_group'], ARGUMENTS['--logsync'],
-                            ARGUMENTS['--type']
+                            dlpx_obj,
+                            ARGUMENTS["--dsource_name"],
+                            ARGUMENTS["--db_passwd"],
+                            ARGUMENTS["--db_user"],
+                            ARGUMENTS["--dx_group"],
+                            ARGUMENTS["--logsync"],
+                            ARGUMENTS["--type"],
                         )
                         ase_obj.link_ase_dsource(
-                            ARGUMENTS['--backup_path'],
-                            ARGUMENTS['--bck_file'],
-                            ARGUMENTS['--create_backup'],
-                            ARGUMENTS['--env_name'], ARGUMENTS['--stage_repo']
+                            ARGUMENTS["--backup_path"],
+                            ARGUMENTS["--bck_file"],
+                            ARGUMENTS["--create_backup"],
+                            ARGUMENTS["--env_name"],
+                            ARGUMENTS["--stage_repo"],
                         )
-                    elif ARGUMENTS['--type'].lower() == 'mssql':
+                    elif ARGUMENTS["--type"].lower() == "mssql":
                         mssql_obj = dsource_link_mssql.DsourceLinkMssql(
-                            dlpx_obj, ARGUMENTS['--dsource_name'],
-                            ARGUMENTS['--db_passwd'], ARGUMENTS['--db_user'],
-                            ARGUMENTS['--dx_group'], ARGUMENTS['--logsync'],
-                            ARGUMENTS['--type']
+                            dlpx_obj,
+                            ARGUMENTS["--dsource_name"],
+                            ARGUMENTS["--db_passwd"],
+                            ARGUMENTS["--db_user"],
+                            ARGUMENTS["--dx_group"],
+                            ARGUMENTS["--logsync"],
+                            ARGUMENTS["--type"],
                         )
                         mssql_obj.link_mssql_dsource(
-                            ARGUMENTS['--stage_env'],
-                            ARGUMENTS['--stage_instance'],
-                            ARGUMENTS['--backup_path'],
-                            ARGUMENTS['--backup_loc_passwd'],
-                            ARGUMENTS['--backup_loc_user']
+                            ARGUMENTS["--stage_env"],
+                            ARGUMENTS["--stage_instance"],
+                            ARGUMENTS["--backup_path"],
+                            ARGUMENTS["--backup_loc_passwd"],
+                            ARGUMENTS["--backup_loc_user"],
                         )
                     thingstodo.pop()
-    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
-            exceptions.JobError, exceptions.HttpError) as err:
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.RequestError,
+        exceptions.JobError,
+        exceptions.HttpError,
+    ) as err:
         dx_logging.print_exception(
-            f'Error in {basename(__file__)}: {engine["hostname"]}\n{err}')
+            f'Error in {basename(__file__)}: {engine["hostname"]}\n{err}'
+        )
     run_job.find_job_state(engine, dlpx_obj)
 
 
@@ -504,21 +548,23 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS['--logdir'])
-        config_file_path = ARGUMENTS['--config']
-        single_thread = ARGUMENTS['--single_thread']
-        engine = ARGUMENTS['--engine']
+        dx_logging.logging_est(ARGUMENTS["--logdir"])
+        config_file_path = ARGUMENTS["--config"]
+        single_thread = ARGUMENTS["--single_thread"]
+        engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
-                                    single_thread):
+        for each in run_job.run_job(
+            main_workflow, dx_session_obj, engine, single_thread
+        ):
             # join them back together so that we wait for all threads to
             # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
-                              f'get this far.')
+        dx_logging.print_info(
+            f"script took {elapsed_minutes} minutes to " f"get this far."
+        )
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
@@ -527,15 +573,17 @@ def main():
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function
         # call.
-        dx_logging.print_exception(f'ERROR: Please check the ERROR message '
-                                   f'below:\n {err.error}')
+        dx_logging.print_exception(
+            f"ERROR: Please check the ERROR message " f"below:\n {err.error}"
+        )
         sys.exit(2)
 
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         dx_logging.print_exception(
-            f'ERROR: Connection failed to the Delphix DDP. Please check '
-            f'the ERROR message below:\n{err.status}')
+            f"ERROR: Connection failed to the Delphix DDP. Please check "
+            f"the ERROR message below:\n{err.status}"
+        )
         sys.exit(2)
 
     except exceptions.JobError as err:
@@ -543,22 +591,23 @@ def main():
         # have actionable data
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
-            f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get '
-            f'this far')
+            f"A job failed in the Delphix Engine:\n{err.job}."
+            f"{basename(__file__)} took {elapsed_minutes} minutes to get "
+            f"this far"
+        )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
-                              f'minutes to get this far.')
+        dx_logging.print_info(
+            f"{basename(__file__)} took {elapsed_minutes} " f"minutes to get this far."
+        )
 
 
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script
-    ARGUMENTS = docopt.docopt(__doc__,
-                              version=basename(__file__) + " " + VERSION)
+    ARGUMENTS = docopt.docopt(__doc__, version=basename(__file__) + " " + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

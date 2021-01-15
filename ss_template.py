@@ -68,7 +68,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.000'
+VERSION = "v.0.3.000"
 
 
 def create_template(dlpx_obj, template_name, database_name):
@@ -84,19 +84,25 @@ def create_template(dlpx_obj, template_name, database_name):
     ss_template_params = vo.JSDataTemplateCreateParameters()
     ss_template_params.name = template_name
     template_ds_lst = []
-    template_ref = ''
-    engine_name = dlpx_obj.dlpx_ddps['engine_name']
-    for data_set in database_name.split(':'):
-        template_ds_lst.append(get_references.build_data_source_params(
-            dlpx_obj, database, data_set))
+    template_ref = ""
+    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
+    for data_set in database_name.split(":"):
+        template_ds_lst.append(
+            get_references.build_data_source_params(dlpx_obj, database, data_set)
+        )
     ss_template_params.data_sources = template_ds_lst
     try:
-        template_ref = selfservice.template.create(dlpx_obj.server_session,
-                                                   ss_template_params)
-    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
-            exceptions.HttpError) as err:
-        dx_logging.print_exception(f'The template {template_name} was not '
-                                   f'created:\n{err}')
+        template_ref = selfservice.template.create(
+            dlpx_obj.server_session, ss_template_params
+        )
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.RequestError,
+        exceptions.HttpError,
+    ) as err:
+        dx_logging.print_exception(
+            f"The template {template_name} was not " f"created:\n{err}"
+        )
     dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
     return template_ref
 
@@ -107,20 +113,26 @@ def list_templates(dlpx_obj):
     :param dlpx_obj: DDP session object
     :type dlpx_obj: lib.GetSession.GetSession object
     """
-    header = 'Name, Reference, Active Branch, Last Updated'
+    header = "Name, Reference, Active Branch, Last Updated"
     try:
         print(header)
         ss_templates = selfservice.template.get_all(dlpx_obj.server_session)
         for ss_template in ss_templates:
             last_updated = get_references.convert_timestamp(
-                dlpx_obj.server_session, ss_template.last_updated[:-5])
+                dlpx_obj.server_session, ss_template.last_updated[:-5]
+            )
             dx_logging.print_info(
-                f'{ss_template.name}, {ss_template.reference},'
-                f'{ss_template.active_branch},{last_updated}')
-    except (dlpx_exceptions.DlpxException, exceptions.HttpError,
-            exceptions.RequestError) as err:
+                f"{ss_template.name}, {ss_template.reference},"
+                f"{ss_template.active_branch},{last_updated}"
+            )
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.HttpError,
+        exceptions.RequestError,
+    ) as err:
         raise dlpx_exceptions.DlpxException(
-            f'ERROR: The templates could not be listed:\n{err}')
+            f"ERROR: The templates could not be listed:\n{err}"
+        )
 
 
 def delete_template(dlpx_obj, template_name):
@@ -133,14 +145,17 @@ def delete_template(dlpx_obj, template_name):
     """
     try:
         template_ref = get_references.find_obj_by_name(
-            dlpx_obj.server_session, selfservice.template,
-            template_name).reference
-        selfservice.template.delete(dlpx_obj.server_session,
-                                    template_ref)
-    except (dlpx_exceptions.DlpxException, exceptions.HttpError,
-            exceptions.RequestError) as err:
-        dx_logging.print_exception(f'\nERROR: The template {template_name} '
-                                   f'was not deleted:\n{err}')
+            dlpx_obj.server_session, selfservice.template, template_name
+        ).reference
+        selfservice.template.delete(dlpx_obj.server_session, template_ref)
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.HttpError,
+        exceptions.RequestError,
+    ) as err:
+        dx_logging.print_exception(
+            f"\nERROR: The template {template_name} " f"was not deleted:\n{err}"
+        )
 
 
 @run_async
@@ -159,37 +174,47 @@ def main_workflow(engine, dlpx_obj, single_thread):
     """
     try:
         # Setup the connection to the Delphix Engine
-        dlpx_obj.serversess(engine['ip_address'], engine['username'],
-                            engine['password'])
+        dlpx_obj.serversess(
+            engine["ip_address"], engine["username"], engine["password"]
+        )
     except dlpx_exceptions.DlpxObjectNotFound as err:
         dx_logging.print_exception(
             f'ERROR: Engine {dlpx_obj.dlpx_engines["hostname"]} encountered '
-            f'an error while creating the session:\n{err}\n')
+            f"an error while creating the session:\n{err}\n"
+        )
     thingstodo = ["thingtodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
             while dlpx_obj.jobs or thingstodo:
                 if thingstodo:
-                    if ARGUMENTS['--create_template']:
+                    if ARGUMENTS["--create_template"]:
                         template_ref = create_template(
-                            dlpx_obj, ARGUMENTS['--create_template'],
-                            ARGUMENTS['--database'])
+                            dlpx_obj,
+                            ARGUMENTS["--create_template"],
+                            ARGUMENTS["--database"],
+                        )
                         dx_logging.print_info(
                             f'Template {ARGUMENTS["--create_template"]} '
-                            f'was created successfully. Reference: '
-                            f'{template_ref}\n')
-                    elif ARGUMENTS['--delete_template']:
-                        delete_template(dlpx_obj,
-                                        ARGUMENTS['--delete_template'])
-                        print(f'Template {ARGUMENTS["--delete_template"]} '
-                              f'is deleted.')
-                    elif ARGUMENTS['--list_templates']:
+                            f"was created successfully. Reference: "
+                            f"{template_ref}\n"
+                        )
+                    elif ARGUMENTS["--delete_template"]:
+                        delete_template(dlpx_obj, ARGUMENTS["--delete_template"])
+                        print(
+                            f'Template {ARGUMENTS["--delete_template"]} ' f"is deleted."
+                        )
+                    elif ARGUMENTS["--list_templates"]:
                         list_templates(dlpx_obj)
                     thingstodo.pop()
-    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
-            exceptions.JobError, exceptions.HttpError) as err:
-        dx_logging.print_exception(f'Error in ss_template: '
-                                   f'{engine["hostname"]}:\n{err}')
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.RequestError,
+        exceptions.JobError,
+        exceptions.HttpError,
+    ) as err:
+        dx_logging.print_exception(
+            f"Error in ss_template: " f'{engine["hostname"]}:\n{err}'
+        )
 
 
 def main():
@@ -199,52 +224,60 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS['--logdir'])
-        config_file_path = ARGUMENTS['--config']
-        single_thread = ARGUMENTS['--single_thread']
-        engine = ARGUMENTS['--engine']
+        dx_logging.logging_est(ARGUMENTS["--logdir"])
+        config_file_path = ARGUMENTS["--config"]
+        single_thread = ARGUMENTS["--single_thread"]
+        engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         dx_logging.print_debug(ARGUMENTS)
         # Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
-                                    single_thread):
+        for each in run_job.run_job(
+            main_workflow, dx_session_obj, engine, single_thread
+        ):
             # join them back together so that we wait for all threads to
             # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
-                              f'get this far.')
+        dx_logging.print_info(
+            f"script took {elapsed_minutes} minutes to " f"get this far."
+        )
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
         sys.exit(err)
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function.
-        dx_logging.print_exception(f'\nERROR: Please check the ERROR message '
-                                   f'below:\n{err}')
+        dx_logging.print_exception(
+            f"\nERROR: Please check the ERROR message " f"below:\n{err}"
+        )
         sys.exit(2)
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
-        print(f'\nERROR: Connection failed to the Delphix Engine. Please '
-              f'check the error message below:\n{err}')
+        print(
+            f"\nERROR: Connection failed to the Delphix Engine. Please "
+            f"check the error message below:\n{err}"
+        )
         sys.exit(2)
     except exceptions.JobError as err:
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
-        print(f'A job failed in the Delphix Engine:\n{err.job}')
+        print(f"A job failed in the Delphix Engine:\n{err.job}")
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes}'
-                              f' minutes to get this far')
+        dx_logging.print_info(
+            f"{basename(__file__)} took {elapsed_minutes}" f" minutes to get this far"
+        )
         sys.exit(3)
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
-                              f'minutes to get this far')
+        dx_logging.print_info(
+            f"{basename(__file__)} took {elapsed_minutes} " f"minutes to get this far"
+        )
+
 
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script

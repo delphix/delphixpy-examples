@@ -29,4 +29,5 @@ def run_async(func):
         func_hl = Thread(target=func, args=args, kwargs=kwargs)
         func_hl.start()
         return func_hl
+
     return async_func

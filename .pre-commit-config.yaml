@@ -1,3 +1,11 @@
+repos:
+- repo: https://github.com/psf/black
+  rev: 20.8b1
+  hooks:
+    - id: black
+      args:
+        - --fast
+
 - repo: https://github.com/timothycrosley/isort
   rev: 4.3.21
   hooks:
