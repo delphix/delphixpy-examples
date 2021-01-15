@@ -39,8 +39,10 @@ class DelphixPlugin(WillPlugin):
     @respond_to("snapshot (?P<v_object>.*)")
     def snapshot_databases_will(self, message, v_object=None):
         if " in " not in v_object:
-            will_response = "Please specify group with request. For example:\n \
-            snapshot Employee Oracle 11G DB in Sources"
+            will_response = (
+                "Please specify group with request. For example:\n"
+                "snapshot Employee Oracle 11G DB in Sources"
+            )
             self.reply(message, will_response)
         else:
             v_object = v_object.split(" in ", 1)
@@ -82,8 +84,10 @@ class DelphixPlugin(WillPlugin):
     @respond_to("delete vdb (?P<v_object>.*)")
     def delete_databases_will(self, message, v_object=None):
         if " in " not in v_object:
-            will_response = "Please specify group with request. For example:\n \
-            delete Employee Oracle 11G DB in Sources"
+            will_response = (
+                "Please specify group with request. For example:\n"
+                "delete Employee Oracle 11G DB in Sources"
+            )
             self.reply(message, will_response)
         else:
             v_object = v_object.split(" in ", 1)
@@ -112,8 +116,10 @@ class DelphixPlugin(WillPlugin):
     @respond_to("refresh vdb (?P<v_object>.*)")
     def refresh_vdbs_will(self, message, v_object=None):
         if " in " not in v_object:
-            will_response = "Please specify group with request. For example:\n \
-            refresh autoprod in Analytics"
+            will_response = (
+                "Please specify group with request. For example:\n"
+                "refresh autoprod in Analytics"
+            )
             self.reply(message, will_response)
         else:
             v_object = v_object.split(" in ", 1)
@@ -144,8 +150,11 @@ class DelphixPlugin(WillPlugin):
     @respond_to("refresh jetstream (?P<v_object>.*)")
     def refresh_jetstream_will(self, message, v_object=None):
         if " in " not in v_object:
-            will_response = "Please specify group with request. For example:\n \
-            refresh jetstream Sugar Automated Testing Container in Masked SugarCRM Application"
+            will_response = (
+                "Please specify group with request. For example:\n"
+                "refresh jetstream Sugar Automated Testing Container in"
+                " Masked SugarCRM Application"
+            )
             self.reply(message, will_response)
         else:
             v_object = v_object.split(" in ", 1)

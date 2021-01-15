@@ -701,13 +701,10 @@ def run_job(engine):
                 engine = dxtools_objects[arguments["--engine"]]
                 print_info("Executing against Delphix Engine: " + arguments["--engine"])
             except:
-                print_error(
-                    'Delphix Engine "'
-                    + arguments["--engine"]
-                    + '" \
-                            cannot be found in '
-                    + config_file_path
-                )
+                print_error('Delphix Engine "{}" cannot be found in "{}"'.format(
+                    arguments["--engine"],
+                    config_file_path,
+                ))
                 print_error("Please check your value and try again. Exiting")
                 sys.exit(1)
 

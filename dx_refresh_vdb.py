@@ -171,9 +171,9 @@ def refresh_database(vdb_name, timestamp, timestamp_type="SNAPSHOT"):
             # OracleRefreshParameters
             """
             rewind_params = RollbackParameters()
-            rewind_params.timeflow_point_parameters = \
-            dx_timeflow_obj.set_timeflow_point(container_obj, timestamp_type,
-                                               timestamp)
+            rewind_params.timeflow_point_parameters = dx_timeflow_obj.set_timeflow_point(
+                container_obj, timestamp_type, timestamp
+            )
             print_debug('{}: {}'.format(engine_name, str(rewind_params)))
             """
             if str(container_obj.reference).startswith("ORACLE"):

@@ -98,8 +98,7 @@ class GetSession(object):
 
         #        if use_https:
         #            if hasattr(ssl, '_create_unverified_context'):
-        #                ssl._create_default_https_context = \
-        #                    ssl._create_unverified_context
+        #                ssl._create_default_https_context = ssl._create_unverified_context
 
         try:
             if f_engine_password:
