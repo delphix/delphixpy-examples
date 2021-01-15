@@ -3,4 +3,3 @@ docopt
 pip
 python-dateutil
 setuptools
-untangle
