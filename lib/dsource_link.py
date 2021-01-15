@@ -2,10 +2,9 @@
 Create an object to link MS SQL or ASE dSources
 """
 
-from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import group
+from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import vo
-
 from lib import dlpx_exceptions
 from lib import get_references
 

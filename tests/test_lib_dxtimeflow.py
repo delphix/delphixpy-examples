@@ -4,21 +4,20 @@
 Unit tests for DPP Timeflows
 """
 
-import unittest
-import types
-from io import StringIO
 import sys
+import types
+import unittest
+from io import StringIO
 
 from delphixpy.v1_10_2.web import database
-from delphixpy.v1_10_2.web import snapshot
 from delphixpy.v1_10_2.web import objects
+from delphixpy.v1_10_2.web import snapshot
 from delphixpy.v1_10_2.web import timeflow
 from delphixpy.v1_10_2.web import vo
-
-from lib.get_session import GetSession
-from lib.dx_timeflow import DxTimeflow
-from lib import get_references
 from lib import dlpx_exceptions
+from lib import get_references
+from lib.dx_timeflow import DxTimeflow
+from lib.get_session import GetSession
 
 VERSION = "v.0.3.001"
 

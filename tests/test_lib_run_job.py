@@ -4,17 +4,16 @@
 Unit tests for DPP run_job
 """
 
-import unittest
-import types
-import sys
 import os
 import ssl
+import sys
+import types
+import unittest
 from io import StringIO
 
 from delphixpy.v1_10_2 import web
-
-from lib.get_session import GetSession
 from lib.dx_timeflow import DxTimeflow
+from lib.get_session import GetSession
 from lib.run_job import run_job
 
 

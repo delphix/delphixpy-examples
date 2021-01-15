@@ -4,17 +4,17 @@
 Unit tests for Self Service template
 """
 
-import unittest
-import sys
 import io
-
-from delphixpy.v1_10_2.web import vo
-from delphixpy.v1_10_2 import exceptions
-from delphixpy.v1_10_2.web import selfservice
+import sys
+import unittest
 
 import ss_template
-from lib.get_session import GetSession
+
+from delphixpy.v1_10_2 import exceptions
+from delphixpy.v1_10_2.web import selfservice
+from delphixpy.v1_10_2.web import vo
 from lib.dx_timeflow import DxTimeflow
+from lib.get_session import GetSession
 
 VERSION = '0.0.0.1'
 

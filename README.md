@@ -1,11 +1,15 @@
 # delphixpy-examples
-These are some example python scripts for those getting started 
+These are some example python scripts for those getting started
 with the Delphix delphixpy python module.
 
 ## Changes in this Branch
-- This branch requires Python3. All enhancements and break fixes will be committed to this branch and will eventually become the ``master`` branch.
-- We have a new format for dxtools.conf. If you used this repo in the past, please be aware of the new format.
-- All connections use HTTPS by default. Please refer to lib/get\_session.py if using this repo in a production environment.
+- This branch requires Python3. All enhancements and break fixes will
+  be committed to this branch and will eventually become the
+  ``master`` branch.
+- We have a new format for dxtools.conf. If you used this repo in the
+  past, please be aware of the new format.
+- All connections use HTTPS by default. Please refer to
+  lib/get\_session.py if using this repo in a production environment.
 - Migrated from Delphix API version 1.8.0 to 1.10.2.
 
 ## Wait... What's Delphix?
@@ -42,7 +46,18 @@ community page](https://community.delphix.com)
 3.  Add tests for your code.
 4.  Send a pull request.
 
-Contributions must be signed as `User Name <user@email.com>`. Make sure to [set up Git with user name and email address](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup). Bug fixes should branch from the current stable branch
+Contributions must be signed as `User Name <user@email.com>`. Make
+sure to [set up Git with user name and email
+address](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup). Bug
+fixes should branch from the current stable branch
+
+### Formatting
+
+This repository uses the `tox` and `pre-commit` tools to run
+autoformatters on the entire repository. These two tools are the
+industry standard for Python. The goal of these formatters is to
+delegate issues of formatting to the machine so that develeopers and
+code-reviewers can focus on more important things.
 
 ## Something neat worth noting
 Each of the scripts leverage

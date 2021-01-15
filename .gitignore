@@ -9,3 +9,4 @@ dxtools.conf*
 venv
 .DS_Store
 **/.idea
+.tox/

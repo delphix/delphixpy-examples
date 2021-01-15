@@ -83,20 +83,20 @@ Options:
 
 """
 
-from os.path import basename
 import sys
 import time
+from os.path import basename
+
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2.web import environment
 from delphixpy.v1_10_2.web import host
 from delphixpy.v1_10_2.web import vo
-
 from lib import dlpx_exceptions
+from lib import dx_logging
 from lib import get_references
 from lib import get_session
-from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 

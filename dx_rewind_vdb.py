@@ -53,20 +53,20 @@ Options:
   -v --version              Show version.
 """
 
-from os.path import basename
 import sys
 import time
+from os.path import basename
+
 import docopt
 
+from delphixpy.v1_8_0.web import vo
 from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2.web import database
-from delphixpy.v1_8_0.web import vo
-
 from lib import dlpx_exceptions
-from lib import dx_timeflow
-from lib import get_session
-from lib import get_references
 from lib import dx_logging
+from lib import dx_timeflow
+from lib import get_references
+from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 

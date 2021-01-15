@@ -3,13 +3,12 @@
 Link a MSSQL dSource
 """
 from delphixpy.v1_10_2 import exceptions
-from delphixpy.v1_10_2.web import vo
-from delphixpy.v1_10_2.web import environment
 from delphixpy.v1_10_2.web import database
-
-from lib.dsource_link import DsourceLink
+from delphixpy.v1_10_2.web import environment
+from delphixpy.v1_10_2.web import vo
 from lib import dlpx_exceptions
 from lib import get_references
+from lib.dsource_link import DsourceLink
 
 VERSION = "v.0.3.000"
 
