@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-'''
+"""
 Adam Bowen - May 2017
 This script grabs
-'''
-VERSION="v.2.3.003"
+"""
+VERSION = "v.2.3.003"
 
 import getopt
 import logging
@@ -21,28 +21,41 @@ from lib.GetSession import GetSession
 
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
-    '''
+    """
     Function to grab the server session
-    '''
-    server_session= DelphixEngine(f_engine_address, f_engine_username, f_engine_password, "SYSTEM")
+    """
+    server_session = DelphixEngine(
+        f_engine_address, f_engine_username, f_engine_password, "SYSTEM"
+    )
     return server_session
 
+
 def help():
-    print("\n" + basename(__file__)+ " [-e <engine ip>] [-p <sysadmin password]")
-    print("\n\nScript requires two parameters, the IP of the Delphix Engine and the sysadmin password you want to use")
-    print("-h - Prints this message")
-    print("-e <Delphix Engine IP>  - Engine must be up and console screen must be green")
-    print("-p <sysadmin password>  - sysadmin password")
-    print("-d <directory> - directory where key will be saved")
-    print("-v - Print version information and exit")
+    print ("\n" + basename(__file__) + " [-e <engine ip>] [-p <sysadmin password]")
+    print (
+        "\n\nScript requires two parameters, the IP of the Delphix Engine and the sysadmin password you want to use"
+    )
+    print ("-h - Prints this message")
+    print (
+        "-e <Delphix Engine IP>  - Engine must be up and console screen must be green"
+    )
+    print ("-p <sysadmin password>  - sysadmin password")
+    print ("-d <directory> - directory where key will be saved")
+    print ("-v - Print version information and exit")
     sys.exit(2)
 
+
 def logging_est():
-    '''
+    """
     Establish Logging
-    '''
+    """
     global debug
-    logging.basicConfig(filename='landshark_setup.log',format='%(levelname)s:%(asctime)s:%(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(
+        filename="landshark_setup.log",
+        format="%(levelname)s:%(asctime)s:%(message)s",
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     print_info("Welcome to " + basename(__file__) + ", version " + VERSION)
     global logger
     debug = True
@@ -50,52 +63,61 @@ def logging_est():
     logger.setLevel(10)
     print_info("Debug Logging is enabled.")
 
+
 def on_exit(sig, func=None):
     print_info("Shutdown Command Received")
     print_info("Shutting down prime_setup.py")
     sys.exit(0)
 
+
 def print_debug(print_obj):
-    '''
+    """
     DEBUG Log-level
-    '''
+    """
     if debug == True:
         print "DEBUG: " + str(print_obj)
         logging.debug(str(print_obj))
 
+
 def print_error(print_obj):
-    '''
+    """
     ERROR Log-level
-    '''
+    """
     print "ERROR: " + str(print_obj)
     logging.error(str(print_obj))
 
+
 def print_info(print_obj):
-    '''
+    """
     INFO Log-level
-    '''
+    """
     print "INFO: " + str(print_obj)
     logging.info(str(print_obj))
 
+
 def print_warning(print_obj):
-    '''
+    """
     WARNING Log-level
-    '''
+    """
     print "WARNING: " + str(print_obj)
     logging.warning(str(print_obj))
+
 
 def set_exit_handler(func):
     signal.signal(signal.SIGTERM, func)
 
+
 def time_elapsed():
-    elapsed_minutes = round((time.time() - time_start)/60, +1)
+    elapsed_minutes = round((time.time() - time_start) / 60, +1)
     return elapsed_minutes
 
+
 def version():
-    print("Version: " +VERSION)
+    print ("Version: " + VERSION)
     logging_est()
     set_exit_handler(on_exit)
     sys.exit(1)
+
 
 def main(argv):
     try:
@@ -107,33 +129,32 @@ def main(argv):
         engine_pass = ""
         old_engine_pass = ""
         try:
-            opts,args = getopt.getopt(argv,"e:d:p:hv")
+            opts, args = getopt.getopt(argv, "e:d:p:hv")
         except getopt.GetoptError:
             help()
         for opt, arg in opts:
-            if opt == '-h':
+            if opt == "-h":
                 help()
-            elif opt == '-e':
+            elif opt == "-e":
                 engine_ip = arg
-            elif opt == '-p':
+            elif opt == "-p":
                 engine_pass = arg
-            elif opt == '-d':
-                key_path = arg + '/engine_key.pub'
-            elif opt == '-v':
+            elif opt == "-d":
+                key_path = arg + "/engine_key.pub"
+            elif opt == "-v":
                 version()
 
-        if (engine_ip == "" or engine_pass == "") :
+        if engine_ip == "" or engine_pass == "":
             help()
 
-        dx_session_obj.serversess(engine_ip, 'sysadmin',
-                                 engine_pass, 'SYSTEM')
+        dx_session_obj.serversess(engine_ip, "sysadmin", engine_pass, "SYSTEM")
         dx_session_obj.server_wait()
 
         sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
         system_info = system.get(sys_server)
         print_info(system_info.ssh_public_key)
         print_info("Writing to " + key_path)
-        target = open(key_path, 'w')
+        target = open(key_path, "w")
         target.write(system_info.ssh_public_key)
         target.close
         print_info("File saved")
@@ -144,7 +165,7 @@ def main(argv):
         sys.exit(e)
     except HttpError as e:
         print_error("Connection failed to the Delphix Engine")
-        print_error( "Please check the ERROR message below")
+        print_error("Please check the ERROR message below")
         print_error(e.message)
         sys.exit(2)
     except JobError as e:
@@ -164,6 +185,7 @@ def main(argv):
         elapsed_minutes = time_elapsed()
         print_info("Prime took " + str(elapsed_minutes) + " minutes to get this far.")
         sys.exit(2)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

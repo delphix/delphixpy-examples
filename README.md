@@ -63,6 +63,10 @@ industry standard for Python. The goal of these formatters is to
 delegate issues of formatting to the machine so that develeopers and
 code-reviewers can focus on more important things.
 
+The two main autoformatters that we use are
+ - `black`: General Python formatting
+ - `isort`: Import sorting
+
 ## Statement of Support
 
 This software is provided as-is, without warranty of any kind or
