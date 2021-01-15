@@ -72,34 +72,35 @@ Options:
 
 VERSION="v.0.3.612"
 
-from docopt import docopt
-from os.path import basename
 import sys
 import traceback
-from time import sleep, time
+from os.path import basename
+from time import sleep
+from time import time
+
+from docopt import docopt
 
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import environment
-from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import host
-from delphixpy.v1_8_0.web.vo import UnixHostEnvironment
+from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web.vo import ASEHostEnvironmentParameters
 from delphixpy.v1_8_0.web.vo import HostEnvironmentCreateParameters
-from delphixpy.v1_8_0.web.vo import WindowsHostEnvironment
-from delphixpy.v1_8_0.web.vo import WindowsHost
 from delphixpy.v1_8_0.web.vo import UnixHost
-
+from delphixpy.v1_8_0.web.vo import UnixHostEnvironment
+from delphixpy.v1_8_0.web.vo import WindowsHost
+from delphixpy.v1_8_0.web.vo import WindowsHostEnvironment
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_obj_name
-from lib.GetReferences import find_all_objects
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
+from lib.GetReferences import find_all_objects
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import find_obj_name
+from lib.GetSession import GetSession
 
 
 def enable_environment(dlpx_obj, env_name):

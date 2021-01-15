@@ -100,14 +100,16 @@ Options:
 
 VERSION = 'v.0.2.305'
 
+import re
 import signal
 import sys
 import time
 import traceback
-import re
-from docopt import docopt
 from os.path import basename
-from time import sleep, time
+from time import sleep
+from time import time
+
+from docopt import docopt
 
 from delphixpy.v1_8_0.delphix_engine import DelphixEngine
 from delphixpy.v1_8_0.exceptions import HttpError
@@ -121,7 +123,18 @@ from delphixpy.v1_8_0.web import repository
 from delphixpy.v1_8_0.web import snapshot
 from delphixpy.v1_8_0.web import source
 from delphixpy.v1_8_0.web.database import template
-from delphixpy.v1_8_0.web.vo import VirtualSourceOperations
+from delphixpy.v1_8_0.web.vo import AppDataDirectSourceConfig
+from delphixpy.v1_8_0.web.vo import AppDataProvisionParameters
+from delphixpy.v1_8_0.web.vo import AppDataVirtualSource
+from delphixpy.v1_8_0.web.vo import ASEDBContainer
+from delphixpy.v1_8_0.web.vo import ASEInstanceConfig
+from delphixpy.v1_8_0.web.vo import ASEProvisionParameters
+from delphixpy.v1_8_0.web.vo import ASESIConfig
+from delphixpy.v1_8_0.web.vo import ASEVirtualSource
+from delphixpy.v1_8_0.web.vo import MSSqlDatabaseContainer
+from delphixpy.v1_8_0.web.vo import MSSqlProvisionParameters
+from delphixpy.v1_8_0.web.vo import MSSqlSIConfig
+from delphixpy.v1_8_0.web.vo import MSSqlVirtualSource
 from delphixpy.v1_8_0.web.vo import OracleDatabaseContainer
 from delphixpy.v1_8_0.web.vo import OracleInstance
 from delphixpy.v1_8_0.web.vo import OracleProvisionParameters
@@ -130,27 +143,15 @@ from delphixpy.v1_8_0.web.vo import OracleVirtualSource
 from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
 from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
-from delphixpy.v1_8_0.web.vo import ASEDBContainer
-from delphixpy.v1_8_0.web.vo import ASEInstanceConfig
-from delphixpy.v1_8_0.web.vo import ASEProvisionParameters
-from delphixpy.v1_8_0.web.vo import ASESIConfig
-from delphixpy.v1_8_0.web.vo import ASEVirtualSource
-from delphixpy.v1_8_0.web.vo import MSSqlProvisionParameters
-from delphixpy.v1_8_0.web.vo import MSSqlDatabaseContainer
-from delphixpy.v1_8_0.web.vo import MSSqlVirtualSource
-from delphixpy.v1_8_0.web.vo import MSSqlSIConfig
-from delphixpy.v1_8_0.web.vo import AppDataVirtualSource
-from delphixpy.v1_8_0.web.vo import AppDataProvisionParameters
-from delphixpy.v1_8_0.web.vo import AppDataDirectSourceConfig
-
-from lib.DxTimeflow import DxTimeflow
+from delphixpy.v1_8_0.web.vo import VirtualSourceOperations
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_info
+from lib.DxTimeflow import DxTimeflow
 from lib.GetReferences import find_dbrepo
 from lib.GetReferences import find_obj_by_name
-from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
-from lib.DxLogging import print_debug
+from lib.GetSession import GetSession
 
 
 def create_ase_vdb(engine, server, jobs, vdb_group, vdb_name, environment_obj, 

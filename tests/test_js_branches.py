@@ -4,12 +4,13 @@
 Unit tests for Jet Stream delphixpy
 """
 
-import unittest
 import sys
+import unittest
 
 import js_branch
-import js_template
 import js_container
+import js_template
+
 from lib.GetSession import GetSession
 
 

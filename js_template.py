@@ -53,29 +53,30 @@ Options:
 
 VERSION="v.0.0.015"
 
-from docopt import docopt
-from os.path import basename
 import sys
 import traceback
-from time import time, sleep
+from os.path import basename
+from time import sleep
+from time import time
 
+from docopt import docopt
+
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
+from delphixpy.v1_8_0.web import database
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web.jetstream import template
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web.vo import JSDataTemplateCreateParameters
 from delphixpy.v1_8_0.web.vo import JSDataSourceCreateParameters
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
-
+from delphixpy.v1_8_0.web.vo import JSDataTemplateCreateParameters
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import convert_timestamp
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
+from lib.GetReferences import convert_timestamp
+from lib.GetReferences import find_obj_by_name
+from lib.GetSession import GetSession
 
 
 def create_template(dlpx_obj, template_name, database_name):

@@ -9,16 +9,19 @@ CONTENTDIR="/u02/app/content"
 
 import getopt
 import logging
-from os.path import basename
 import signal
 import sys
 import time
 import traceback
+from os.path import basename
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
-from delphixpy.v1_6_0.exceptions import HttpError, JobError
+from delphixpy.v1_6_0.exceptions import HttpError
+from delphixpy.v1_6_0.exceptions import JobError
 from delphixpy.v1_6_0.web import user
-from delphixpy.v1_6_0.web.vo import CredentialUpdateParameters, PasswordCredential, User
+from delphixpy.v1_6_0.web.vo import CredentialUpdateParameters
+from delphixpy.v1_6_0.web.vo import PasswordCredential
+from delphixpy.v1_6_0.web.vo import User
 
 
 def serversess(f_engine_address, f_engine_username, f_engine_password):

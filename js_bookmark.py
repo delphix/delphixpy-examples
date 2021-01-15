@@ -65,32 +65,33 @@ Options:
 
 VERSION="v.0.0.019"
 
-from docopt import docopt
-from os.path import basename
 import sys
-from time import sleep, time
 import traceback
+from os.path import basename
+from time import sleep
+from time import time
 
+from docopt import docopt
+
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web.jetstream import bookmark
 from delphixpy.v1_8_0.web.jetstream import branch
-from delphixpy.v1_8_0.web.jetstream import template
 from delphixpy.v1_8_0.web.jetstream import container
-from delphixpy.v1_8_0.web.vo import JSBookmarkCreateParameters
+from delphixpy.v1_8_0.web.jetstream import template
 from delphixpy.v1_8_0.web.vo import JSBookmark
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
-
+from delphixpy.v1_8_0.web.vo import JSBookmarkCreateParameters
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
 from lib.GetReferences import get_obj_reference
-from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
-from lib.DxLogging import print_debug
-from lib.DxLogging import print_exception
+from lib.GetSession import GetSession
 
 
 def create_bookmark(dlpx_obj, bookmark_name, source_layout, branch_name=None,

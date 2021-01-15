@@ -61,19 +61,21 @@ Options:
 VERSION = "v.0.3.004"
 
 
-from docopt import docopt
-from os.path import basename
 import sys
-from time import time, sleep
 import traceback
+from os.path import basename
+from time import sleep
+from time import time
+
+from docopt import docopt
 
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import environment
 from delphixpy.v1_8_0.web import group
+from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import source
 from delphixpy.v1_8_0.web import timeflow
 from delphixpy.v1_8_0.web.snapshot import snapshot
@@ -82,16 +84,16 @@ from delphixpy.v1_8_0.web.vo import RefreshParameters
 from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
 from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
-
 from lib.DlpxException import DlpxException
+from lib.DxLogging import logging_est
+from lib.DxLogging import print_debug
+from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
 from lib.DxTimeflow import DxTimeflow
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_source_by_dbname
 from lib.GetSession import GetSession
-from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
-from lib.DxLogging import print_debug
-from lib.DxLogging import print_exception
+
 
 def refresh_database(vdb_name,timestamp, timestamp_type='SNAPSHOT'):
     """

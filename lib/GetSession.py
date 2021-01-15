@@ -10,22 +10,20 @@
 
 import json
 import ssl
-from time import sleep
 from distutils.version import LooseVersion
+from time import sleep
 
-from delphixpy.v1_8_0.delphix_engine import DelphixEngine
-from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.exceptions import JobError
-from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0 import job_context
+from delphixpy.v1_8_0.delphix_engine import DelphixEngine
+from delphixpy.v1_8_0.exceptions import HttpError
+from delphixpy.v1_8_0.exceptions import JobError
+from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import system
-from delphixpy.v1_8_0.web.vo import SystemInfo 
-
+from delphixpy.v1_8_0.web.vo import SystemInfo
 from lib.DlpxException import DlpxException
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_info
-
 
 VERSION = 'v.0.2.10'
 

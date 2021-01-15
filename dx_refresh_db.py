@@ -61,19 +61,21 @@ Options:
 VERSION = 'v.0.1.615'
 
 
-from docopt import docopt
+import json
 import logging
-from os.path import basename
 import sys
 import traceback
-import json
-from time import sleep, time
+from os.path import basename
+from time import sleep
+from time import time
 
+from docopt import docopt
+
+from delphixpy.v1_8_0 import job_context
 from delphixpy.v1_8_0.delphix_engine import DelphixEngine
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0 import job_context
 from delphixpy.v1_8_0.web import database
 from delphixpy.v1_8_0.web import environment
 from delphixpy.v1_8_0.web import group
@@ -86,14 +88,13 @@ from delphixpy.v1_8_0.web.vo import RefreshParameters
 from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
 from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
-
 from lib.DlpxException import DlpxException
-from lib.GetSession import GetSession
-from lib.GetReferences import find_obj_by_name
 from lib.DxLogging import logging_est
-from lib.DxLogging import print_info
 from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
+from lib.GetReferences import find_obj_by_name
+from lib.GetSession import GetSession
 
 
 def run_async(func):

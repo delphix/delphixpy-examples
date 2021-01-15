@@ -44,22 +44,23 @@ Options:
 
 VERSION = 'v.0.0.002'
 
-import sys
 import re
+import sys
 from os.path import basename
-from time import sleep, time
+from time import sleep
+from time import time
+
 from docopt import docopt
 
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import job
-
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
-from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
 from lib.GetSession import GetSession
 
 

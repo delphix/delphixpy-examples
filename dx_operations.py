@@ -49,9 +49,11 @@ Options:
 VERSION = 'v.0.3.018'
 
 import sys
-from os.path import basename
-from time import sleep, time
 import traceback
+from os.path import basename
+from time import sleep
+from time import time
+
 from docopt import docopt
 
 from delphixpy.v1_8_0.exceptions import HttpError
@@ -61,16 +63,15 @@ from delphixpy.v1_8_0.web import database
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import source
 from delphixpy.v1_8_0.web.capacity import consumer
-from delphixpy.v1_8_0.web.vo import SourceDisableParameters
 from delphixpy.v1_8_0.web.source import source
-
+from delphixpy.v1_8_0.web.vo import SourceDisableParameters
 from lib.DlpxException import DlpxException
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
-from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
-from lib.GetReferences import find_obj_by_name
+from lib.DxLogging import print_info
 from lib.GetReferences import find_all_objects
+from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_list
 from lib.GetSession import GetSession
 

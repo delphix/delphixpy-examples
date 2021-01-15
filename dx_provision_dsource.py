@@ -98,38 +98,40 @@ VERSION = 'v.0.2.0018'
 
 import sys
 from os.path import basename
-from time import sleep, time
-from docopt import docopt, DocoptExit
+from time import sleep
+from time import time
+
+from docopt import DocoptExit
+from docopt import docopt
 
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
 from delphixpy.v1_8_0.exceptions import RequestError
-from delphixpy.v1_8_0.web import sourceconfig
+from delphixpy.v1_8_0.web import database
+from delphixpy.v1_8_0.web import environment
 from delphixpy.v1_8_0.web import group
 from delphixpy.v1_8_0.web import job
-from delphixpy.v1_8_0.web import environment
 from delphixpy.v1_8_0.web import repository
-from delphixpy.v1_8_0.web import database
-from delphixpy.v1_8_0.web.vo import OracleSIConfig
-from delphixpy.v1_8_0.web.vo import OracleInstance
-from delphixpy.v1_8_0.web.vo import LinkParameters
-from delphixpy.v1_8_0.web.vo import OracleLinkData
-from delphixpy.v1_8_0.web.vo import OracleSourcingPolicy
-from delphixpy.v1_8_0.web.vo import ASELinkData
+from delphixpy.v1_8_0.web import sourceconfig
 from delphixpy.v1_8_0.web.vo import ASELatestBackupSyncParameters
+from delphixpy.v1_8_0.web.vo import ASELinkData
 from delphixpy.v1_8_0.web.vo import ASENewBackupSyncParameters
 from delphixpy.v1_8_0.web.vo import ASESpecificBackupSyncParameters
+from delphixpy.v1_8_0.web.vo import LinkParameters
 from delphixpy.v1_8_0.web.vo import MSSqlLinkData
+from delphixpy.v1_8_0.web.vo import OracleInstance
+from delphixpy.v1_8_0.web.vo import OracleLinkData
+from delphixpy.v1_8_0.web.vo import OracleSIConfig
+from delphixpy.v1_8_0.web.vo import OracleSourcingPolicy
 from delphixpy.v1_8_0.web.vo import SourcingPolicy
-
 from lib.DlpxException import DlpxException
-from lib.GetReferences import find_obj_by_name
-from lib.GetReferences import find_dbrepo
-from lib.GetReferences import get_running_job
 from lib.DxLogging import logging_est
 from lib.DxLogging import print_debug
-from lib.DxLogging import print_info
 from lib.DxLogging import print_exception
+from lib.DxLogging import print_info
+from lib.GetReferences import find_dbrepo
+from lib.GetReferences import find_obj_by_name
+from lib.GetReferences import get_running_job
 from lib.GetSession import GetSession
 
 
@@ -625,4 +627,3 @@ if __name__ == "__main__":
     except DocoptExit as e:
         #print 'Exited because options were not specified: {}\n'.format(e)
         print (e.message)
-
