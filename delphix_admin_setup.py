@@ -14,7 +14,6 @@ import signal
 import sys
 import time
 import traceback
-import untangle
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError, JobError

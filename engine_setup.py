@@ -14,7 +14,6 @@ import signal
 import sys
 import time
 import traceback
-import untangle
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.exceptions import HttpError,JobError
@@ -164,7 +163,7 @@ def main(argv):
                 try:
                     sys_server = system_serversess(engine_ip, "sysadmin", engine_pass)
                     domain.get(sys_server)
-                except:    
+                except:
                     break
                 print_info("Waiting for Delphix Engine to go down")
                 time.sleep(3)
