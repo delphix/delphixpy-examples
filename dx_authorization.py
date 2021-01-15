@@ -45,7 +45,7 @@ Options:
   -v --version              Show version.
 """
 
-VERSION = 'v.0.0.015'
+VERSION = "v.0.0.015"
 
 import sys
 import traceback
@@ -76,8 +76,7 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
 
 
-def create_authorization(dlpx_obj, role_name, target_type, target_name,
-                         user_name):
+def create_authorization(dlpx_obj, role_name, target_type, target_name, user_name):
     """
     Function to start, stop, enable or disable a VDB
 
@@ -90,24 +89,30 @@ def create_authorization(dlpx_obj, role_name, target_type, target_name,
     """
 
     authorization_obj = Authorization()
-    print_debug('Searching for {}, {} and {} references.\n'.format(
-                role_name, target_name, user_name))
+    print_debug(
+        "Searching for {}, {} and {} references.\n".format(
+            role_name, target_name, user_name
+        )
+    )
     try:
-        authorization_obj.role = find_obj_by_name(dlpx_obj.server_session, role,
-                                    role_name).reference
-        authorization_obj.target = find_target_type(dlpx_obj, target_type,
-                                      target_name).reference
-        authorization_obj.user = find_obj_by_name(dlpx_obj.server_session, user,
-                                    user_name).reference
+        authorization_obj.role = find_obj_by_name(
+            dlpx_obj.server_session, role, role_name
+        ).reference
+        authorization_obj.target = find_target_type(
+            dlpx_obj, target_type, target_name
+        ).reference
+        authorization_obj.user = find_obj_by_name(
+            dlpx_obj.server_session, user, user_name
+        ).reference
         authorization.create(dlpx_obj.server_session, authorization_obj)
     except (RequestError, HttpError, JobError) as e:
-        print_exception('An error occurred while creating authorization:\n'
-                        '{}'.format(e))
-    print 'Authorization successfully created for {}.'.format(user_name)
+        print_exception(
+            "An error occurred while creating authorization:\n" "{}".format(e)
+        )
+    print "Authorization successfully created for {}.".format(user_name)
 
 
-def delete_authorization(dlpx_obj, role_name, target_type, target_name,
-                         user_name):
+def delete_authorization(dlpx_obj, role_name, target_type, target_name, user_name):
     """
     Function to delete a given authorization
 
@@ -123,25 +128,21 @@ def delete_authorization(dlpx_obj, role_name, target_type, target_name,
     :type user_name: basestring
     """
     target_obj = find_target_type(dlpx_obj, target_type, target_name)
-    user_obj = find_obj_by_name(dlpx_obj.server_session, user,
-                                user_name)
-    role_obj = find_obj_by_name(dlpx_obj.server_session, role,
-                                role_name)
+    user_obj = find_obj_by_name(dlpx_obj.server_session, user, user_name)
+    role_obj = find_obj_by_name(dlpx_obj.server_session, role, role_name)
     auth_objs = authorization.get_all(dlpx_obj.server_session)
 
     try:
 
-        del_auth_str = '({}, {}, {})'.format(user_obj.reference,
-                                             role_obj.reference,
-                                             target_obj.reference)
+        del_auth_str = "({}, {}, {})".format(
+            user_obj.reference, role_obj.reference, target_obj.reference
+        )
         for auth_obj in auth_objs:
             if auth_obj.name == del_auth_str:
-                authorization.delete(dlpx_obj.server_session,
-                                     auth_obj.reference)
+                authorization.delete(dlpx_obj.server_session, auth_obj.reference)
     except DlpxException as e:
-        print_exception('ERROR: Could not delete authorization:\n{}'.format(e))
-    print '{} for user {} was deleted successfully'.format(target_name,
-                                                           user_name)
+        print_exception("ERROR: Could not delete authorization:\n{}".format(e))
+    print "{} for user {} was deleted successfully".format(target_name, user_name)
 
 
 def find_target_type(dlpx_obj, target_type, target_name):
@@ -156,18 +157,20 @@ def find_target_type(dlpx_obj, target_type, target_name):
 
     target_obj = None
     try:
-        if target_type.lower() == 'group':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, group,
-                                          target_name)
-        elif target_type.lower() == 'database':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, database,
-                                          target_name)
-        elif target_type.lower() == 'snapshot':
-            target_obj = find_obj_by_name(dlpx_obj.server_session, snapshot,
-                                          target_name)
+        if target_type.lower() == "group":
+            target_obj = find_obj_by_name(dlpx_obj.server_session, group, target_name)
+        elif target_type.lower() == "database":
+            target_obj = find_obj_by_name(
+                dlpx_obj.server_session, database, target_name
+            )
+        elif target_type.lower() == "snapshot":
+            target_obj = find_obj_by_name(
+                dlpx_obj.server_session, snapshot, target_name
+            )
     except (DlpxException, RequestError, HttpError) as e:
-        print_exception('Could not find authorization target type '
-                        '{}:\n{}'.format(target_type, e))
+        print_exception(
+            "Could not find authorization target type " "{}:\n{}".format(target_type, e)
+        )
     return target_obj
 
 
@@ -181,51 +184,52 @@ def list_authorization(dlpx_obj):
 
     try:
         auth_objs = authorization.get_all(dlpx_obj.server_session)
-        print_info('User, Role, Target, Reference')
+        print_info("User, Role, Target, Reference")
         for auth_obj in auth_objs:
             role_obj = role.get(dlpx_obj.server_session, auth_obj.role)
             user_obj = user.get(dlpx_obj.server_session, auth_obj.user)
-            if auth_obj.target.startswith('USER'):
+            if auth_obj.target.startswith("USER"):
                 target_obj = user.get(dlpx_obj.server_session, auth_obj.target)
-            elif auth_obj.target.startswith('GROUP'):
+            elif auth_obj.target.startswith("GROUP"):
                 target_obj = group.get(dlpx_obj.server_session, auth_obj.target)
-            elif auth_obj.target.startswith('DOMAIN'):
+            elif auth_obj.target.startswith("DOMAIN"):
                 target_obj = User()
-                target_obj.name = 'DOMAIN'
-            print '{}, {}, {}, {}'.format(user_obj.name, role_obj.name,
-                                               target_obj.name,
-                                               auth_obj.reference)
+                target_obj.name = "DOMAIN"
+            print "{}, {}, {}, {}".format(
+                user_obj.name, role_obj.name, target_obj.name, auth_obj.reference
+            )
     except (RequestError, HttpError, JobError, AttributeError) as e:
-        print_exception('An error occurred while listing authorizations.:\n'
-                        '{}\n'.format((e)))
+        print_exception(
+            "An error occurred while listing authorizations.:\n" "{}\n".format((e))
+        )
 
 
 def run_async(func):
     """
-        http://code.activestate.com/recipes/576684-simple-threading-decorator/
-        run_async(func)
-            function decorator, intended to make "func" run in a separate
-            thread (asynchronously).
-            Returns the created Thread object
-            E.g.:
-            @run_async
-            def task1():
-                do_something
-            @run_async
-            def task2():
-                do_something_too
-            t1 = task1()
-            t2 = task2()
-            ...
-            t1.join()
-            t2.join()
+    http://code.activestate.com/recipes/576684-simple-threading-decorator/
+    run_async(func)
+        function decorator, intended to make "func" run in a separate
+        thread (asynchronously).
+        Returns the created Thread object
+        E.g.:
+        @run_async
+        def task1():
+            do_something
+        @run_async
+        def task2():
+            do_something_too
+        t1 = task1()
+        t2 = task2()
+        ...
+        t1.join()
+        t2.join()
     """
     from threading import Thread
     from functools import wraps
 
     @wraps(func)
     def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
+        func_hl = Thread(target=func, args=args, kwargs=kwargs)
         func_hl.start()
         return func_hl
 
@@ -248,55 +252,61 @@ def main_workflow(engine, dlpx_obj):
 
     try:
         # Setup the connection to the Delphix Engine
-        dlpx_obj.serversess(engine['ip_address'], engine['username'],
-                            engine['password'])
+        dlpx_obj.serversess(
+            engine["ip_address"], engine["username"], engine["password"]
+        )
     except DlpxException as e:
-        print_exception('ERROR: js_bookmark encountered an error authenticating'
-                        ' to {} {}:\n{}\n'.format(engine['hostname'],
-                                                  arguments['--target'], e))
+        print_exception(
+            "ERROR: js_bookmark encountered an error authenticating"
+            " to {} {}:\n{}\n".format(engine["hostname"], arguments["--target"], e)
+        )
     thingstodo = ["thingtodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            while (len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0):
+            while len(dlpx_obj.jobs) > 0 or len(thingstodo) > 0:
                 if len(thingstodo) > 0:
-                    if arguments['--create']:
-                        create_authorization(dlpx_obj, arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
-                    elif arguments['--delete']:
-                        delete_authorization(dlpx_obj, arguments['--role'],
-                                             arguments['--target_type'],
-                                             arguments['--target'],
-                                             arguments['--user'])
-                    elif arguments['--list']:
+                    if arguments["--create"]:
+                        create_authorization(
+                            dlpx_obj,
+                            arguments["--role"],
+                            arguments["--target_type"],
+                            arguments["--target"],
+                            arguments["--user"],
+                        )
+                    elif arguments["--delete"]:
+                        delete_authorization(
+                            dlpx_obj,
+                            arguments["--role"],
+                            arguments["--target_type"],
+                            arguments["--target"],
+                            arguments["--user"],
+                        )
+                    elif arguments["--list"]:
                         list_authorization(dlpx_obj)
                     thingstodo.pop()
                 # get all the jobs, then inspect them
                 i = 0
                 for j in dlpx_obj.jobs.keys():
-                    job_obj = job.get(dlpx_obj.server_session,
-                                      dlpx_obj.jobs[j])
+                    job_obj = job.get(dlpx_obj.server_session, dlpx_obj.jobs[j])
                     print_debug(job_obj)
-                    print_info('{}: : {}'.format(
-                        engine['hostname'], job_obj.job_state))
+                    print_info("{}: : {}".format(engine["hostname"], job_obj.job_state))
                     if job_obj.job_state in ["CANCELED", "COMPLETED", "FAILED"]:
                         # If the job is in a non-running state, remove it
                         # from the running jobs list.
                         del dlpx_obj.jobs[j]
-                    elif job_obj.job_state in 'RUNNING':
+                    elif job_obj.job_state in "RUNNING":
                         # If the job is in a running state, increment the
                         # running job count.
                         i += 1
-                    print_info('{}: {:d} jobs running.'.format(
-                        engine['hostname'], i))
+                    print_info("{}: {:d} jobs running.".format(engine["hostname"], i))
                     # If we have running jobs, pause before repeating the
                     # checks.
                     if len(dlpx_obj.jobs) > 0:
-                        sleep(float(arguments['--poll']))
+                        sleep(float(arguments["--poll"]))
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print_exception('\nError in dx_authorization: {}\n{}'.format(
-            engine['hostname'], e))
+        print_exception(
+            "\nError in dx_authorization: {}\n{}".format(engine["hostname"], e)
+        )
         sys.exit(1)
 
 
@@ -316,8 +326,8 @@ def run_job(dlpx_obj, config_file_path):
     engine = None
 
     # If the --all argument was given, run against every engine in dxtools.conf
-    if arguments['--all']:
-        print_info('Executing against all Delphix Engines in the dxtools.conf')
+    if arguments["--all"]:
+        print_info("Executing against all Delphix Engines in the dxtools.conf")
         try:
             # For each server in the dxtools.conf...
             for delphix_engine in dlpx_obj.dlpx_engines:
@@ -325,34 +335,43 @@ def run_job(dlpx_obj, config_file_path):
                 # Create a new thread and add it to the list.
                 threads.append(main_workflow(engine, dlpx_obj))
         except DlpxException as e:
-            print_exception('Error encountered in run_job():\n{}'.format(e))
+            print_exception("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
 
-    elif arguments['--all'] is False:
+    elif arguments["--all"] is False:
         # Else if the --engine argument was given, test to see if the engine
         # exists in dxtools.conf
-        if arguments['--engine']:
+        if arguments["--engine"]:
             try:
-                engine = dlpx_obj.dlpx_engines[arguments['--engine']]
-                print_info('Executing against Delphix Engine: {}\n'.format(
-                           arguments['--engine']))
+                engine = dlpx_obj.dlpx_engines[arguments["--engine"]]
+                print_info(
+                    "Executing against Delphix Engine: {}\n".format(
+                        arguments["--engine"]
+                    )
+                )
             except (DlpxException, RequestError, KeyError):
-                raise DlpxException('\nERROR: Delphix Engine {} cannot be '
-                                    'found in {}. Please check your value and'
-                                    ' try again. Exiting.\n'.format(
-                    arguments['--engine'], config_file_path))
+                raise DlpxException(
+                    "\nERROR: Delphix Engine {} cannot be "
+                    "found in {}. Please check your value and"
+                    " try again. Exiting.\n".format(
+                        arguments["--engine"], config_file_path
+                    )
+                )
         else:
             # Else search for a default engine in the dxtools.conf
             for delphix_engine in dlpx_obj.dlpx_engines:
-                if dlpx_obj.dlpx_engines[delphix_engine]['default'] == 'true':
+                if dlpx_obj.dlpx_engines[delphix_engine]["default"] == "true":
                     engine = dlpx_obj.dlpx_engines[delphix_engine]
-                    print_info('Executing against the default Delphix Engine '
-                               'in the dxtools.conf: {}'.format(
-                        dlpx_obj.dlpx_engines[delphix_engine]['hostname']))
+                    print_info(
+                        "Executing against the default Delphix Engine "
+                        "in the dxtools.conf: {}".format(
+                            dlpx_obj.dlpx_engines[delphix_engine]["hostname"]
+                        )
+                    )
                 break
 
             if engine is None:
-                raise DlpxException('\nERROR: No default engine found. Exiting')
+                raise DlpxException("\nERROR: No default engine found. Exiting")
 
         # run the job against the engine
         threads.append(main_workflow(engine, dlpx_obj))
@@ -371,7 +390,7 @@ def time_elapsed(time_start):
 
     :param time_start: float containing start time of the script.
     """
-    return round((time() - time_start)/60, +1)
+    return round((time() - time_start) / 60, +1)
 
 
 def main():
@@ -384,9 +403,9 @@ def main():
 
     try:
         dx_session_obj = GetSession()
-        logging_est(arguments['--logdir'])
+        logging_est(arguments["--logdir"])
         print_debug(arguments)
-        config_file_path = arguments['--config']
+        config_file_path = arguments["--config"]
         # Parse the dxtools.conf and put it into a dictionary
         dx_session_obj.get_config(config_file_path)
 
@@ -395,8 +414,9 @@ def main():
         run_job(dx_session_obj, config_file_path)
 
         elapsed_minutes = time_elapsed(time_start)
-        print_info('script took {:.2f} minutes to get this far.'.format(
-            elapsed_minutes))
+        print_info(
+            "script took {:.2f} minutes to get this far.".format(elapsed_minutes)
+        )
 
     # Here we handle what we do when the unexpected happens
     except SystemExit as e:
@@ -405,38 +425,49 @@ def main():
 
     except DlpxException as e:
         # We use this exception handler when an error occurs in a function call.
-        print_exception('ERROR: Please check the ERROR message below:\n'
-                        '{}'.format(e.message))
+        print_exception(
+            "ERROR: Please check the ERROR message below:\n" "{}".format(e.message)
+        )
         sys.exit(2)
 
     except HttpError as e:
         # We use this exception handler when our connection to Delphix fails
-        print_exception('ERROR: Connection failed to the Delphix Engine. Please'
-                        'check the ERROR message below:\n{}'.format(e.message))
+        print_exception(
+            "ERROR: Connection failed to the Delphix Engine. Please"
+            "check the ERROR message below:\n{}".format(e.message)
+        )
         sys.exit(2)
 
     except JobError as e:
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
-        print_exception('A job failed in the Delphix Engine:\n{}'.format(e.job))
+        print_exception("A job failed in the Delphix Engine:\n{}".format(e.job))
         elapsed_minutes = time_elapsed(time_start)
-        print_exception('{} took {:.2f} minutes to get this far'.format(
-            basename(__file__), elapsed_minutes))
+        print_exception(
+            "{} took {:.2f} minutes to get this far".format(
+                basename(__file__), elapsed_minutes
+            )
+        )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        print_debug('You sent a CTRL+C to interrupt the process')
+        print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = time_elapsed(time_start)
-        print_info('{} took {:.2f} minutes to get this far'.format(
-            basename(__file__), elapsed_minutes))
+        print_info(
+            "{} took {:.2f} minutes to get this far".format(
+                basename(__file__), elapsed_minutes
+            )
+        )
     except:
         # Everything else gets caught here
-        print_exception('{}\n{}'.format(sys.exc_info()[0],
-                                        traceback.format_exc()))
+        print_exception("{}\n{}".format(sys.exc_info()[0], traceback.format_exc()))
         elapsed_minutes = time_elapsed(time_start)
-        print_info("{} took {:.2f} minutes to get this far".format(
-            basename(__file__), elapsed_minutes))
+        print_info(
+            "{} took {:.2f} minutes to get this far".format(
+                basename(__file__), elapsed_minutes
+            )
+        )
         sys.exit(1)
 
 

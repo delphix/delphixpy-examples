@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-#For use with HipChat and Will
-#https://github.com/skoczen/will
+# For use with HipChat and Will
+# https://github.com/skoczen/will
 
 from will.decorators import hear
 from will.decorators import periodic
@@ -18,13 +18,14 @@ from delphixpy.v1_6_0.web import group
 
 
 class DelphixSnapshotPlugin(WillPlugin):
-    
     @respond_to("snapshot_group (?P<v_object>.*)")
     def snapshot_group_will(self, message, v_object=None):
         group_name = v_object
-        #database_name = "Employee DB - Dev"
+        # database_name = "Employee DB - Dev"
 
-        server_session = DelphixEngine("landsharkengine", "delphix_admin", "landshark", "DOMAIN")
+        server_session = DelphixEngine(
+            "landsharkengine", "delphix_admin", "landshark", "DOMAIN"
+        )
 
         all_groups = group.get_all(server_session)
 
