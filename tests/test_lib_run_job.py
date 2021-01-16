@@ -27,33 +27,38 @@ class RunJob(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super(RunJob, cls).setUpClass()
-        if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
-            getattr(ssl, '_create_unverified_context', None)): 
+        if not os.environ.get("PYTHONHTTPSVERIFY", "") and getattr(
+            ssl, "_create_unverified_context", None
+        ):
             ssl._create_default_https_context = ssl._create_unverified_context
         cls.server_obj = GetSession()
-        cls.server_obj.dlpx_session("172.16.98.44", "delphix_admin",
-                                    "delphix", "DOMAIN")
+        cls.server_obj.dlpx_session(
+            "172.16.98.44", "delphix_admin", "delphix", "DOMAIN"
+        )
         cls.server_obj.dlpx_ddps["engine_name"] = "test_engine"
 
     def test_run_job_all(self):
-        print('TEST - Run Job All')
+        print("TEST - Run Job All")
         ret_val = run_job(main_func, self.server_obj)
         self.assertIsInstance(ret_val, types.GeneratorType)
 
     def test_run_job_default_ddp(self):
-        print('TEST - Run Job default DDP')
-        ret_val = run_job(main_func, self.server_obj, 'default')
+        print("TEST - Run Job default DDP")
+        ret_val = run_job(main_func, self.server_obj, "default")
         self.assertIsInstance(ret_val, types.GeneratorType)
 
     def test_run_job_named_ddp(self):
-        print('TEST - Run Job named DDP')
-        ret_val = run_job(main_func, self.server_obj, 'landshark')
+        print("TEST - Run Job named DDP")
+        ret_val = run_job(main_func, self.server_obj, "landshark")
         self.assertIsInstance(ret_val, types.GeneratorType)
+
 
 def main_func(var):
     import time
-    print(f'var passed: {var}')
+
+    print(f"var passed: {var}")
     time.sleep(5)
+
 
 # Run the test case
 if __name__ == "__main__":

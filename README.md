@@ -59,6 +59,10 @@ industry standard for Python. The goal of these formatters is to
 delegate issues of formatting to the machine so that develeopers and
 code-reviewers can focus on more important things.
 
+The two main autoformatters that we use are
+ - `black`: General Python formatting
+ - `isort`: Import sorting
+
 ## Something neat worth noting
 Each of the scripts leverage
 [docopt](https://github.com/docopt/docopt), which is a great module

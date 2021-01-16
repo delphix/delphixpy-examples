@@ -4,7 +4,7 @@ Package DxLogging
 
 import logging
 
-VERSION = 'v.0.3.000'
+VERSION = "v.0.3.000"
 
 
 def logging_est(logfile_path, debug=False):
@@ -16,13 +16,16 @@ def logging_est(logfile_path, debug=False):
     :param debug: Set debug mode on (True) or off (False).
     :type debug: bool
     """
-    logging.basicConfig(filename=logfile_path,
-                        format='%(levelname)s:%(asctime)s:%(message)s',
-                        level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(
+        filename=logfile_path,
+        format="%(levelname)s:%(asctime)s:%(message)s",
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     logger = logging.getLogger()
     if debug is True:
         logger.setLevel(10)
-        print_info('Debug Logging is enabled.')
+        print_info("Debug Logging is enabled.")
 
 
 def print_debug(print_obj):
@@ -31,7 +34,7 @@ def print_debug(print_obj):
     :param print_obj: Object to print to logfile and stdout
     :type print_obj: type depends on objecting being passed. Typically str
     """
-    print(f'DEBUG: {str(print_obj)}')
+    print(f"DEBUG: {str(print_obj)}")
     logging.debug(str(print_obj))
 
 
@@ -41,7 +44,7 @@ def print_info(print_obj):
     :param print_obj: Object to print to logfile and stdout
     :type print_obj: type depends on objecting being passed. Typically str
     """
-    print(f'INFO: {print_obj}')
+    print(f"INFO: {print_obj}")
     logging.info(str(print_obj))
 
 
@@ -51,7 +54,7 @@ def print_warning(print_obj):
     :param print_obj: Object to print to logfile and stdout
     :type print_obj: type depends on objecting being passed. Typically str
     """
-    print(f'WARN: {print_obj}')
+    print(f"WARN: {print_obj}")
     logging.warning(str(print_obj))
 
 
@@ -63,4 +66,4 @@ def print_exception(print_obj):
 
     """
     print(str(print_obj))
-    logging.exception('EXCEPTION: %s' % (str(print_obj)))
+    logging.exception("EXCEPTION: %s" % (str(print_obj)))
