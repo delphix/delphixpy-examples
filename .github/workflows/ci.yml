@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  - pull_request
+  - push:
+      paths-ignore:
+        - '**.md'
+
+jobs:
+  test:
+    name: Run style checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [3.7]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: pip install tox
+      - name: Run tox
+        run: tox
