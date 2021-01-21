@@ -3,21 +3,21 @@ Module that provides lookups of references and names of Delphix objects.
 """
 
 from datetime import datetime
-
 from dateutil import tz
 
+from delphixpy.v1_10_2.web.service import time
 from delphixpy.v1_10_2 import exceptions
+from delphixpy.v1_10_2.web import vo
+from delphixpy.v1_10_2.web import job
+from delphixpy.v1_10_2.web import source
+from delphixpy.v1_10_2.web import repository
+from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import database
 from delphixpy.v1_10_2.web import group
-from delphixpy.v1_10_2.web import job
-from delphixpy.v1_10_2.web import repository
-from delphixpy.v1_10_2.web import source
-from delphixpy.v1_10_2.web import sourceconfig
-from delphixpy.v1_10_2.web import vo
-from delphixpy.v1_10_2.web.service import time
+
 from lib import dlpx_exceptions
 
-VERSION = "v.0.3.002"
+VERSION = 'v.0.3.003'
 
 
 def convert_timestamp(engine, timestamp):
@@ -30,17 +30,15 @@ def convert_timestamp(engine, timestamp):
     :return: Timestamp converted localtime
     """
 
-    default_tz = tz.gettz("UTC")
+    default_tz = tz.gettz('UTC')
     engine_tz = time.time.get(engine)
     try:
         convert_tz = tz.gettz(engine_tz.system_time_zone)
         utc = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
         utc = utc.replace(tzinfo=default_tz)
         converted_tz = utc.astimezone(convert_tz)
-        engine_local_tz = (
-            f"{str(converted_tz.date())} "
-            f"{str(converted_tz.time())} {str(converted_tz.tzname())}"
-        )
+        engine_local_tz = f'{str(converted_tz.date())} ' \
+            f'{str(converted_tz.time())} {str(converted_tz.tzname())}'
         return engine_local_tz
     except TypeError:
         return None
@@ -56,7 +54,8 @@ def get_running_job(engine, object_ref):
     :return: reference of the running job(s)
     """
     try:
-        return job.get_all(engine, target=object_ref, job_state="RUNNING")[0].reference
+        return job.get_all(engine, target=object_ref,
+                           job_state='RUNNING')[0].reference
     except IndexError:
         return None
 
@@ -75,7 +74,7 @@ def find_obj_by_name(engine, f_class, obj_name):
     for obj in f_class.get_all(engine):
         if obj.name == obj_name:
             return obj
-    raise dlpx_exceptions.DlpxObjectNotFound(f"{obj_name} not found.")
+    raise dlpx_exceptions.DlpxObjectNotFound(f'{obj_name} not found.')
 
 
 def find_source_by_db_name(engine, obj_name):
@@ -92,9 +91,8 @@ def find_source_by_db_name(engine, obj_name):
         if obj.name == obj_name:
             source_obj = source.get_all(engine, database=obj.reference)
             return source_obj[0]
-    raise dlpx_exceptions.DlpxObjectNotFound(
-        f"{obj_name} was not found on " f"engine {engine.address}.\n"
-    )
+    raise dlpx_exceptions.DlpxObjectNotFound(f'{obj_name} was not found on '
+                                             f'engine {engine.address}.\n')
 
 
 def find_obj_name(engine, f_class, obj_reference):
@@ -112,7 +110,8 @@ def find_obj_name(engine, f_class, obj_reference):
     try:
         obj_name = f_class.get(engine, obj_reference)
         return obj_name.name
-    except (exceptions.RequestError, exceptions.JobError, exceptions.HttpError) as err:
+    except (exceptions.RequestError, exceptions.JobError,
+            exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(err)
 
 
@@ -132,16 +131,17 @@ def find_db_repo(engine, install_type, f_environment_ref, f_install_path):
     :return: delphixpy.web.vo.SourceRepository object
     """
     for obj in repository.get_all(engine, environment=f_environment_ref):
-        if install_type == "OracleInstall":
-            if install_type == obj.type and obj.installation_home == f_install_path:
+        if install_type == 'OracleInstall':
+            if (install_type == obj.type and
+                    obj.installation_home == f_install_path):
                 return obj.reference
-        elif install_type == "MSSqlInstance":
-            if obj.type == install_type and obj.instance_name == f_install_path:
+        elif install_type == 'MSSqlInstance':
+            if (obj.type == install_type and
+                    obj.instance_name == f_install_path):
                 return obj.reference
         else:
             raise dlpx_exceptions.DlpxException(
-                f"Only OracleInstall or MSSqlInstance types are supported.\n"
-            )
+                f'Only OracleInstall or MSSqlInstance types are supported.\n')
 
 
 def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
@@ -162,11 +162,11 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
         if obj.name == sourceconfig_name:
             return obj
     raise dlpx_exceptions.DlpxObjectNotFound(
-        f"No sourceconfig match found for type {sourceconfig_name}.\n"
-    )
+        f'No sourceconfig match found for type {sourceconfig_name}.\n')
 
 
-def find_all_databases_by_group_name(engine, group_name, exclude_js_container=False):
+def find_all_databases_by_group_name(engine, group_name,
+                                     exclude_js_container=False):
     """
     Easy way to quickly find databases by group name
     :param engine: A Delphix DDP session object
@@ -182,12 +182,11 @@ def find_all_databases_by_group_name(engine, group_name, exclude_js_container=Fa
     group_ref = find_obj_by_name(engine, group, group_name).reference
     if group_ref:
         databases = database.get_all(
-            engine, group=group_ref, no_js_container_data_source=exclude_js_container
-        )
+            engine, group=group_ref,
+            no_js_container_data_source=exclude_js_container)
         return databases
-    raise dlpx_exceptions.DlpxObjectNotFound(
-        f"No databases found in " f"group {group_name}.\n"
-    )
+    raise dlpx_exceptions.DlpxObjectNotFound(f'No databases found in '
+                                             f'group {group_name}.\n')
 
 
 def find_source_by_database(engine, database_obj):
@@ -204,13 +203,12 @@ def find_source_by_database(engine, database_obj):
     # 1:1 result.
     if not source_obj:
         raise dlpx_exceptions.DlpxObjectNotFound(
-            f'{engine["hostname"]}: Did not find a source for ' f"{database_obj.name}."
-        )
+            f'{engine["hostname"]}: Did not find a source for '
+            f'{database_obj.name}.')
     elif len(source_obj) > 1:
         raise dlpx_exceptions.DlpxException(
             f'{engine["hostname"]} More than one source returned for '
-            f"{database_obj.name}"
-        )
+            f'{database_obj.name}')
     return source_obj
 
 
@@ -229,13 +227,13 @@ def build_data_source_params(dlpx_obj, obj, data_source):
     ds_params.source = vo.JSDataSource()
     ds_params.source.name = data_source
     try:
-        db_obj = find_obj_by_name(dlpx_obj.server_session, obj, data_source)
+        db_obj = find_obj_by_name(
+            dlpx_obj.server_session, obj, data_source)
         ds_params.container = db_obj.reference
         return ds_params
     except exceptions.RequestError as err:
         raise dlpx_exceptions.DlpxObjectNotFound(
-            f"\nCould not find {data_source}\n{err}"
-        )
+            f'\nCould not find {data_source}\n{err}')
 
 
 def find_all_objects(engine, f_class):
@@ -250,5 +248,19 @@ def find_all_objects(engine, f_class):
         yield f_class.get_all(engine)
     except (exceptions.JobError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
-            f"{engine.address} Error encountered in {f_class}: {err}\n"
-        )
+            f'{engine.address} Error encountered in {f_class}: {err}\n')
+
+
+def find_obj_list(obj_lst, obj_name):
+    """
+    Function to find an object in a list of objects
+    :param obj_lst: List containing objects from the get_all() method
+    :type obj_lst: list
+    :param obj_name: Name of the object to match
+    :type obj_name: str
+    :return: The named object, otherwise, DlpxObjectNotFound
+    """
+    for obj in obj_lst:
+        if obj_name == obj.name:
+            return obj
+    raise dlpx_exceptions.DlpxObjectNotFound(f'Did not find {obj_name}\n')

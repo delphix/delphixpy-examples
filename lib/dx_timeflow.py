@@ -7,21 +7,23 @@ import sys
 from distutils.version import LooseVersion
 
 from delphixpy.v1_10_2 import exceptions
-from delphixpy.v1_10_2 import job_context
-from delphixpy.v1_10_2.web import database
 from delphixpy.v1_10_2.web import snapshot
 from delphixpy.v1_10_2.web import timeflow
-from delphixpy.v1_10_2.web import vo
+from delphixpy.v1_10_2.web import database
+from delphixpy.v1_10_2 import job_context
 from delphixpy.v1_10_2.web.timeflow import bookmark
-from lib import dlpx_exceptions
-from lib import dx_logging
-from lib import get_references
+from delphixpy.v1_10_2.web import vo
 
-VERSION = "v.0.3.000"
+from lib import dlpx_exceptions
+from lib import get_references
+from lib import dx_logging
+
+VERSION = "v.0.3.001"
 
 
 class DxTimeflow:
-    """Shared methods for timeflows
+    """
+    Shared methods for timeflows
     :param engine: A Delphix DDP session object
     :type engine: delphixpy.v1_10_2.delphix_engine.DelphixEngine
     """
@@ -40,9 +42,8 @@ class DxTimeflow:
         for db_obj in db_lst:
             if db_obj.name == db_name:
                 return db_obj.current_timeflow
-        raise dlpx_exceptions.DlpxException(
-            f"Timeflow reference not " f"found for {db_name}."
-        )
+        raise dlpx_exceptions.DlpxException(f'Timeflow reference not '
+                                            f'found for {db_name}.')
 
     def list_timeflows(self):
         """
@@ -54,21 +55,17 @@ class DxTimeflow:
         for tf_obj in all_timeflows:
             try:
                 tf_obj.name = get_references.find_obj_name(
-                    self._engine, database, tf_obj.container
-                )
+                    self._engine, database, tf_obj.container)
                 yield tf_obj
             except TypeError as err:
                 raise dlpx_exceptions.DlpxException(
-                    f"Listing Timeflows encountered an error:\n{err}"
-                )
-            except (
-                exceptions.RequestError,
-                exceptions.JobError,
-                exceptions.HttpError,
-            ) as err:
+                    f'Listing Timeflows encountered an error:\n{err}')
+            except (exceptions.RequestError, exceptions.JobError,
+                    exceptions.HttpError) as err:
                 raise dlpx_exceptions.DlpxException(err)
 
-    def create_bookmark(self, bookmark_name, db_name, timestamp=None, location=None):
+    def create_bookmark(self, bookmark_name, db_name, timestamp=None,
+                        location=None):
         """
         Create a timeflow bookmark
 
@@ -83,11 +80,11 @@ class DxTimeflow:
         """
         tf_create_params = vo.TimeflowBookmarkCreateParameters()
         tf_ref = self.get_timeflow_reference(db_name)
-        if re.search("ORAC", tf_ref, re.IGNORECASE):
+        if re.search('ORAC', tf_ref, re.IGNORECASE):
             tf_create_params.timeflow_point = vo.OracleTimeflowPoint()
-        elif re.search("MSSql", tf_ref, re.IGNORECASE):
+        elif re.search('MSSql', tf_ref, re.IGNORECASE):
             tf_create_params.timeflow_point = vo.MSSqlTimeflowPoint()
-        elif re.search("ASE", tf_ref, re.IGNORECASE):
+        elif re.search('ASE', tf_ref, re.IGNORECASE):
             tf_create_params.timeflow_point = vo.ASETimeflowPoint()
         tf_create_params.name = bookmark_name
         tf_create_params.timeflow_point.timeflow = tf_ref
@@ -101,9 +98,8 @@ class DxTimeflow:
             raise dlpx_exceptions.DlpxException(err.error)
         except (exceptions.JobError, exceptions.HttpError):
             raise dlpx_exceptions.DlpxException(
-                f"Fatal exception caught while creating the Timeflow "
-                f"Bookmark:\n{sys.exc_info()[0]}\n"
-            )
+                f'Fatal exception caught while creating the Timeflow '
+                f'Bookmark:\n{sys.exc_info()[0]}\n')
 
     def delete_bookmark(self, bookmark_name):
         """
@@ -112,17 +108,16 @@ class DxTimeflow:
         :param bookmark_name: str
         """
         tf_bookmark = get_references.find_obj_by_name(
-            self._engine, timeflow.bookmark, bookmark_name
-        )
+            self._engine, timeflow.bookmark, bookmark_name)
         try:
-            timeflow.bookmark.bookmark.delete(self._engine, tf_bookmark.reference)
+            timeflow.bookmark.bookmark.delete(self._engine,
+                                              tf_bookmark.reference)
         except exceptions.RequestError as err:
             raise dlpx_exceptions.DlpxException(err.error)
         except (exceptions.JobError, exceptions.HttpError):
             raise dlpx_exceptions.DlpxException(
-                f"Fatal exception caught while creating the Timeflow "
-                f"Bookmark:\n{sys.exc_info()[0]}\n"
-            )
+                f'Fatal exception caught while creating the Timeflow '
+                f'Bookmark:\n{sys.exc_info()[0]}\n')
 
     def list_tf_bookmarks(self):
         """
@@ -135,14 +130,13 @@ class DxTimeflow:
                 if tfbm_obj.timestamp is None:
                     tfbm_obj.timestamp = None
                 else:
-                    tfbm_obj.timestamp = get_references.convert_timestamp(
-                        self._engine, tfbm_obj.timestamp[:-5]
-                    )
+                    tfbm_obj.timestamp = \
+                        get_references.convert_timestamp(
+                            self._engine, tfbm_obj.timestamp[:-5])
                 yield tfbm_obj
             except TypeError:
-                raise dlpx_exceptions.DlpxException(
-                    f"No timestamp found " f"for {tfbm_obj.name}"
-                )
+                raise dlpx_exceptions.DlpxException(f'No timestamp found '
+                                                    f'for {tfbm_obj.name}')
             except exceptions.RequestError as err:
                 dlpx_err = err.error
                 raise dlpx_exceptions.DlpxException(dlpx_err.action)
@@ -158,12 +152,12 @@ class DxTimeflow:
         for snapshot_obj in snapshots:
             if str(snapshot_obj.name).startswith(snap_name):
                 return snapshot_obj.name
-            elif str(snapshot_obj.latest_change_point.timestamp).startswith(snap_name):
+            elif str(snapshot_obj.latest_change_point.timestamp).startswith(
+                    snap_name):
                 return snapshot_obj.name
 
-    def set_timeflow_point(
-        self, container_obj, timestamp_type, timestamp="LATEST", timeflow_name=None
-    ):
+    def set_timeflow_point(self, container_obj, timestamp_type,
+                           timestamp='LATEST', timeflow_name=None):
         """
         Returns the reference of the timestamp specified.
         :param container_obj: Delphix object containing the
@@ -183,56 +177,38 @@ class DxTimeflow:
                  TimeflowPointSemantic
         """
         timeflow_point_parameters = None
-        if timestamp_type.upper() == "SNAPSHOT":
-            if timestamp.upper() == "LATEST":
+        if timestamp_type.upper() == 'SNAPSHOT':
+            if timestamp.upper() == 'LATEST':
                 timeflow_point_parameters = vo.TimeflowPointSemantic()
                 timeflow_point_parameters.container = container_obj.reference
-                timeflow_point_parameters.location = "LATEST_SNAPSHOT"
-
-            # elif timestamp.startswith('@'):
-            #    import pdb; pdb.set_trace()
-            #    snapshot_obj = get_references.find_obj_by_name(
-            #        self._engine, snapshot, timestamp)
-            #    if snapshot_obj:
-            #        timeflow_point_parameters = vo.TimeflowPointSnapshot()
-            #        timeflow_point_parameters.snapshot = snapshot_obj.reference
-            #    else:
-            #        raise dlpx_exceptions.DlpxException(
-            #            f'ERROR: Was unable to use the specified snapshot '
-            #            f'{timestamp} for database {container_obj.name}')
+                timeflow_point_parameters.location = 'LATEST_SNAPSHOT'
             elif timestamp:
                 snapshot_obj = self.find_snapshot(container_obj.reference)
                 if snapshot_obj:
-                    import pdb
-
-                    pdb.set_trace()
+                    import pdb;pdb.set_trace()
                     timeflow_point_parameters = vo.TimeflowPointTimestamp()
                     timeflow_point_parameters.timeflow = snapshot_obj.timeflow
-                    timeflow_point_parameters.timestamp = (
+                    timeflow_point_parameters.timestamp = \
                         snapshot_obj.latest_change_point.timestamp
-                    )
                 elif snapshot_obj is None:
                     raise dlpx_exceptions.DlpxException(
-                        f"Unable to find a suitable time for {timestamp}"
-                        f" for database {container_obj.name}"
-                    )
-        elif timestamp_type.upper() == "TIME":
-            if timestamp.upper() == "LATEST":
+                        f'Unable to find a suitable time for {timestamp}'
+                        f' for database {container_obj.name}')
+        elif timestamp_type.upper() == 'TIME':
+            if timestamp.upper() == 'LATEST':
                 timeflow_point_parameters = vo.TimeflowPointSemantic()
                 timeflow_point_parameters.container = container_obj.reference
-                timeflow_point_parameters.location = "LATEST_POINT"
+                timeflow_point_parameters.location = 'LATEST_POINT'
             elif timestamp:
                 timeflow_point_parameters = vo.TimeflowPointTimestamp()
                 timeflow_obj = get_references.find_obj_by_name(
-                    self._engine, timeflow, timeflow_name
-                )
+                    self._engine, timeflow, timeflow_name)
                 timeflow_point_parameters.timeflow = timeflow_obj.reference
                 timeflow_point_parameters.timestamp = timestamp
         else:
             raise dlpx_exceptions.DlpxObjectNotFound(
-                f"Timestamp type {timestamp_type} not found for VDB "
-                f"{container_obj}. Valid types are snapshot or time."
-            )
+                f'Timestamp type {timestamp_type} not found for VDB '
+                f'{container_obj}. Valid types are snapshot or time.')
         return timeflow_point_parameters
 
     def refresh_vdb_tf_bookmark(self, vdb_name, tf_bookmark_name):
@@ -245,18 +221,19 @@ class DxTimeflow:
         :return: str reference to the refresh job
         """
         try:
-            vdb_obj = get_references.find_obj_by_name(self._engine, database, vdb_name)
+            vdb_obj = get_references.find_obj_by_name(
+                self._engine, database, vdb_name)
             tf_bookmark_obj = get_references.find_obj_by_name(
-                self._engine, timeflow.bookmark, tf_bookmark_name
-            )
+                self._engine, timeflow.bookmark, tf_bookmark_name)
         except StopIteration as err:
             raise dlpx_exceptions.DlpxObjectNotFound(err)
-        if "ORACLE" in vdb_obj.reference:
+        if 'ORACLE' in vdb_obj.reference:
             tf_params = vo.OracleRefreshParameters()
         else:
             tf_params = vo.RefreshParameters()
         tf_params.timeflow_point_parameters = vo.TimeflowPointBookmark()
-        tf_params.timeflow_point_parameters.bookmark = tf_bookmark_obj.reference
+        tf_params.timeflow_point_parameters.bookmark = \
+            tf_bookmark_obj.reference
         try:
             with job_context.asyncly(self._engine):
                 database.refresh(self._engine, vdb_obj.reference, tf_params)
@@ -264,7 +241,5 @@ class DxTimeflow:
         except exceptions.RequestError as err:
             raise dlpx_exceptions.DlpxException(err.error.action)
         except (exceptions.JobError, exceptions.HttpError) as err:
-            dx_logging.print_exception(
-                f"Exception caught during refresh:\n{sys.exc_info()[0]}"
-            )
+            dx_logging.print_exception(f'Exception caught during refresh:\n{sys.exc_info()[0]}')
             raise dlpx_exceptions.DlpxException(err.error)
