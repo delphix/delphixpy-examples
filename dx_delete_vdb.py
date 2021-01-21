@@ -167,7 +167,7 @@ def main():
         #vdbname = ARGUMENTS["--vdb"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for all the servers.
-        t = run_job.run_job_mt(
+        t = run_job.run_job(
             main_workflow, dx_session_obj, engine, single_thread
         )
         dx_logging.print_info(

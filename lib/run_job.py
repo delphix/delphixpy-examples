@@ -9,58 +9,7 @@ from delphixpy.v1_10_2.web import job
 from lib import dx_logging
 from lib import dlpx_exceptions
 
-
 def run_job(main_func, dx_obj, engine='default', single_thread=True):
-    """
-    This method runs the main_func asynchronously against all the
-    servers specified
-    :param main_func: function to run against the DDP(s).
-     In these examples, it's main_workflow().
-    :type main_func: function
-    :param dx_obj: Delphix session object from config
-    :type dx_obj: lib.get_session.GetSession object
-    :param engine: name of an engine, all or None
-    :type engine: str
-    :param single_thread: Run as single thread (True) or
-                    multiple threads (False)
-    :type single_thread: bool
-    """
-    # If "all" argument was given, run against every engine in config_file
-    if engine == 'all':
-        dx_logging.print_info(f'Executing against all Delphix DDPs')
-        try:
-            for delphix_ddp in dx_obj.dlpx_ddps:
-                yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
-        except dlpx_exceptions.DlpxException as err:
-            dx_logging.print_exception(f'Error encountered in run_job():\n{err}')
-    elif engine == 'default':
-        try:
-            for delphix_ddp in dx_obj.dlpx_ddps.keys():
-                if dx_obj.dlpx_ddps[delphix_ddp]['default'] == 'True':
-                    dx_obj_default = dx_obj
-                    dx_obj_default.dlpx_ddps = {
-                        delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
-                    dx_logging.print_info(f'Executing against default DDP')
-                    yield main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
-                break
-        except TypeError as err:
-            raise dlpx_exceptions.DlpxException(f'Error in run_job: {err}')
-    else:
-        # Test to see if the engine exists in config_file
-        try:
-            yield main_func(dx_obj.dlpx_ddps[engine], dx_obj, single_thread)
-            dx_logging.print_info(f'Executing against Delphix DDP: '
-                                  f'{dx_obj.dlpx_ddps[engine]}')
-        except (exceptions.RequestError, KeyError):
-            raise dlpx_exceptions.DlpxException(
-                f'\nERROR: Delphix DDP {engine} cannot be found. Please '
-                f'check your value and try again.')
-    if engine is None:
-        raise dlpx_exceptions.DlpxException(f'ERROR: No default Delphix '
-                                            f'DDP found.')
-
-
-def run_job_mt(main_func, dx_obj, engine='default', single_thread=True):
     """
     This method runs the main_func asynchronously against all the
     delphix engines specified
