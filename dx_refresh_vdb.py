@@ -18,7 +18,6 @@ Usage:
 Refresh a Delphix VDB
 Examples:
   dx_refresh_vdb.py --vdb "aseTest"
-  dx_refresh_vdb.py --all_vdbs --group_name "Analytics" --all
 Options:
   --vdb <name>              Name of the object you are refreshing.
   --all_vdbs                Refresh all VDBs that meet the filter criteria.
