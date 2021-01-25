@@ -119,9 +119,7 @@ def find_job_state_by_jobid(engine, dx_obj,job_id, poll=20):
         time.sleep(poll)
         job_obj = job.get(dx_obj.server_session, job_id)
     dx_logging.print_info(f'Job: {job_id} completed with status: {job_obj.job_state}')
-    if job_obj.job_state =='FAILED':
-        raise dlpx_exceptions.DlpxException('Job: {job_id} failed. Please check the error and retry.')
-    # TODO: Pass the error message back to calling function.
+    return job_obj.job_state
 
 def time_elapsed(time_start):
     """
