@@ -8,11 +8,11 @@ from __future__ import print_function
 import re
 import sys
 
-from DlpxException import DlpxException
-from DxLogging import print_exception
-from GetReferences import convert_timestamp
-from GetReferences import find_obj_by_name
-from GetReferences import get_obj_reference
+from .DlpxException import DlpxException
+from .DxLogging import print_exception
+from .GetReferences import convert_timestamp
+from .GetReferences import find_obj_by_name
+from .GetReferences import get_obj_reference
 
 from delphixpy.v1_8_0 import job_context
 from delphixpy.v1_8_0.exceptions import HttpError

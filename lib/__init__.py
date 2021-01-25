@@ -1,5 +1,5 @@
-import DlpxException
-import DxLogging
-import DxTimeflow
-import GetReferences
-import GetSession
+from . import DlpxException
+from . import DxLogging
+from . import DxTimeflow
+from . import GetReferences
+from . import GetSession
