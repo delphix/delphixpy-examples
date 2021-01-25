@@ -10,7 +10,7 @@
 """Refresh a vdb
 Usage:
   dx_delete_vdb.py --vdb <vdb>
-  [--d <enginename>]
+  [--engine <enginename>]
   [--group_name <groupname>][--force][--debug]
   [--poll <n>] [--single_thread <bool>]
   [--config <path_to_file>] [--logdir <path_to_file>]
@@ -18,8 +18,8 @@ Usage:
 
 Delete a Delphix VDB
 Examples:
-  dx_delete_vdb.py --vdbname "aseTest"
-  dx_delete_vdb.py --vdbname "all" --group_name "Analytics" --engine all
+  dx_delete_vdb.py --vdb aseTest
+  dx_delete_vdb.py --vdb aseTest --engine myengine --single_thread False --force
 Options:
   --vdb <vdb>              Name of the VDB to delete.
   --group_name <name>       Name of the group to execute against.
@@ -27,7 +27,7 @@ Options:
                             multiple engines and the operation needs to run
                             in parallel.
                             [default: True]
-  --d <name>                Identifier for Delphix engine in dxtools.conf.
+  --engine <name>           Identifier for Delphix engine in dxtools.conf.
                             [default: default]
   --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
@@ -45,7 +45,6 @@ Options:
 import sys
 import time
 from os.path import basename
-
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
@@ -138,6 +137,8 @@ def main_workflow(engine, dlpx_obj, single_thread):
             f'{engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}\n'
         )
     try:
+        vdb = ARGUMENTS['--vdb']
+        force = ARGUMENTS['--force']
         with dlpx_obj.job_mode(single_thread):
             job_id = delete_vdb( dlpx_obj, ARGUMENTS['--vdb'],ARGUMENTS['--force'])
             # locking threads
@@ -163,7 +164,7 @@ def main():
         dx_logging.logging_est(ARGUMENTS['--logdir'])
         config_file_path = ARGUMENTS['--config']
         single_thread = ARGUMENTS['--single_thread']
-        engine = ARGUMENTS["--d"]
+        engine = ARGUMENTS["--engine"]
         #vdbname = ARGUMENTS["--vdb"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for all the servers.
