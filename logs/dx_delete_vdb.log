@@ -1,6 +1,0 @@
-INFO:2021-01-25 13:59:33:Executing against Delphix DDP: {'ip_address': '18.207.2.95', 'username': 'delphix_admin', 'password': 'delphix', 'use_https': 'True', 'default': 'True', 'hostname': 'myve'}
-INFO:2021-01-25 13:59:33:delete operation(s) are in progress. Process will terminate once all operations are complete.
-INFO:2021-01-25 13:59:33:Executing main_workflow
-ERROR:2021-01-25 13:59:34:EXCEPTION: ERROR: dx_delete_vdb encountered an error authenticating to 18.207.2.95:Manual
-ERROR:2021-01-25 13:59:34:EXCEPTION: Cannot continue operation on 18.207.2.95
-INFO:2021-01-25 13:59:34:delete operation took 0.0 minutes to complete.
