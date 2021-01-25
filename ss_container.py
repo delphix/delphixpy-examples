@@ -62,9 +62,9 @@ Options:
   --all                      Run against all engines.
   --debug                    Enable debug logging
   --config <path_to_file>    The path to the dxtools.conf file
-                             [default: ./dxtools.conf]
+                             [default: ./config/dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                             [default: ./ss_container.log]
+                             [default: ./logs/ss_container.log]
   -h --help                  Show this screen.
   -v --version               Show version.
 """

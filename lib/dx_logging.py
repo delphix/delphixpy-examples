@@ -66,4 +66,4 @@ def print_exception(print_obj):
 
     """
     print(str(print_obj))
-    logging.exception("EXCEPTION: %s" % (str(print_obj)))
+    logging.error("EXCEPTION: %s" % (str(print_obj)))

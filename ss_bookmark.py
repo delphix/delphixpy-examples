@@ -60,9 +60,9 @@ Options:
   --poll <n>                  The number of seconds to wait between job polls
                               [default: 10]
   --config <path_to_file>     The path to the dxtools.conf file
-                              [default: ./dxtools.conf]
+                              [default: ./config/dxtools.conf]
   --logdir <path_to_file>     The path to the logfile you want to use.
-                              [default: ./ss_bookmark.log]
+                              [default: ./logs/ss_bookmark.log]
   -h --help                   Show this screen.
   -v --version                Show version.
 """

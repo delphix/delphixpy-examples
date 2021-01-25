@@ -34,9 +34,9 @@ Options:
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
-                            [default: ./dxtools.conf]
+                            [default: ./config/dxtools.conf]
   --logdir <path_to_file>   The path to the logfile you want to use.
-                            [default: ./dx_refresh_db.log]
+                            [default: ./logs/dx_delete_vdb.log]
   --force                   Force delete
   -h --help                 Show this screen.
   -v --version              Show version.
@@ -60,7 +60,7 @@ from lib.run_async import run_async
 VERSION = "v.0.3.001"
 
 def delete_vdb(dlpx_obj, vdb_name,force_delete):
-    dx_logging.print_info(f'Commence Delete')
+    dx_logging.print_info(f'Commencing Delete')
     container_obj = get_references.find_obj_by_name(
         dlpx_obj.server_session, database, vdb_name
     )
@@ -128,19 +128,21 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dx_logging.print_info(f'Executing main_workflow')
+        raise dlpx_exceptions.DlpxException('Manual')
         dlpx_obj.dlpx_session(
             engine['ip_address'], engine['username'], engine['password']
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f'ERROR: dx_refresh_vdb encountered an error authenticating to '
-            f'{engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}\n'
+            f'ERROR: dx_delete_vdb encountered an error authenticating to '
+            f'{engine["ip_address"]}:{err}'
         )
+        dx_logging.print_exception(f'Cannot continue operation on '
+                              f'{engine["ip_address"]}')
+        return
     try:
-        vdb = ARGUMENTS['--vdb']
-        force = ARGUMENTS['--force']
         with dlpx_obj.job_mode(single_thread):
-            job_id = delete_vdb( dlpx_obj, ARGUMENTS['--vdb'],ARGUMENTS['--force'])
+            delete_vdb( dlpx_obj, ARGUMENTS['--vdb'],ARGUMENTS['--force'])
             # locking threads
             #run_job.find_job_state_by_jobid(engine, dlpx_obj,job_id)
     except (
@@ -208,7 +210,7 @@ def main():
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
             f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get this far'
+            f'{basename(__file__)} took {elapsed_minutes} minutes to complete'
         )
         sys.exit(3)
 
@@ -217,7 +219,7 @@ def main():
         dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get this far.')
+            f'{basename(__file__)} took {elapsed_minutes} minutes to complete.')
 
 
 if __name__ == "__main__":

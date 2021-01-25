@@ -28,7 +28,7 @@ class DxDeleteVDBTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super(DxDeleteVDBTest, cls).setUpClass()
-        config_path = '../dxtools.conf'
+        config_path = '../config/dxtools.conf'
         cls.engine_name='myve'
         cls.vdb_name = "testvdb"
         cls.force = False

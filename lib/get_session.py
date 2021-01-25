@@ -33,7 +33,7 @@ class GetSession:
         self.dlpx_ddps = {}
         self.jobs = {}
 
-    def get_config(self, config_file_path="./dxtools.conf"):
+    def get_config(self, config_file_path="./config/dxtools.conf"):
         """
         This method reads in the dxtools.conf file
 
@@ -96,10 +96,15 @@ class GetSession:
         except (
             exceptions.HttpError,
             exceptions.RequestError,
-            exceptions.JobError,
+            exceptions.JobError
         ) as err:
             raise dlpx_exceptions.DlpxException(
                 f"ERROR: An error occurred while authenticating to "
+                f"{f_engine_address}:\n {err}\n"
+            )
+        except (TimeoutError) as err:
+            raise dlpx_exceptions.DlpxException(
+                f"ERROR: Timeout while authenticating to "
                 f"{f_engine_address}:\n {err}\n"
             )
 
