@@ -143,7 +143,7 @@ class GetSession(object):
                 "%s.%s.%s"
                 % (build_version.major, build_version.minor, build_version.micro)
             ) < LooseVersion("5.3.5"):
-                return job_context.async(self.server_session)
+                return job_context.asyncly(self.server_session)
             else:
                 return job_context.asyncly(self.server_session)
 
