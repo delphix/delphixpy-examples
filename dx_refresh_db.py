@@ -58,6 +58,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 VERSION = "v.0.1.615"
 
 
@@ -376,18 +377,18 @@ def list_snapshots(server):
     header = "Snapshot Name, First Change Point, Location, Latest Change Point"
     snapshots = snapshot.get_all(server)
 
-    print header
+    print(header)
     for snap in snapshots:
         container_name = get_obj_name(server, database, snap.container)
         snap_range = snapshot.timeflow_range(server, snap.reference)
 
-        print "{}, {}, {}, {}, {}".format(
+        print("{}, {}, {}, {}, {}".format(
             str(snap.name),
             container_name,
             snap_range.start_point.timestamp,
             snap_range.start_point.location,
             snap_range.end_point.timestamp,
-        )
+        ))
 
 
 @run_async
@@ -571,7 +572,7 @@ def print_error(print_obj):
     """
     Call this function with a log message to prefix the message with ERROR
     """
-    print "ERROR: " + str(print_obj)
+    print("ERROR: " + str(print_obj))
     logging.error(str(print_obj))
 
 
@@ -579,7 +580,7 @@ def print_warning(print_obj):
     """
     Call this function with a log message to prefix the message with WARNING
     """
-    print "WARNING: " + str(print_obj)
+    print("WARNING: " + str(print_obj))
     logging.warning(str(print_obj))
 
 
@@ -651,13 +652,13 @@ def refresh_database(engine, server, jobs, source_obj, container_obj):
                 jobs[container_obj] = server.last_job
 
             except RequestError as e:
-                print "\nERROR: Could not set timeflow point:\n%s\n" % (
+                print("\nERROR: Could not set timeflow point:\n%s\n" % (
                     e.message.action
-                )
+                ))
                 sys.exit(1)
 
             except DlpxException as e:
-                print "ERROR: Could not set timeflow point:\n%s\n" % (e.message)
+                print("ERROR: Could not set timeflow point:\n%s\n" % (e.message))
                 sys.exit(1)
 
             # return the job object to the calling statement so that we can
@@ -701,10 +702,12 @@ def run_job(engine):
                 engine = dxtools_objects[arguments["--engine"]]
                 print_info("Executing against Delphix Engine: " + arguments["--engine"])
             except:
-                print_error('Delphix Engine "{}" cannot be found in "{}"'.format(
-                    arguments["--engine"],
-                    config_file_path,
-                ))
+                print_error(
+                    'Delphix Engine "{}" cannot be found in "{}"'.format(
+                        arguments["--engine"],
+                        config_file_path,
+                    )
+                )
                 print_error("Please check your value and try again. Exiting")
                 sys.exit(1)
 
@@ -766,27 +769,27 @@ def list_timeflows(server):
     ret_timeflow_dct = {}
     all_timeflows = timeflow.get_all(server)
 
-    print "DB Name, Timeflow Name, Timestamp"
+    print("DB Name, Timeflow Name, Timestamp")
 
     for tfbm_lst in all_timeflows:
         try:
 
             db_name = get_obj_name(server, database, tfbm_lst.container)
-            print "%s, %s, %s\n" % (
+            print("%s, %s, %s\n" % (
                 str(db_name),
                 str(tfbm_lst.name),
                 str(tfbm_lst.parent_point.timestamp),
-            )
+            ))
 
         except AttributeError:
-            print "%s, %s\n" % (str(tfbm_lst.name), str(db_name))
+            print("%s, %s\n" % (str(tfbm_lst.name), str(db_name)))
 
         except TypeError as e:
             raise DlpxException(
                 "Listing Timeflows encountered an error:\n%s" % (e.message)
             )
 
-        except RequestError, e:
+        except RequestError as e:
             dlpx_err = e.message
             raise DlpxException(dlpx_err.action)
 
@@ -993,7 +996,7 @@ def main(argv):
 
 if __name__ == "__main__":
     # Grab our arguments from the doc at the top of the script
-    print "THIS SCRIPT IS DEPRECATED. USE dx_refresh_vdb.py, instead"
+    print("THIS SCRIPT IS DEPRECATED. USE dx_refresh_vdb.py, instead")
     sys.exit(1)
     arguments = docopt(__doc__, version=basename(__file__) + " " + VERSION)
 

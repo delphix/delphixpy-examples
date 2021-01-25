@@ -1,6 +1,7 @@
 """
 List, create, destroy and refresh Delphix timeflows
 """
+from __future__ import print_function
 # TODO:
 #    implement debug flag
 
@@ -60,20 +61,20 @@ class DxTimeflow(object):
 
         all_timeflows = timeflow.get_all(self.engine)
 
-        print "DB Name, Timeflow Name, Timestamp"
+        print("DB Name, Timeflow Name, Timestamp")
         for tfbm_lst in all_timeflows:
 
             try:
                 db_name = get_obj_reference(self.engine, database, tfbm_lst.container)
 
-                print "{}, {}, {}\n".format(
+                print("{}, {}, {}\n".format(
                     str(db_name),
                     str(tfbm_lst.name),
                     str(tfbm_lst.parent_point.timestamp),
-                )
+                ))
 
             except AttributeError:
-                print "{}, {}\n".format(str(tfbm_lst.name), str(db_name))
+                print("{}, {}\n".format(str(tfbm_lst.name), str(db_name)))
 
             except TypeError as e:
                 raise DlpxException(
@@ -121,9 +122,9 @@ class DxTimeflow(object):
         tf_create_params.timeflow_point = otfp
 
         try:
-            print "Bookmark {} successfully created with reference {}".format(
+            print("Bookmark {} successfully created with reference {}".format(
                 bookmark.bookmark.create(self.engine, tf_create_params)
-            )
+            ))
 
         except RequestError as e:
             raise DlpxException(e.message)
@@ -147,7 +148,7 @@ class DxTimeflow(object):
             print ("\nBookmark name\tReference\tTimestamp\t" "Location\tTimeflow\n")
 
         elif parsable is True:
-            print "Bookmark name,Reference,Timestamp,Location,Timeflow"
+            print("Bookmark name,Reference,Timestamp,Location,Timeflow")
 
         for tfbm_lst in all_bookmarks:
             try:
@@ -160,24 +161,24 @@ class DxTimeflow(object):
                     )
 
                 if parsable is False:
-                    print "{} {} {} {} {}".format(
+                    print("{} {} {} {} {}".format(
                         tfbm_lst.name,
                         tfbm_lst.reference,
                         str(converted_timestamp),
                         tfbm_lst.location,
                         tfbm_lst.timeflow,
-                    )
+                    ))
                 elif parsable is True:
-                    print "{},{},{},{},{}".format(
+                    print("{},{},{},{},{}".format(
                         tfbm_lst.name,
                         tfbm_lst.reference,
                         str(converted_timestamp),
                         tfbm_lst.location,
                         tfbm_lst.timeflow,
-                    )
+                    ))
 
             except TypeError:
-                print "No timestamp found for {}".format(tfbm_lst.name)
+                print("No timestamp found for {}".format(tfbm_lst.name))
 
             except RequestError as e:
                 dlpx_err = e.message

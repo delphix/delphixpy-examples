@@ -53,6 +53,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.004"
 
@@ -344,7 +345,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print "Error encountered in run_job():\n{}".format(e)
+            print("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
 
     elif arguments["--all"] is False:

@@ -57,6 +57,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.3.004"
 
@@ -200,13 +201,13 @@ def refresh_database(vdb_name, timestamp, timestamp_type="SNAPSHOT"):
                 ] = dx_session_obj.server_session.last_job
 
             except RequestError as e:
-                print "\nERROR: Could not set timeflow point:\n%s\n" % (
+                print("\nERROR: Could not set timeflow point:\n%s\n" % (
                     e.message.action
-                )
+                ))
                 sys.exit(1)
 
             except DlpxException as e:
-                print "ERROR: Could not set timeflow point:\n%s\n" % (e.message)
+                print("ERROR: Could not set timeflow point:\n%s\n" % (e.message))
                 sys.exit(1)
 
         # Don't do anything if the database is disabled
@@ -328,7 +329,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print "Error encountered in run_job():\n{}".format(e)
+            print("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
 
     else:

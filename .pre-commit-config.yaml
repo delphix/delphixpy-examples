@@ -10,3 +10,39 @@ repos:
   rev: 4.3.21
   hooks:
     - id: isort
+
+- repo: local
+  hooks:
+  - id: futurize
+    name: futurize
+    entry: futurize
+    language: system
+    types: [python]
+    args:
+      - "-w"
+      - "-n"
+      - "-flib2to3.fixes.fix_apply"
+      - "-flib2to3.fixes.fix_except"
+      - "-flib2to3.fixes.fix_exitfunc"
+      - "-flib2to3.fixes.fix_funcattrs"
+      - "-flib2to3.fixes.fix_has_key"
+      - "-flib2to3.fixes.fix_idioms"
+      - "-flib2to3.fixes.fix_intern"
+      - "-flib2to3.fixes.fix_isinstance"
+      - "-flib2to3.fixes.fix_methodattrs"
+      - "-flib2to3.fixes.fix_ne"
+      - "-flib2to3.fixes.fix_numliterals"
+      - "-flib2to3.fixes.fix_paren"
+      - "-flib2to3.fixes.fix_reduce"
+      - "-flib2to3.fixes.fix_renames"
+      - "-flib2to3.fixes.fix_repr"
+      - "-flib2to3.fixes.fix_standarderror"
+      - "-flib2to3.fixes.fix_sys_exc"
+      - "-flib2to3.fixes.fix_throw"
+      - "-flib2to3.fixes.fix_tuple_params"
+      - "-flib2to3.fixes.fix_types"
+      - "-flib2to3.fixes.fix_ws_comma"
+      - "-flib2to3.fixes.fix_xreadlines"
+      - "-flibfuturize.fixes.fix_next_call"
+      - "-flibfuturize.fixes.fix_print_with_import"
+      - "-flibfuturize.fixes.fix_raise"

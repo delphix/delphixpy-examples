@@ -45,6 +45,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.3.018"
 
@@ -108,12 +109,12 @@ def dx_obj_operation(dlpx_obj, vdb_name, operation):
                     dlpx_obj.server_session, vdb_obj.reference, disable_params
                 )
             dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-    except (RequestError, HttpError, JobError, AttributeError), e:
+    except (RequestError, HttpError, JobError, AttributeError) as e:
         print_exception(
             "An error occurred while performing {} on {}:\n"
             "{}".format(operation, vdb_name, e)
         )
-    print "{} was successfully performed on {}.".format(operation, vdb_name)
+    print("{} was successfully performed on {}.".format(operation, vdb_name))
 
 
 def all_databases(dlpx_obj, operation):
@@ -131,7 +132,7 @@ def all_databases(dlpx_obj, operation):
             dx_obj_operation(dlpx_obj, db.name, operation)
         except (RequestError, HttpError, JobError):
             pass
-        print "{} {}\n".format(operation, db.name)
+        print("{} {}\n".format(operation, db.name))
         sleep(2)
 
 
@@ -193,7 +194,7 @@ def list_databases(dlpx_obj):
                     )
                 )
     except (RequestError, JobError, AttributeError, DlpxException) as err:
-        print "An error occurred while listing databases: {}".format(err)
+        print("An error occurred while listing databases: {}".format(err))
 
 
 def run_async(func):

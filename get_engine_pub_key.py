@@ -3,6 +3,7 @@
 Adam Bowen - May 2017
 This script grabs
 """
+from __future__ import print_function
 VERSION = "v.2.3.003"
 
 import getopt
@@ -75,7 +76,7 @@ def print_debug(print_obj):
     DEBUG Log-level
     """
     if debug == True:
-        print "DEBUG: " + str(print_obj)
+        print("DEBUG: " + str(print_obj))
         logging.debug(str(print_obj))
 
 
@@ -83,7 +84,7 @@ def print_error(print_obj):
     """
     ERROR Log-level
     """
-    print "ERROR: " + str(print_obj)
+    print("ERROR: " + str(print_obj))
     logging.error(str(print_obj))
 
 
@@ -91,7 +92,7 @@ def print_info(print_obj):
     """
     INFO Log-level
     """
-    print "INFO: " + str(print_obj)
+    print("INFO: " + str(print_obj))
     logging.info(str(print_obj))
 
 
@@ -99,7 +100,7 @@ def print_warning(print_obj):
     """
     WARNING Log-level
     """
-    print "WARNING: " + str(print_obj)
+    print("WARNING: " + str(print_obj))
     logging.warning(str(print_obj))
 
 

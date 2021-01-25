@@ -67,6 +67,7 @@ Options:
   -h --help                  Show this screen.
   -v --version               Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.020"
 
@@ -297,7 +298,7 @@ def list_containers(dlpx_obj):
     header = "Name, Active Branch, Owner, Reference, Template, Last Updated"
     js_containers = container.get_all(dlpx_obj.server_session)
     try:
-        print header
+        print(header)
         for js_container in js_containers:
             last_updated = convert_timestamp(
                 dlpx_obj.server_session, js_container.last_updated[:-5]
@@ -336,7 +337,7 @@ def reset_container(dlpx_obj, container_name):
         print_exception(
             "\nERROR: JS Container was not reset. The " "error was:\n\n{}".format(e)
         )
-    print "Container {} was reset.\n".format(container_name)
+    print("Container {} was reset.\n".format(container_name))
 
 
 def list_hierarchy(dlpx_obj, container_name):
@@ -547,7 +548,7 @@ def main_workflow(engine, dlpx_obj):
                         sleep(float(arguments["--poll"]))
 
     except (DlpxException, RequestError, JobError, HttpError) as e:
-        print "\nError in js_container: {}:\n{}".format(engine["hostname"], e)
+        print("\nError in js_container: {}:\n{}".format(engine["hostname"], e))
         sys.exit(1)
 
 
@@ -577,7 +578,7 @@ def run_job(dlpx_obj, config_file_path):
                 threads.append(main_workflow(engine, dlpx_obj))
 
         except DlpxException as e:
-            print "Error encountered in run_job():\n{}".format(e)
+            print("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
 
     elif arguments["--all"] is False:
@@ -665,14 +666,14 @@ def main():
         sys.exit(2)
     except HttpError as e:
         # We use this exception handler when our connection to Delphix fails
-        print "\nERROR: Connection failed to the Delphix Engine. Please " "check the ERROR message below:\n{}".format(
+        print("\nERROR: Connection failed to the Delphix Engine. Please " "check the ERROR message below:\n{}".format(
             e.message
-        )
+        ))
         sys.exit(2)
     except JobError as e:
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
-        print "A job failed in the Delphix Engine:\n{}".format(e.job)
+        print("A job failed in the Delphix Engine:\n{}".format(e.job))
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(
@@ -691,8 +692,8 @@ def main():
         )
     except:
         # Everything else gets caught here
-        print sys.exc_info()[0]
-        print traceback.format_exc()
+        print(sys.exc_info()[0])
+        print(traceback.format_exc())
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(

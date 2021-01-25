@@ -53,6 +53,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.015"
 
@@ -141,7 +142,7 @@ def list_branches(dlpx_obj):
         js_data_layout = ""
         js_branches = branch.get_all(dlpx_obj.server_session)
 
-        print header
+        print(header)
         for js_branch in js_branches:
             js_end_time = operation.get(
                 dlpx_obj.server_session, js_branch.first_operation
