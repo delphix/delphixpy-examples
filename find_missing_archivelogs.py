@@ -37,6 +37,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.005"
 
@@ -68,7 +69,7 @@ def find_missing_archivelogs(hostname):
     """
     Function to find missing archive log files for Oracle dSources.
     """
-    print "Now working on engine {}.".format(hostname)
+    print("Now working on engine {}.".format(hostname))
 
     log_file = open("{}/{}.csv".format(arguments["--outdir"], hostname), "a+")
 

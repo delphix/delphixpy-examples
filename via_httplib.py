@@ -4,6 +4,7 @@
 # Copyright (c) 2018 by Delphix. All rights reserved.
 #
 
+from __future__ import print_function
 import argparse
 import httplib
 import json
@@ -61,9 +62,9 @@ def main():
     api_version = {"type": "APIVersion", "major": major, "minor": minor, "micro": micro}
 
     # log into the Delphix Engine in order to set cookie
-    print "Logging into " + dlpx_host + "..."
+    print("Logging into " + dlpx_host + "...")
     log_into_dlpx_engine(api_version)
-    print "SUCCESS - Logged in as " + dlpx_user
+    print("SUCCESS - Logged in as " + dlpx_user)
 
     response = dlpx_get("delphix/user")
     for item in response["result"]:

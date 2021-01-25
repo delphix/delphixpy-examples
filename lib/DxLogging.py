@@ -1,6 +1,7 @@
 """
 Package DxLogging
 """
+from __future__ import print_function
 
 import logging
 
@@ -39,7 +40,7 @@ def print_debug(print_obj, debug=False):
     """
     try:
         if debug is True:
-            print "DEBUG: {}".format(str(print_obj))
+            print("DEBUG: {}".format(str(print_obj)))
             logging.debug(str(print_obj))
     except:
         pass
@@ -49,7 +50,7 @@ def print_info(print_obj):
     """
     Call this function with a log message to prefix the message with INFO
     """
-    print "INFO: {}".format(str(print_obj))
+    print("INFO: {}".format(str(print_obj)))
     logging.info(str(print_obj))
 
 
@@ -57,7 +58,7 @@ def print_warning(print_obj):
     """
     Call this function with a log message to prefix the message with INFO
     """
-    print "WARN: %s" % (str(print_obj))
+    print("WARN: %s" % (str(print_obj)))
     logging.warn(str(print_obj))
 
 
@@ -65,5 +66,5 @@ def print_exception(print_obj):
     """
     Call this function with a log message to prefix the message with EXCEPTION
     """
-    print str(print_obj)
+    print(str(print_obj))
     logging.exception("EXCEPTION: {}".format(str(print_obj)))

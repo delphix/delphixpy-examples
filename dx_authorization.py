@@ -44,6 +44,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.015"
 
@@ -109,7 +110,7 @@ def create_authorization(dlpx_obj, role_name, target_type, target_name, user_nam
         print_exception(
             "An error occurred while creating authorization:\n" "{}".format(e)
         )
-    print "Authorization successfully created for {}.".format(user_name)
+    print("Authorization successfully created for {}.".format(user_name))
 
 
 def delete_authorization(dlpx_obj, role_name, target_type, target_name, user_name):
@@ -142,7 +143,7 @@ def delete_authorization(dlpx_obj, role_name, target_type, target_name, user_nam
                 authorization.delete(dlpx_obj.server_session, auth_obj.reference)
     except DlpxException as e:
         print_exception("ERROR: Could not delete authorization:\n{}".format(e))
-    print "{} for user {} was deleted successfully".format(target_name, user_name)
+    print("{} for user {} was deleted successfully".format(target_name, user_name))
 
 
 def find_target_type(dlpx_obj, target_type, target_name):
@@ -195,9 +196,9 @@ def list_authorization(dlpx_obj):
             elif auth_obj.target.startswith("DOMAIN"):
                 target_obj = User()
                 target_obj.name = "DOMAIN"
-            print "{}, {}, {}, {}".format(
+            print("{}, {}, {}, {}".format(
                 user_obj.name, role_obj.name, target_obj.name, auth_obj.reference
-            )
+            ))
     except (RequestError, HttpError, JobError, AttributeError) as e:
         print_exception(
             "An error occurred while listing authorizations.:\n" "{}\n".format((e))

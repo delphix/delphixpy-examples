@@ -50,6 +50,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.015"
 
@@ -118,7 +119,7 @@ def list_templates(dlpx_obj):
     header = "Name, Reference, Active Branch, Last Updated"
 
     try:
-        print header
+        print(header)
         js_templates = template.get_all(dlpx_obj.server_session)
         for js_template in js_templates:
             last_updated = convert_timestamp(
@@ -152,7 +153,7 @@ def delete_template(dlpx_obj, template_name):
             dlpx_obj.server_session, template, template_name
         )
         template.delete(dlpx_obj.server_session, template_obj.reference)
-        print "Template {} is deleted.".format(template_name)
+        print("Template {} is deleted.".format(template_name))
     except (DlpxException, HttpError, RequestError) as e:
         print_exception(
             "\nERROR: The template {} was not deleted. The"
@@ -315,7 +316,7 @@ def run_job(dlpx_obj, config_file_path):
                 # Create a new thread and add it to the list.
                 threads.append(main_workflow(engine, dlpx_obj))
         except DlpxException as e:
-            print "Error encountered in run_job():\n{}".format(e)
+            print("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
     elif arguments["--all"] is False:
         # Else if the --engine argument was given, test to see if the engine
@@ -430,7 +431,7 @@ def main():
         )
     except:
         # Everything else gets caught here
-        print "{}\n{}".format(sys.exc_info()[0], traceback.format_exc())
+        print("{}\n{}".format(sys.exc_info()[0], traceback.format_exc()))
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(

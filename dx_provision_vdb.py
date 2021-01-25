@@ -97,6 +97,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.2.305"
 
@@ -511,7 +512,7 @@ def create_oracle_si_vdb(
             container_obj, arguments["--timestamp_type"], arguments["--timestamp"]
         )
 
-        print vdb_params, "\n\n\n"
+        print(vdb_params, "\n\n\n")
         print_info(engine["hostname"] + ": Provisioning " + vdb_name)
         database.provision(dx_session_obj.server_session, vdb_params)
         # Add the job into the jobs dictionary so we can track its progress
@@ -946,7 +947,7 @@ def main_workflow(engine):
                     sleep(float(arguments["--poll"]))
 
     except (DlpxException, JobError) as e:
-        print "\nError while provisioning %s:\n%s" % (database_name, e.message)
+        print("\nError while provisioning %s:\n%s" % (database_name, e.message))
         sys.exit(1)
 
 
@@ -972,7 +973,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print "Error encountered in main_workflow:\n%s" % (e)
+            print("Error encountered in main_workflow:\n%s" % (e))
             sys.exit(1)
 
     elif arguments["--all"] is False:
@@ -1212,7 +1213,7 @@ def main(argv):
         We use this exception handler when a job fails in Delphix so
         that we have actionable data
         """
-        print "A job failed in the Delphix Engine:\n%s"(e.job)
+        print("A job failed in the Delphix Engine:\n%s"(e.job))
         elapsed_minutes = time_elapsed()
         print_info(
             "%s took %s minutes to get this far"

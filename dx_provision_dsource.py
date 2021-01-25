@@ -93,6 +93,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.2.0018"
 
@@ -391,9 +392,9 @@ def link_ase_dsource(engine_name):
                 dx_session_obj.server_session, database, arguments["--dsource_name"]
             ).reference,
         )
-        print "{} sucessfully linked {}".format(
+        print("{} sucessfully linked {}".format(
             dsource_ref, arguments["--dsource_name"]
-        )
+        ))
     except (RequestError, HttpError) as e:
         print_exception(
             "Database link failed for {}:\n{}".format(arguments["--dsource_name"], e)
@@ -524,7 +525,7 @@ def run_job():
                 threads.append(main_workflow(engine))
 
         except DlpxException as e:
-            print "Error encountered in run_job():\n%s" % (e)
+            print("Error encountered in run_job():\n%s" % (e))
             sys.exit(1)
 
     elif arguments["--all"] is False:

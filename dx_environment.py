@@ -69,6 +69,7 @@ Options:
   --disable                 Disable the named environment
 
 """
+from __future__ import print_function
 
 VERSION = "v.0.3.612"
 
@@ -193,7 +194,7 @@ def list_env(dlpx_obj):
                 "Enabled: {}, ".format(env.name, env_user, env.enabled)
             )
         else:
-            print "Environment Name: {}, Username: {}, Host: {}, Enabled: {}," " ASE Environment Params: {}".format(
+            print("Environment Name: {}, Username: {}, Host: {}, Enabled: {}," " ASE Environment Params: {}".format(
                 env.name,
                 env_user,
                 env_host,
@@ -203,7 +204,7 @@ def list_env(dlpx_obj):
                     env.ase_host_environment_parameters, ASEHostEnvironmentParameters
                 )
                 else "Undefined",
-            )
+            ))
 
 
 def delete_env(dlpx_obj, env_name):
@@ -631,7 +632,7 @@ def run_job(dlpx_obj, config_file_path):
                 threads.append(main_workflow(engine, dlpx_obj))
 
         except DlpxException as e:
-            print "Error encountered in run_job():\n{}".format(e)
+            print("Error encountered in run_job():\n{}".format(e))
             sys.exit(1)
 
     elif arguments["--all"] is False:

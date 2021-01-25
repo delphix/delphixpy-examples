@@ -59,6 +59,7 @@ Options:
   -v --version              Show version.
 
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.100"
 
@@ -273,7 +274,7 @@ def print_debug(print_obj):
     """
     try:
         if debug == True:
-            print "DEBUG: " + str(print_obj)
+            print("DEBUG: " + str(print_obj))
             logging.debug(str(print_obj))
     except:
         pass
@@ -283,7 +284,7 @@ def print_error(print_obj):
     """
     Call this function with a log message to prefix the message with ERROR
     """
-    print "ERROR: " + str(print_obj)
+    print("ERROR: " + str(print_obj))
     logging.error(str(print_obj))
 
 
@@ -291,7 +292,7 @@ def print_info(print_obj):
     """
     Call this function with a log message to prefix the message with INFO
     """
-    print "INFO: " + str(print_obj)
+    print("INFO: " + str(print_obj))
     logging.info(str(print_obj))
 
 
@@ -299,7 +300,7 @@ def print_warning(print_obj):
     """
     Call this function with a log message to prefix the message with WARNING
     """
-    print "WARNING: " + str(print_obj)
+    print("WARNING: " + str(print_obj))
     logging.warning(str(print_obj))
 
 

@@ -62,6 +62,7 @@ Options:
   -h --help                   Show this screen.
   -v --version                Show version.
 """
+from __future__ import print_function
 
 VERSION = "v.0.0.019"
 
@@ -193,32 +194,32 @@ def list_bookmarks(dlpx_obj, tags=None):
     header = "\nName, Reference, Branch Name, Template Name, Tags"
     try:
         js_bookmarks = bookmark.get_all(dlpx_obj.server_session)
-        print header
+        print(header)
         for js_bookmark in js_bookmarks:
             branch_name = find_obj_name(
                 dlpx_obj.server_session, branch, js_bookmark.branch
             )
             tag_filter = [x.strip() for x in tags.decode("utf-8", "ignore").split(",")]
             if all(tag in js_bookmark.tags for tag in tag_filter):
-                print "{}, {}, {}, {}, {}".format(
+                print("{}, {}, {}, {}, {}".format(
                     js_bookmark.name,
                     js_bookmark.reference,
                     branch_name,
                     js_bookmark.template_name,
                     ", ".join(tag for tag in js_bookmark.tags),
-                )
+                ))
             elif tag_filter is None:
                 tag = js_bookmark.tags if js_bookmark.tags else None
                 if tag:
                     tag = ", ".join(tag for tag in js_bookmark.tags)
-                print "{}, {}, {}, {}, {}".format(
+                print("{}, {}, {}, {}, {}".format(
                     js_bookmark.name,
                     js_bookmark.reference,
                     branch_name,
                     js_bookmark.template_name,
                     tag,
-                )
-        print "\n"
+                ))
+        print("\n")
 
     except (DlpxException, HttpError, RequestError) as e:
         print_exception(
