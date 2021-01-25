@@ -2,7 +2,7 @@
 Custom exception class for delphixpy scripts
 """
 
-from DxLogging import print_exception
+from .DxLogging import print_exception
 
 
 class DlpxException(Exception):

@@ -21,9 +21,9 @@ from delphixpy.v1_8_0.exceptions import RequestError
 from delphixpy.v1_8_0.web import job
 from delphixpy.v1_8_0.web import system
 from delphixpy.v1_8_0.web.vo import SystemInfo
-from lib.DlpxException import DlpxException
-from lib.DxLogging import print_debug
-from lib.DxLogging import print_info
+from .DlpxException import DlpxException
+from .DxLogging import print_debug
+from .DxLogging import print_info
 
 VERSION = "v.0.2.10"
 
