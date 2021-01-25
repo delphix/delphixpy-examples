@@ -4,6 +4,7 @@
 *.key
 *.pub
 *.DS_Store
+*.log
 config/dxtools.conf
 venv
 .DS_Store

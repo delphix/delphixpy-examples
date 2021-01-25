@@ -27,7 +27,7 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
     threads = []
     # if engine ="all", run against every engine in config_file
     if engine == 'all':
-        dx_logging.print_info(f'Executing against all Delphix DDPs')
+        dx_logging.print_info(f'Executing against all Delphix Engines')
         try:
             for delphix_ddp in dx_obj.dlpx_ddps:
                 t = main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
@@ -45,7 +45,7 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
                     dx_obj_default = dx_obj
                     dx_obj_default.dlpx_ddps = {
                         delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
-                    dx_logging.print_info(f'Executing against default DDP')
+                    dx_logging.print_info(f'Executing against default Delphix Engine')
                     t=main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
                     threads.append(t)
                 break
@@ -54,14 +54,15 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
     else:
         # Test to see if the engine exists in config_file
         try:
-            t = main_func(dx_obj.dlpx_ddps[engine], dx_obj, single_thread)
+            engine_ref = dx_obj.dlpx_ddps[engine]
+            t = main_func(engine_ref, dx_obj, single_thread)
             threads.append(t)
-            dx_logging.print_info(f'Executing against Delphix DDP: '
-                                  f'{dx_obj.dlpx_ddps[engine]}')
+            dx_logging.print_info(f'Executing against Delphix Engine: '
+                                  f'{engine_ref["ip_address"]}')
         except (exceptions.RequestError, KeyError):
             raise dlpx_exceptions.DlpxException(
                 f'\nERROR: Delphix DDP {engine} cannot be found. Please '
-                f'check your value and try again.')
+                f'check your input and try again.')
     if engine is None:
         raise dlpx_exceptions.DlpxException(f'ERROR: No default Delphix '
                                             f'DDP found.')
