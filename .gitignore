@@ -5,7 +5,6 @@
 *.key
 *.pub
 *.DS_Store
-config/dxtools.conf
 venv
 .DS_Store
 **/.idea
