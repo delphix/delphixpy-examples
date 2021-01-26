@@ -128,7 +128,6 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dx_logging.print_info(f'Executing main_workflow')
-        raise dlpx_exceptions.DlpxException('Manual')
         dlpx_obj.dlpx_session(
             engine['ip_address'], engine['username'], engine['password']
         )
