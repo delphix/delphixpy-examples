@@ -323,7 +323,7 @@ def job_mode(server):
         print_debug("These jobs will be executed synchronously")
     # Or asynchronously
     else:
-        job_m = job_context.async(server)
+        job_m = job_context.asyncly(server)
         print_debug("These jobs will be executed asynchronously")
     return job_m
 

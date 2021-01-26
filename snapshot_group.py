@@ -20,6 +20,6 @@ for each in all_groups:
 
 database_objs = database.get_all(server_session, group=group_reference)
 
-with job_context.async(server_session):
+with job_context.asyncly(server_session):
     for obj in database_objs:
         database.sync(server_session, obj.reference)

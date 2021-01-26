@@ -320,7 +320,7 @@ class DxTimeflow(object):
         }
 
         try:
-            with job_context.async(self.engine):
+            with job_context.asyncly(self.engine):
                 db_ret_val = database.refresh(self.engine, child_db_ref, tf_params)
             return db_ret_val
 

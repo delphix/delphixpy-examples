@@ -16,7 +16,7 @@ Usage:
                   [--usebackup] [--bck_file <name>] [--debug] [--parallel <n>]
                   [--poll <n>][--create_bckup]
                   [--config <path_to_file>] [--logdir <path_to_file>]
-  dx_snapshot_db.py (--host <name> [--group <name>] [--object_type <type>] 
+  dx_snapshot_db.py (--host <name> [--group <name>] [--object_type <type>]
                   | --object_type <name> [--group <name>] [--host <type>] )
                   [-d <identifier> | --engine <identifier> | --all]
                   [--usebackup] [--debug] [--parallel <n>] [--poll <n>]
@@ -234,7 +234,7 @@ def job_mode(server):
         print_debug("These jobs will be executed synchronously")
     # Or asynchronously
     else:
-        job_m = job_context.async(server)
+        job_m = job_context.asyncly(server)
         print_debug("These jobs will be executed asynchronously")
     return job_m
 
