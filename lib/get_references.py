@@ -74,7 +74,7 @@ def find_obj_by_name(engine, f_class, obj_name):
     for obj in f_class.get_all(engine):
         if obj.name == obj_name:
             return obj
-    raise dlpx_exceptions.DlpxObjectNotFound(f'{obj_name} not found.')
+    raise dlpx_exceptions.DlpxObjectNotFound(f' Object not found.')
 
 
 def find_source_by_db_name(engine, obj_name):
@@ -242,10 +242,10 @@ def find_all_objects(engine, f_class):
     :param engine: A Delphix engine session object
     :type dlpx_obj: lib.GetSession.GetSession object
     :param f_class: The objects class. I.E. database or timeflow.
-    :return: generator
+    :return: list
     """
     try:
-        yield f_class.get_all(engine)
+        return f_class.get_all(engine)
     except (exceptions.JobError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
             f'{engine.address} Error encountered in {f_class}: {err}\n')

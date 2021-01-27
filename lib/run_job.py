@@ -11,7 +11,6 @@ from lib import dlpx_exceptions
 
 VERSION = 'v.0.3.001'
 
-
 def run_job(main_func, dx_obj, engine='default', single_thread=True):
     """
     This method runs the main_func asynchronously against all the
@@ -88,7 +87,7 @@ def find_job_state(engine, dx_obj, poll=10):
     for j in dx_obj.jobs.keys():
         job_obj = job.get(dx_obj.server_session, dx_obj.jobs[j])
         dx_logging.print_debug(job_obj)
-        dx_logging.print_info( f'{engine["ddp_identifier"]}: Running job: {job_obj.job_state}')
+        dx_logging.print_info( f'{engine["ip_address"]}: Running job: {job_obj.job_state}')
         if job_obj.job_state in ['CANCELED', 'COMPLETED', 'FAILED']:
             # If the job is in a non-running state, remove it
             # from the running jobs list.
@@ -97,11 +96,14 @@ def find_job_state(engine, dx_obj, poll=10):
             # If the job is in a running state, increment the
             # running job count.
             i += 1
-        dx_logging.print_info(f'{engine["ddp_identifier"]}: {i} jobs running.')
+        dx_logging.print_info(f'{engine["ip_address"]}: {i} jobs running.')
         # If we have running jobs, pause before repeating the
         # checks.
         if dx_obj.jobs:
             time.sleep(poll)
+        else:
+            dx_logging.print_info(f'No jobs running')
+            break
 
 
 def find_job_state_by_jobid(engine, dx_obj,job_id, poll=20):
@@ -118,7 +120,7 @@ def find_job_state_by_jobid(engine, dx_obj,job_id, poll=20):
     # get the job object
     job_obj = job.get(dx_obj.server_session, job_id)
     dx_logging.print_debug(job_obj)
-    dx_logging.print_info(f' Polling for : {job_id} to finish')
+    dx_logging.print_info(f' Waiting for : {job_id} to finish')
     while job_obj.job_state == 'RUNNING':
         time.sleep(poll)
         job_obj = job.get(dx_obj.server_session, job_id)
