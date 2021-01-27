@@ -1,5 +1,5 @@
 """
-This does stuff
+Runs jobs passing a function as an argument. Thread safe.
 """
 import time
 
@@ -8,6 +8,9 @@ from delphixpy.v1_10_2.web import job
 
 from lib import dx_logging
 from lib import dlpx_exceptions
+
+VERSION = 'v.0.3.001'
+
 
 def run_job(main_func, dx_obj, engine='default', single_thread=True):
     """

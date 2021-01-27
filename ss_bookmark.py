@@ -60,9 +60,9 @@ Options:
   --poll <n>                  The number of seconds to wait between job polls
                               [default: 10]
   --config <path_to_file>     The path to the dxtools.conf file
-                              [default: ./config/dxtools.conf]
+                              [default: ./dxtools.conf]
   --logdir <path_to_file>     The path to the logfile you want to use.
-                              [default: ./logs/ss_bookmark.log]
+                              [default: ./ss_bookmark.log]
   -h --help                   Show this screen.
   -v --version                Show version.
 """
@@ -82,7 +82,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.002"
+VERSION = "v.0.3.003"
 
 
 def create_bookmark(
@@ -110,7 +110,7 @@ def create_bookmark(
     :type description: str
     """
     bookmark_ref = None
-    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     ss_bookmark_params = vo.JSBookmarkCreateParameters()
     ss_bookmark_params.bookmark = vo.JSBookmark()
     ss_bookmark_params.bookmark.name = bookmark_name

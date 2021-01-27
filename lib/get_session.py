@@ -20,7 +20,7 @@ from delphixpy.v1_10_2.delphix_engine import DelphixEngine
 from lib import dlpx_exceptions
 from lib import dx_logging
 
-VERSION = "v.0.3.000"
+VERSION = "v.0.3.001"
 
 
 class GetSession:

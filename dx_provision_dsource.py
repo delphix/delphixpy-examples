@@ -16,21 +16,21 @@ Usage:
   --db_user <name>
   [--port_num <name> --num_connections <name> --link_now <name>]
   [--files_per_set <name> --rman_channels <name>]
-  [--engine <identifier> | --all]
+  [--engine <identifier>]
   [--parallel <n> --poll <n> --config <path_to_file> --logdir <path_to_file>]
   dx_provision_dsource.py --type <name> --dsource_name <name> \
   --ase_user <name> --ase_passwd <name> --backup_path <name> \
   --source_user <name> --stage_user aseadmin --stage_repo ASE1570_S2 \
   --src_config <name> --env_name <name> --dx_group <name>
   [--bck_file <name> --create_bckup]
-  [--engine <identifier> | --all]
+  [--engine <identifier>]
   [--parallel <n> --poll <n> --config <path_to_file> --logdir <path_to_file>]
   dx_provision_dsource.py --type <name> --dsource_name <name> \
   --dx_group <name> --db_passwd <name> --db_user <name> \
   --stage_instance <name> --stage_env <name> --backup_path <name>
   [--backup_loc_passwd <passwd> --backup_loc_user <name> --logsync]
-  [--sync_mode <mode> --load_from_backup]
-  [--engine <identifier> | --all]
+  [--sync_mode <mode> --load_from_backup --single_thread <bool>]
+  [--engine <identifier>]
   [--parallel <n> --poll <n> --config <path_to_file> --logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
@@ -40,12 +40,12 @@ Examples:
     dx_provision_dsource.py --type oracle --dsource_name oradb1 \
     --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv \
     --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 \
-    --db_user delphixdb --db_passwd delphixdb
+    --db_user delphixdb --db_passwd delphixdb --single_thread False
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa \
     --ase_passwd sybase --backup_path /data/db --source_user aseadmin \
     --stage_user aseadmin --stage_repo ASE1570_S2 --src_config dbw1 \
-    --env_name aseSource --dx_group Sources
+    --env_name aseSource --dx_group Sources --single_thread False
     Specify backup files:
     dx_provision_dsource.py --type sybase --dsource_name dbw2 --ase_user sa \
     --ase_passwd sybase --backup_path /data/db --source_user aseadmin \
@@ -80,6 +80,9 @@ Options:
   --db_install_path<name>   Location of the installation path of the DB.
   --num_connections <name>  Number of connections for Oracle RMAN
                             [default: 5]
+  --single_thread           Run as a single thred. False if running multiple
+                            threads.
+                            [default: True]
   --link_now <name>         Link the dSource
                             [default: True]
   --files_per_set <name>    Configures how many files per set for Oracle RMAN
@@ -125,8 +128,7 @@ Options:
                             [default: None]
   --dsource_name <name>     Name of the dSource
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
-  --all                     Run against all engines.
-  --debug                   Enable debug logging
+                            [default: default]
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
@@ -153,7 +155,7 @@ from lib import dsource_link_ase
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.0001'
+VERSION = 'v.0.3.0002'
 
 
 @run_async

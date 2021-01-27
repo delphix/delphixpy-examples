@@ -11,7 +11,7 @@
 Usage:
   dx_refresh_vdb.py --vdb <name>
   [--timestamp_type <type> --timestamp <timepoint_semantic> ]
-  [--timeflow <timeflow> --engine <identifier> | --all]
+  [--timeflow <timeflow> --engine <identifier>]
   [--debug] [--parallel <n> --poll <n> --single_thread <bool>]
   [--config <path_to_file> --logdir <path_to_file>]
   dx_refresh_vdb.py -h | --help | -v | --version

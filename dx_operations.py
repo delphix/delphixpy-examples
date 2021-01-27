@@ -9,9 +9,9 @@
 """List all VDBs or Start, stop, enable, disable a VDB
 Usage:
   dx_operations_vdb.py (--vdb <name> [--stop | --start | --enable | \
-  --disable] | --list | --all_dbs <name>)
-  [--engine <identifier> | --all]
-  [--force] [--debug] [--parallel <n>] [--poll <n>]
+ --disable] | --list | --all_dbs <name>)
+  [--engine <identifier> ]
+  [--force --parallel <n> --poll <n> --single_thread <bool>]
   [--config <path_to_file>] [--logdir <path_to_file>]
   dx_operations_vdb.py -h | --help | -v | --version
 List all VDBs, start, stop, enable, disable a VDB
@@ -31,18 +31,19 @@ Options:
   --list                    List all databases from an engine
   --enable                  Enable the VDB
   --disable                 Disable the VDB
-  -d <identifier>           Identifier of Delphix engine in dxtools.conf.
-  --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
-  --all                     Run against all engines.
+  --engine <type>           Identifier of Delphix engine in dxtools.conf.
+                            [default: default]
+  --single_thread           Run as a single thread. False if running multiple
+                            threads.
+                            [default: True]
   --force                   Do not clean up target in VDB disable operations
-  --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
-                            [default: ./config/dxtools.conf]
+                            [default: ./dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./logs/dx_operations_vdb.log]
+                            [default: ./dx_operations_vdb.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
@@ -65,7 +66,7 @@ from lib import run_job
 from lib.run_async import run_async
 
 
-VERSION = 'v.0.3.000'
+VERSION = 'v.0.3.001'
 
 
 def dx_obj_operation(dlpx_obj, vdb_name, operation):
@@ -78,12 +79,13 @@ def dx_obj_operation(dlpx_obj, vdb_name, operation):
     :param operation: enable or disable dSources and VDBs
     :type operation: str
     """
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     vdb_obj = get_references.find_obj_by_name(dlpx_obj.server_session,
                                               source, vdb_name)
     try:
         if vdb_obj:
             if operation == 'start':
+                #import pdb;pdb.set_trace()
                 source.start(dlpx_obj.server_session, vdb_obj.reference)
             elif operation == 'stop':
                 source.stop(dlpx_obj.server_session, vdb_obj.reference)
@@ -120,7 +122,7 @@ def all_databases(dlpx_obj, operation):
             dx_obj_operation(dlpx_obj, db.name, operation)
         except (exceptions.RequestError, exceptions.HttpError):
             pass
-        time.sleep(2)
+        time.sleep(1)
 
 
 def list_databases(dlpx_obj):
@@ -129,45 +131,49 @@ def list_databases(dlpx_obj):
     :param dlpx_obj: Virtualization Engine session object
     :type dlpx_obj: lib.GetSession.GetSession
     """
-    source_stats_lst = get_references.find_all_objects(dlpx_obj.server_session,
-                                                       source)
-    source_stats = None
-    db_stats = None
+    all_source_objs = source.get_all(dlpx_obj.server_session)
+    all_consumer_objs = consumer.get_all(dlpx_obj.server_session)
+    db_size = None
+    active_space = None
+    sync_space = None
+    log_space = None
     try:
-        for db_stats in get_references.find_all_objects(
-                dlpx_obj.server_session, consumer):
-            source_stats = get_references.find_obj_list(source_stats_lst,
-                                                        db_stats.name)
+        for db_stats in all_consumer_objs:
+            source_stats = get_references.find_obj_list(
+                all_source_objs, db_stats.name)
+            if source_stats is not None:
+                active_space = db_stats.breakdown.active_space / 1024 / 1024 \
+                               / 1024
+                sync_space = db_stats.breakdown.sync_space / 1024 / 1024 / 1024
+                log_space = db_stats.breakdown.log_space / 1024 / 1024
+                db_size = source_stats.runtime.database_size / 1024 / 1024 \
+                    / 1024
+            if source_stats.virtual is False:
+                print(f'name: {db_stats.name}, provision container:'
+                      f' {db_stats.parent}, disk usage: {db_size:.2f}GB,'
+                      f'Size of Snapshots: {active_space:.2f}GB, '
+                      f'dSource Size: {sync_space:.2f}GB, '
+                      f'Log Size: {log_space:.2f}MB,'
+                      f'Enabled: {source_stats.runtime.enabled},'
+                      f'Status: {source_stats.runtime.status}')
+            elif source_stats.virtual is True:
+                print(f'name: {db_stats.name}, provision container: '
+                      f'{db_stats.parent}, disk usage: '
+                      f'{active_space:.2f}GB, Size of Snapshots: '
+                      f'{sync_space:.2f}GB'
+                      f'Log Size: {log_space:.2f}MB, Enabled: '
+                      f'{source_stats.runtime.enabled}, '
+                      f'Status: {source_stats.runtime.status}')
+            elif source_stats is None:
+                print(f'name: {db_stats.name},provision container: '
+                      f'{db_stats.parent}, database disk usage: '
+                      f'{db_size:.2f}GB,'
+                      f'Size of Snapshots: {active_space:.2f}GB,'
+                      'Could not find source information. This could be a '
+                      'result of an unlinked object')
     except (exceptions.RequestError, AttributeError,
             dlpx_exceptions.DlpxException) as err:
         print(f'An error occurred while listing databases: {err}')
-    if source_stats is not None:
-        active_space = db_stats.breakdown.active_space / 1024 \
-                       / 1024 / 1024
-        sync_space = db_stats.breakdown.sync_space / 1024 / 1024 / 1024
-        log_space = db_stats.breakdown.log_space / 1024 / 1024
-        db_size = source_stats.runtime.database_size / 1024 / 1024 / 1024
-        if source_stats.virtual is False:
-            print(f'name: {db_stats.name}, provision container:'
-                  f' {db_stats.parent}, disk usage: {db_size:.2f}GB,'
-                  f'Size of Snapshots: {active_space:.2f}GB, '
-                  f'dSource Size: {sync_space:.2f}GB, '
-                  f'Log Size: {log_space:.2f}MB,'
-                  f'Enabled: {source_stats.runtime.enabled},'
-                  f'Status: {source_stats.runtime.status}')
-        elif source_stats.virtual is True:
-            print(f'name: {db_stats.name}, provision container: '
-                  f'{db_stats.parent}, disk usage: '
-                  f'{active_space:.2f}GB, Size of Snapshots: {sync_space:.2f}GB'
-                  f'Log Size: {log_space:.2f}MB, Enabled: '
-                  f'{source_stats.runtime.enabled}, '
-                  f'Status: {source_stats.runtime.status}')
-        elif source_stats is None:
-            print(f'name: {db_stats.name},provision container: '
-                  f'{db_stats.parent}, database disk usage: {db_size:.2f}GB,'
-                  f'Size of Snapshots: {active_space:.2f}GB,'
-                  'Could not find source information. This could be a '
-                  'result of an unlinked object')
 
 
 @run_async
@@ -215,11 +221,11 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     elif ARGUMENTS['--all_dbs']:
                         all_databases(dlpx_obj, ARGUMENTS['--all_dbs'])
                     thingstodo.pop()
+                run_job.find_job_state(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(
             f'Error in {basename(__file__)}: {engine["hostname"]}\n{err}')
-    run_job.find_job_state(engine, dlpx_obj)
 
 
 def main():

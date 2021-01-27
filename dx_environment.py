@@ -14,8 +14,8 @@ Usage:
   | --update_ase_user <name> --env_name <name> --delete <env_name>
   | --refresh <env_name> | --list)
   [--logdir <directory>][--debug] [--config <filename>]
-  [--connector_name <name>]
-  [--passwd <password>][--engine <identifier>][--all] [--poll <n>]
+  [--connector_name <name> --single_thread <bool>]
+  [--passwd <password> --engine <identifier> --poll <n>]
   dx_environment.py (--update_host --old_host_address <name> --new_host_address
   <name>) [--logdir <directory>][--debug] [--config <filename>]
   dx_environment.py ([--enable]|[--disable]) --env_name <name>
@@ -47,6 +47,9 @@ Options:
   --type <name>             The OS type for the environment
   --env_name <name>         The name of the Delphix environment
   --ip <addr>               The IP address of the Delphix environment
+  --single_thread           Run as a single thread. False if running multiple
+                            threads.
+                            [default: True]
   --list                    List all of the environments for a given engine
   --toolkit <path>          Path of the toolkit. Required for Unix/Linux
   --host_user <username>    The username on the Delphix environment
@@ -60,11 +63,9 @@ Options:
   --update_ase_user <name>  Update the ASE DB username
   --ase_user <name>         The ASE DB username
   --ase_pw <name>           Password of the ASE DB user
-  --all                     Run against all engines.
-  --debug                   Enable debug logging
   --parallel <n>            Limit number of jobs to maxjob
   --engine <type>           Identifier of Delphix engine in dxtools.conf.
-
+                            [default: default]
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
@@ -100,7 +101,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.615'
+VERSION = 'v.0.3.616'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -198,7 +199,7 @@ def delete_env(dlpx_obj, env_name):
     :param env_name: Name of the environment to delete
     :type env_name: str
     """
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     env_obj = get_references.find_obj_by_name(dlpx_obj.server_session,
                                               environment, env_name)
     if env_obj:
@@ -217,7 +218,7 @@ def refresh_env(dlpx_obj, env_name):
     :parm env_name: Name of the environment to refresh
     :type env_name: str
     """
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     if env_name == "all":
         env_list = get_references.find_all_objects(
             dlpx_obj.server_session, environment)
@@ -262,7 +263,7 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
     :param ase_pw: password for the ASE DB user
     :type ase_pw: str
     """
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     env_params_obj = vo.HostEnvironmentCreateParameters()
     env_params_obj.host_environment = vo.UnixHostCreateParameters()
     env_params_obj.host_environment.host = vo.UnixHost()
@@ -320,7 +321,7 @@ def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
     :param connector_name: Name of the Delphix connector
     :type connector_name: str
     """
-    engine_name = dlpx_obj.dlpx_engines.keys()[0]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     env_params_obj = vo.HostEnvironmentCreateParameters()
     env_params_obj.primary_user = vo.EnvironmentUser()
     env_params_obj.primary_user.name = host_user

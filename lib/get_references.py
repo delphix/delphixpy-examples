@@ -17,7 +17,7 @@ from delphixpy.v1_10_2.web import group
 
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.003'
+VERSION = 'v.0.3.004'
 
 
 def convert_timestamp(engine, timestamp):
@@ -165,8 +165,8 @@ def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
         f'No sourceconfig match found for type {sourceconfig_name}.\n')
 
 
-def find_all_databases_by_group_name(engine, group_name,
-                                     exclude_js_container=False):
+def find_all_databases_by_group(engine, group_name,
+                                exclude_js_container=False):
     """
     Easy way to quickly find databases by group name
     :param engine: A Delphix DDP session object

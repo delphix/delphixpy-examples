@@ -11,8 +11,9 @@
 Usage:
   dx_rewind_vdb.py (--vdb <name> [--timestamp_type <type>] \
   [--timestamp <timepoint_semantic>])
-  [--bookmark <type> --engine <identifier> --all --parallel <n>] \
-  [--poll <n> --config <path_to_file> --logdir <path_to_file>]
+  [--bookmark <type> --engine <identifier> --parallel <n>] \
+  [--poll <n> --config <path_to_file> --single_thread <bool>] \
+  [--logdir <path_to_file>]
   dx_rewind_vdb.py -h | --help | -v | --version
 
 Rewinds a Delphix VDB
@@ -30,7 +31,6 @@ Options:
   --timestamp_type <type>   The type of timestamp being used for the reqwind.
                             Acceptable Values: TIME, SNAPSHOT
                             [default: SNAPSHOT]
-  --all                       Run against all engines.
   --timestamp <timepoint_semantic>
                             The Delphix semantic for the point in time on
                             the source to rewind the VDB.
@@ -40,8 +40,8 @@ Options:
                             snapshot name: "@YYYY-MM-DDTHH24:MI:SS.ZZZ"
                             snapshot time from GUI: "YYYY-MM-DD HH24:MI"
                             [default: LATEST]
-  --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
-  --debug                   Enable debug logging
+  --engine <name>           Identifier of Delphix engine in dxtools.conf.
+                            [default: default]
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
@@ -70,7 +70,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.003"
+VERSION = "v.0.3.004"
 
 
 def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
@@ -85,7 +85,7 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
     :param timestamp_type: The type of timestamp being used for the rewind
     :type timestamp_type: str
     """
-    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     dx_timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
     container_obj = get_references.find_obj_by_name(
         dlpx_obj.server_session, database, vdb_name
@@ -93,21 +93,23 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
     # Sanity check to make sure our container object has a reference
     if container_obj.reference:
         try:
-            if container_obj.runtime.enabled == "ENABLED":
+            if container_obj.runtime.enabled == 'ENABLED':
                 dx_logging.print_info(
-                    f"INFO: {engine_name} Rewinding "
-                    f"{container_obj.name} to {timestamp}\n"
+                    f'INFO: {engine_name} Rewinding '
+                    f'{container_obj.name} to {timestamp}\n'
                 )
-            elif container_obj.virtual is not True or container_obj.staging is True:
+            elif container_obj.virtual is not True or container_obj.staging \
+                    is True:
                 raise dlpx_exceptions.DlpxException(
-                    f"{container_obj.name} in engine {engine_name} is not "
-                    f"a virtual object. Skipping.\n"
+                    f'{container_obj.name} in engine {engine_name} is not '
+                    f'a virtual object. Skipping.\n'
                 )
         # This exception is raised if rewinding a vFiles VDB since
         # AppDataContainer does not have virtual, staging or enabled attributes
         except AttributeError:
             pass
-        # If the vdb is a Oracle type, we need to use a OracleRollbackParameters
+        # If the vdb is a Oracle type, we need to use a
+        # OracleRollbackParameters
         if str(container_obj.reference).startswith("ORACLE"):
             rewind_params = vo.OracleRollbackParameters()
         else:
@@ -127,13 +129,13 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
             exceptions.JobError,
         ) as err:
             raise dlpx_exceptions.DlpxException(
-                f"ERROR: {engine_name} encountered an error on "
-                f"{container_obj.name} during the rewind process:\n{err}"
+                f'ERROR: {engine_name} encountered an error on '
+                f'{container_obj.name} during the rewind process:\n{err}'
             )
     # Don't do anything if the database is disabled
     else:
         dx_logging.print_info(
-            f"{engine_name}: {container_obj.name} is not " f"enabled. Skipping sync."
+            f'{engine_name}: {container_obj.name} is not " f"enabled. Skipping sync.'
         )
 
 
@@ -173,7 +175,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         ARGUMENTS["--timestamp_type"],
                     )
                     thingstodo.pop()
-                    run_job.find_job_state(engine, dlpx_obj)
+                run_job.find_job_state(engine, dlpx_obj)
     except (
         dlpx_exceptions.DlpxException,
         dlpx_exceptions.DlpxObjectNotFound,
@@ -193,9 +195,9 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS["--logdir"])
-        config_file_path = ARGUMENTS["--config"]
-        single_thread = ARGUMENTS["--single_thread"]
+        dx_logging.logging_est(ARGUMENTS['--logdir'])
+        config_file_path = ARGUMENTS['--config']
+        single_thread = ARGUMENTS['--single_thread']
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
