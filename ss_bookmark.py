@@ -12,16 +12,21 @@
 #
 """Creates, lists, removes a Self Service Bookmark
 Usage:
-  ss_bookmark.py (--create_bookmark <name> --data_layout <name>
-  [--tags <tags> --description <name> --branch_name <name>]
-  | --list [--tags <tags>]
-  | --delete_bookmark <name> | --activate_bookmark <name> |
-   --update_bookmark <name> | --share_bookmark <name> |
-   --unshare_bookmark <name>)
-                   [--engine <identifier> | --all] [--single_thread <bool>]
-                   [--poll <n>] [--debug]
-                   [--config <path_to_file>] [--logdir <path_to_file>]
-  ss_bookmark.py -h | --help | -v | --version
+ ss_bookmark.py ( 	--create_bookmark <name> --data_layout <name> --type <type> \
+  					[--tags <tags> --description <name> --branch_name <name> ] | \
+  					--list [--tags <tags>] | \
+  					--delete_bookmark <name> | \
+  					--activate_bookmark <name> | \
+				   	--update_bookmark <name> | \
+				   	--share_bookmark <name> | \
+				   	--unshare_bookmark <name>)
+					[--engine <enginename> ]
+					[--single_thread <bool>]
+					[--poll <n>]
+					[--debug]
+					[--config <path_to_file>]
+					[--logdir <path_to_file>]
+ss_bookmark.py -h | --help | -v | --version
 
 Creates, Lists, Removes a Self Service Bookmark
 
@@ -41,10 +46,13 @@ Examples:
 
 Options:
   --create_bookmark <name>    Name of the new SS Bookmark
+  --type <typename>           Container or Template
   --container_name <name>     Name of the container to use
   --tags <tags>               Tags to use for this bookmark (comma-delimited)
   --description <name>        Description of this bookmark
   --update_bookmark <name>    Name of the bookmark to update
+  --share_bookmark <name>     Name of the bookmark to share.
+  --unshare_bookmark <name>   Name of the bookmark to unshare.
   --branch_name <name>        Optional: Name of the branch to use
   --data_layout <name>        Name of the data layout (container or template)
   --activate_bookmark <name>  Name of the bookmark to activate
@@ -60,9 +68,9 @@ Options:
   --poll <n>                  The number of seconds to wait between job polls
                               [default: 10]
   --config <path_to_file>     The path to the dxtools.conf file
-                              [default: ./dxtools.conf]
+                              [default: ./config/dxtools.conf]
   --logdir <path_to_file>     The path to the logfile you want to use.
-                              [default: ./ss_bookmark.log]
+                              [default: ./logs/ss_bookmark.log]
   -h --help                   Show this screen.
   -v --version                Show version.
 """
@@ -82,7 +90,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.003"
+VERSION = "v.0.3.002"
 
 
 def create_bookmark(
@@ -92,6 +100,7 @@ def create_bookmark(
     branch_name=None,
     tags=None,
     description=None,
+    type="container"
 ):
     """
     Create the Self Service Bookmark
@@ -110,7 +119,6 @@ def create_bookmark(
     :type description: str
     """
     bookmark_ref = None
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     ss_bookmark_params = vo.JSBookmarkCreateParameters()
     ss_bookmark_params.bookmark = vo.JSBookmark()
     ss_bookmark_params.bookmark.name = bookmark_name
@@ -137,14 +145,19 @@ def create_bookmark(
             )
     elif branch_name is None:
         try:
-            data_layout_obj = get_references.find_obj_by_name(
-                dlpx_obj.server_session, selfservice.template, source_layout
-            )
+            if type == 'container':
+                data_layout_obj = get_references.find_obj_by_name(
+                    dlpx_obj.server_session, selfservice.container, source_layout
+                )
+            else:
+                data_layout_obj = get_references.find_obj_by_name(
+                    dlpx_obj.server_session, selfservice.template, source_layout
+                )
+            ss_bookmark_params.bookmark.branch = data_layout_obj.active_branch
         except (dlpx_exceptions.DlpxException, exceptions.RequestError):
             raise dlpx_exceptions.DlpxException(
-                f"Could not find a default branch in engine {engine_name}"
+                f"Could not find a default branch in engine {dlpx_obj.server_session.address}"
             )
-        ss_bookmark_params.bookmark.branch = data_layout_obj.active_branch
     if tags:
         ss_bookmark_params.bookmark.tags = tags.split(",")
     if description:
@@ -157,7 +170,9 @@ def create_bookmark(
         bookmark_ref = selfservice.bookmark.create(
             dlpx_obj.server_session, ss_bookmark_params
         )
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     except (
         dlpx_exceptions.DlpxException,
         exceptions.RequestError,
@@ -347,38 +362,34 @@ def main_workflow(engine, dlpx_obj, single_thread):
             f'authenticating to {engine["hostname"]} '
             f'{ARGUMENTS["--target"]}:\n{err}\n'
         )
-    thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            while dlpx_obj.jobs or thingstodo:
-                if thingstodo:
-                    if ARGUMENTS["--create_bookmark"]:
-                        create_bookmark(
-                            dlpx_obj,
-                            ARGUMENTS["--create_bookmark"],
-                            ARGUMENTS["--data_layout"],
-                            ARGUMENTS["--branch_name"]
-                            if ARGUMENTS["--branch_name"]
-                            else None,
-                            ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
-                            ARGUMENTS["--description"]
-                            if ARGUMENTS["--description"]
-                            else None,
-                        )
-                    elif ARGUMENTS["--delete_bookmark"]:
-                        delete_bookmark(dlpx_obj, ARGUMENTS["--delete_bookmark"])
-                    elif ARGUMENTS["--update_bookmark"]:
-                        update_bookmark(dlpx_obj, ARGUMENTS["--update_bookmark"])
-                    elif ARGUMENTS["--share_bookmark"]:
-                        share_bookmark(dlpx_obj, ARGUMENTS["--share_bookmark"])
-                    elif ARGUMENTS["--unshare_bookmark"]:
-                        unshare_bookmark(dlpx_obj, ARGUMENTS["--unshare_bookmark"])
-                    elif ARGUMENTS["--list"]:
-                        list_bookmarks(
-                            dlpx_obj,
-                            ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
-                        )
-                    thingstodo.pop()
+            if ARGUMENTS["--create_bookmark"]:
+                create_bookmark(
+                    dlpx_obj,
+                    ARGUMENTS["--create_bookmark"],
+                    ARGUMENTS["--data_layout"],
+                    ARGUMENTS["--branch_name"]
+                    if ARGUMENTS["--branch_name"]
+                    else None,
+                    ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
+                    ARGUMENTS["--description"]
+                    if ARGUMENTS["--description"]
+                    else None,
+                )
+            elif ARGUMENTS["--delete_bookmark"]:
+                delete_bookmark(dlpx_obj, ARGUMENTS["--delete_bookmark"])
+            elif ARGUMENTS["--update_bookmark"]:
+                update_bookmark(dlpx_obj, ARGUMENTS["--update_bookmark"])
+            elif ARGUMENTS["--share_bookmark"]:
+                share_bookmark(dlpx_obj, ARGUMENTS["--share_bookmark"])
+            elif ARGUMENTS["--unshare_bookmark"]:
+                unshare_bookmark(dlpx_obj, ARGUMENTS["--unshare_bookmark"])
+            elif ARGUMENTS["--list"]:
+                list_bookmarks(
+                    dlpx_obj,
+                    ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
+                )
     except (
         dlpx_exceptions.DlpxException,
         exceptions.RequestError,
@@ -403,13 +414,9 @@ def main():
         single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
-        # This is the function that will handle processing main_workflow for
-        # all the servers.
         for each in run_job.run_job(
             main_workflow, dx_session_obj, engine, single_thread
         ):
-            # join them back together so that we wait for all threads to
-            # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(

@@ -12,26 +12,32 @@
 #
 """Create, delete, refresh and list JS containers.
 Usage:
-  ss_container.py (--create_container <name> --template_name <name>
-                   --database <name> | --reset <name> |
-                   --list_hierarchy <name> | --list
-                   | --delete_container <name> [--keep_vdbs] |
-                   --refresh_container <name>
-                   | --add_owner <name> --container_name <name> |
-                    --remove_owner <name> --container_name <name> |
-                    --restore_container <name> --bookmark_name <name>)
-                   [--engine <identifier> | --all] [--parallel <n>]
-                   [--poll <n>] [--debug]
-                   [--config <path_to_file>] [--logdir <path_to_file>]
-  ss_container.py -h | --help | -v | --version
+    ss_container.py (   --list | \
+                        --create_container <name>  --template_name <name> --database <name>) | \
+                        --delete_container <name> [--keep_vdbs] | \
+                        --restore_container <name> --bookmark_name <name> | \
+                        --remove_owner <name> --container_name <name> | \
+                        --add_owner <name> --container_name <name> | \
+                        --refresh_container <name> | \
+                        --reset_container <name> | \
+                        --list_hierarchy <name>
+                       [--engine <enginename>]
+                       [--poll <n>]
+                       [--parallel <n>]
+                       [--single_thread <bool>]
+                       [--debug]
+                       [--config <path_to_file>]
+                       [--logdir <path_to_file>]
+
+    ss_container.py -h | --help | -v | --version
 
 Creates, Lists, Removes a Self-Service Data Pod
 
 Examples:
   ss_container.py --list
-  ss_container.py --list_hierarchy sscontainer1
-  ss_container.py --add_owner jsuser
-  ss_container.py --create_container sscontainer1 --database <name> \
+  ss_container.py --list_hierarchy suiteCRM-Dev-DataPod
+  ss_container.py --add_owner dev --container_name suiteCRM-Dev-DataPod
+  ss_container.py --create_container sscontainer1 --database <name>:<name> \
   --template_name jstemplate1
   ss_container.py --delete_container sscontainer1
   ss_container.py --refresh_container sscontainer1
@@ -39,28 +45,33 @@ Examples:
   ss_container.py --remove_owner jsuser --container_name sscontainer1
   ss_container.py --refresh_container sscontainer1
   ss_container.py --restore_container sscontainer1 --bookmark_name ssbookmark1
-  js_conatiner.py --reset sscontainer1
+  js_conatiner.py --reset_container sscontainer1
 
 Options:
   --create_container <name>  Name of the new SS Container
+                             [default:None]
   --container_name <name>    Name of the SS Container
   --refresh_container <name> Name of the new SS Container
   --restore_container <name> Name of the SS Container to restore
-  --reset <name>             Reset last data operation
+  --reset_container <name>   Reset last data operation
   --template_name <name>     Name of the JS Template to use for the container
   --add_owner <name>         Name of the JS Owner for the container
   --remove_owner <name>      Name of the JS Owner to remove
   --bookmark_name <name>     Name of the JS Bookmark to restore the container
   --keep_vdbs                If set, deleting the container will not remove
                              the underlying VDB(s)
-  --list_hierarchy <name>     Lists hierarchy of a given container name
+  --list_hierarchy <name>    Lists hierarchy of a given container name
   --delete_container <name>  Delete the SS Container
   --database <name>          Name of the child database(s) to use for the
-                                SS Container
-  --list_containers          List the containers on a given engine
-  --engine <type>            Alt Identifier of Delphix DDP in dxtools.conf.
-  --all                      Run against all engines.
+                             SS Container
+  --list                     List the containers on a given engine
+  --engine <enginename>      dentifier of Delphix DDP in dxtools.conf.
+                             [default: default]
   --debug                    Enable debug logging
+  --single_thread <boolean> Run as a single thread. Use True if there are
+                            multiple engines and the operation needs to run
+                            in parallel.
+                            [default: True]
   --config <path_to_file>    The path to the dxtools.conf file
                              [default: ./config/dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
@@ -105,7 +116,6 @@ def create_container(dlpx_obj, template_name, container_name, database_name):
     """
     ss_container_params = vo.JSDataContainerCreateWithoutRefreshParameters()
     container_ds_lst = []
-    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
     for data_set in database_name.split(":"):
         container_ds_lst.append(
             get_references.build_data_source_params(dlpx_obj, database, data_set)
@@ -124,7 +134,9 @@ def create_container(dlpx_obj, template_name, container_name, database_name):
         container_ref = selfservice.container.create(
             dlpx_obj.server_session, ss_container_params
         )
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
         return container_ref
     except (
         dlpx_exceptions.DlpxException,
@@ -186,7 +198,6 @@ def restore_container(dlpx_obj, container_name, bookmark_name):
         ).reference
     )
     bookmark_params.force_option = False
-    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
     try:
         selfservice.container.restore(
             dlpx_obj.server_session,
@@ -195,7 +206,9 @@ def restore_container(dlpx_obj, container_name, bookmark_name):
             ).reference,
             bookmark_params,
         )
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     except (
         dlpx_exceptions.DlpxObjectNotFound,
         exceptions.RequestError,
@@ -237,7 +250,7 @@ def add_owner(dlpx_obj, owner_name, container_name):
         )
 
 
-def refresh_container(dlpx_obj, container_name):
+def refresh_container(engine,dlpx_obj, container_name):
     """
     Refreshes a container
     :param dlpx_obj: DDP session object
@@ -245,7 +258,6 @@ def refresh_container(dlpx_obj, container_name):
     :param container_name: Name of the container to refresh
     :type container_name: str
     """
-    engine_name = dlpx_obj.dlpx_ddps["engine_name"]
     try:
         selfservice.container.refresh(
             dlpx_obj.server_session,
@@ -253,7 +265,9 @@ def refresh_container(dlpx_obj, container_name):
                 dlpx_obj.server_session, selfservice.container, container_name
             ).reference,
         )
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     except (
         dlpx_exceptions.DlpxObjectNotFound,
         exceptions.RequestError,
@@ -371,8 +385,9 @@ def list_hierarchy(dlpx_obj, container_name):
         db_name = get_references.find_obj_name(
             dlpx_obj.server_session, database, data_source.container
         )
-        if hasattr(data_source.runtime, "jdbc_strings"):
-            database_dct[db_name] = data_source.runtime.jdbc_strings
+
+        if hasattr(data_source.runtime, "instance_jdbc_string"):
+            database_dct[db_name] = data_source.runtime.instance_jdbc_string
         else:
             database_dct[db_name] = "None"
     try:
@@ -422,82 +437,78 @@ def main_workflow(engine, dlpx_obj, single_thread):
     """
     try:
         # Setup the connection to the Delphix Engine
-        dlpx_obj.serversess(
-            engine["ip_address"], engine["username"], engine["password"]
+        dlpx_obj.dlpx_session(
+            engine['ip_address'], engine['username'], engine['password']
         )
     except dlpx_exceptions.DlpxObjectNotFound as err:
         dx_logging.print_exception(
-            f'ERROR: Engine {dlpx_obj.dlpx_engines["hostname"]} encountered '
-            f"an error while creating the session:\n{err}\n"
+            f'ERROR: Delphix Engine {engine["ip_address"]} encountered '
+            f'an error while creating the session:\n{err}\n'
         )
-    thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            while dlpx_obj.jobs or thingstodo:
-                if thingstodo:
-                    if ARGUMENTS["--create_container"]:
-                        create_container(
-                            dlpx_obj,
-                            ARGUMENTS["--template_name"],
-                            ARGUMENTS["--create_container"],
-                            ARGUMENTS["--database"],
-                        )
-                        dx_logging.print_info(
-                            f'SS Container {ARGUMENTS["--create_container"]}'
-                            f"was created successfully."
-                        )
-                    elif ARGUMENTS["--delete_container"]:
-                        delete_container(
-                            dlpx_obj,
-                            ARGUMENTS["--delete_container"],
-                            ARGUMENTS["--keep_vdbs"],
-                        )
-                    elif ARGUMENTS["--list"]:
-                        list_containers(dlpx_obj)
-                    elif ARGUMENTS["--remove_owner"]:
-                        remove_owner(
-                            dlpx_obj,
-                            ARGUMENTS["--remove_owner"],
-                            ARGUMENTS["--container_name"],
-                        )
-                        dx_logging.print_info(
-                            f'User {ARGUMENTS["--remove_owner"]} had '
-                            f"access revoked from "
-                            f'{ARGUMENTS["--container_name"]}'
-                        )
-                    elif ARGUMENTS["--restore_container"]:
-                        restore_container(
-                            dlpx_obj,
-                            ARGUMENTS["--restore_container"],
-                            ARGUMENTS["--bookmark_name"],
-                        )
-                        dx_logging.print_info(
-                            f'Container {ARGUMENTS["--restore_container"]} '
-                            f"was restored successfully with bookmark "
-                            f'{ARGUMENTS["--bookmark_name"]}'
-                        )
-                    elif ARGUMENTS["--add_owner"]:
-                        add_owner(
-                            dlpx_obj,
-                            ARGUMENTS["--add_owner"],
-                            ARGUMENTS["--container_name"],
-                        )
-                        dx_logging.print_info(
-                            f'User {ARGUMENTS["--add_owner"]} was granted '
-                            f'access to {ARGUMENTS["--container_name"]}'
-                        )
-                    elif ARGUMENTS["--refresh_container"]:
-                        refresh_container(dlpx_obj, ARGUMENTS["--refresh_container"])
-                        dx_logging.print_info(
-                            f'The container {ARGUMENTS["--refresh_container"]}'
-                            f" was refreshed."
-                        )
-                    elif ARGUMENTS["--list_hierarchy"]:
-                        list_hierarchy(dlpx_obj, ARGUMENTS["--list_hierarchy"])
-                    elif ARGUMENTS["--reset"]:
-                        reset_container(dlpx_obj, ARGUMENTS["--reset"])
-                        print(f'Container {ARGUMENTS["--reset"]} was reset.')
-                    thingstodo.pop()
+            if ARGUMENTS["--create_container"]:
+                create_container(
+                    dlpx_obj,
+                    ARGUMENTS["--template_name"],
+                    ARGUMENTS["--create_container"],
+                    ARGUMENTS["--database"],
+                )
+                dx_logging.print_info(
+                    f'Self Service Container {ARGUMENTS["--create_container"]}'
+                    f"was created successfully."
+                )
+            elif ARGUMENTS["--delete_container"]:
+                delete_container(
+                    dlpx_obj,
+                    ARGUMENTS["--delete_container"],
+                    ARGUMENTS["--keep_vdbs"],
+                )
+            elif ARGUMENTS["--list"]:
+                list_containers(dlpx_obj)
+            elif ARGUMENTS["--remove_owner"]:
+                remove_owner(
+                    dlpx_obj,
+                    ARGUMENTS["--remove_owner"],
+                    ARGUMENTS["--container_name"],
+                )
+                dx_logging.print_info(
+                    f'User {ARGUMENTS["--remove_owner"]} had '
+                    f"access revoked from "
+                    f'{ARGUMENTS["--container_name"]}'
+                )
+            elif ARGUMENTS["--restore_container"]:
+                restore_container(
+                    dlpx_obj,
+                    ARGUMENTS["--restore_container"],
+                    ARGUMENTS["--bookmark_name"],
+                )
+                dx_logging.print_info(
+                    f'Container {ARGUMENTS["--restore_container"]} '
+                    f"was restored successfully with bookmark "
+                    f'{ARGUMENTS["--bookmark_name"]}'
+                )
+            elif ARGUMENTS["--add_owner"]:
+                add_owner(
+                    dlpx_obj,
+                    ARGUMENTS["--add_owner"],
+                    ARGUMENTS["--container_name"],
+                )
+                dx_logging.print_info(
+                    f'User {ARGUMENTS["--add_owner"]} was granted '
+                    f'access to {ARGUMENTS["--container_name"]}'
+                )
+            elif ARGUMENTS["--refresh_container"]:
+                refresh_container(engine,dlpx_obj, ARGUMENTS["--refresh_container"])
+                dx_logging.print_info(
+                    f'The container {ARGUMENTS["--refresh_container"]}'
+                    f" was refreshed."
+                )
+            elif ARGUMENTS["--list_hierarchy"]:
+                list_hierarchy(dlpx_obj, ARGUMENTS["--list_hierarchy"])
+            elif ARGUMENTS["--reset_container"]:
+                reset_container(dlpx_obj, ARGUMENTS["--reset_container"])
+                print(f'Container {ARGUMENTS["--reset_container"]} was reset.')
     except (
         dlpx_exceptions.DlpxException,
         exceptions.RequestError,
@@ -522,16 +533,9 @@ def main():
         single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
-        dx_logging.print_debug(ARGUMENTS)
-        # Parse the dxtools.conf and put it into a dictionary
-        dx_session_obj.get_config(config_file_path)
-        # This is the function that will handle processing main_workflow for
-        # all the servers.
         for each in run_job.run_job(
             main_workflow, dx_session_obj, engine, single_thread
         ):
-            # join them back together so that we wait for all threads to
-            # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(

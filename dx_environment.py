@@ -7,80 +7,67 @@
 """Create Host Environment
 
 Usage:
-  dx_environment.py (--type <name> --env_name <name> --host_user <username>
-  --ip <address> [--toolkit <path_to_the_toolkit>]
-  [--ase_user <name> --ase_pw <name>]
-  |--update_ase_pw <name> --env_name <name>
-  | --update_ase_user <name> --env_name <name> --delete <env_name>
-  | --refresh <env_name> | --list)
-  [--logdir <directory>][--debug] [--config <filename>]
-  [--connector_name <name> --single_thread <bool>]
-  [--passwd <password> --engine <identifier> --poll <n>]
-  dx_environment.py (--update_host --old_host_address <name> --new_host_address
-  <name>) [--logdir <directory>][--debug] [--config <filename>]
-  dx_environment.py ([--enable]|[--disable]) --env_name <name>
-  [--logdir <directory>][--debug] [--config <filename>]
-  dx_environment.py -h | --help | -v | --version
+    dx_environment.py ( [--list] | [--create] | [--enable] | [--disable] | [--delete] | [--refresh] | [--update_host])
+                    [--type <name>]
+                    [--toolkit <toolkit>]
+                    [--env_name <name>]
+                    [--passwd <passwd>]
+                    [--connector_name <name>]
+                    [--ip <ipaddress>]
+                    [--old_host_address <name> ]
+                    [--new_host_address <name>]
+ 					[--single_thread <bool>]
+                    [--host_user <hostuser>]
+  					[--logdir <directory>]
+  					[--config <filename>]
+  					[--engine <identifier>]
+  					[--poll <n>]
+    dx_environment.py -h | --help | -v | --version
 
-Create a Delphix environment. (current support for standalone environments only)
+Create a Delphix environment.
+- current support for standalone environments only
+- does not support password updates.
 
 Examples:
-  dx_environment.py --engine landsharkengine --type linux --env_name test1
-  --host_user delphix --passwd delphix --ip 182.1.1.1
-  --toolkit /var/opt/delphix
-  dx_environment.py --type linux --env_name test1 --update_ase_pw newPasswd
-  dx_environment.py --type linux --env_name test1 --host_user delphix
-  --passwd delphix --ip 182.1.1.1 --toolkit /var/opt/delphix
-  dx_environment.py --update_host --host_name 10.0.3.60
-  dx_environment.py --type linux --env_name test1 --host_user delphix
-  --passwd delphix --ip 182.1.1.1 --toolkit /var/opt/delphix --ase_user sa
-  --ase_pw delphixpw
-  dx_environment.py --type windows --env_name SOURCE --host_user
-  delphix.local\\administrator --ip 10.0.1.50 --toolkit foo
-  --config dxtools.conf --pw 'myTempPassword123!' --debug
-  --connector_name 10.0.1.60
-  dx_environment.py --enable --env_name SOURCE
-  dx_environment.py --disable --env_name SOURCE
   dx_environment.py --list
+  dx_environment.py --create --engine mymask --type Linux --env_name oratgt --host_user delphix --passwd xxxx --ip 10.0.1.30 --toolkit /home/delphix
+  dx_environment.py --enable --engine mymask --env_name oratgt
+  dx_environment.py --disable --engine mymask --env_name oratgt
+  dx_environment.py --refresh --engine mymask --env_name oratgt
+  dx_environment.py --delete --engine mymask --env_name oratgt
+  dx_environment.py --update_host --engine mymask --old_host_address 10.0.1.20 --new_host_address 10.0.1.30
+
+
 
 Options:
-  --type <name>             The OS type for the environment
-  --env_name <name>         The name of the Delphix environment
-  --ip <addr>               The IP address of the Delphix environment
-  --single_thread           Run as a single thread. False if running multiple
-                            threads.
-                            [default: True]
-  --list                    List all of the environments for a given engine
-  --toolkit <path>          Path of the toolkit. Required for Unix/Linux
-  --host_user <username>    The username on the Delphix environment
-  --delete <environment>    The name of the Delphix environment to delete
-  --update_ase_pw <name>    The new ASE DB password
-  --refresh <environment>   The name of the Delphix environment to refresh.
-                            Specify "all" to refresh all environments
-  --passwd <password>       Password of the user
-  --connector_name <environment>   The name of the Delphix connector to use.
-                                Required for Windows source environments
-  --update_ase_user <name>  Update the ASE DB username
-  --ase_user <name>         The ASE DB username
-  --ase_pw <name>           Password of the ASE DB user
-  --parallel <n>            Limit number of jobs to maxjob
-  --engine <type>           Identifier of Delphix engine in dxtools.conf.
-                            [default: default]
-  --poll <n>                The number of seconds to wait between job polls
-                            [default: 10]
-  --config <path_to_file>   The path to the dxtools.conf file
-                            [default: ./config/dxtools.conf]
-  --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./logs/dx_environment.log]
-  -h --help                 Show this screen.
-  -v --version              Show version.
-  --update_host             Update the host address for an environment
-  --old_host_address <name> The current name of the host, as registered in
-                            Delphix. Required for update_host
-  --new_host_address <name> The desired name of the host, as registered in
-                            Delphix. Required for update_host
-  --enable                  Enable the named environment
-  --disable                 Disable the named environment
+  --type <name>                     The OS type for the environment
+  --env_name <name>                 The name of the Delphix environment
+  --toolkit <path>                  Path of the toolkit. Required for Unix/Linux
+  --connector_name <environment>    The name of the Delphix connector to use.
+                                    Required for Windows source environments
+  --ip <addr>                       The IP address of the Delphix environment
+  --host_user <username>            The username on the Delphix environment
+  --passwd <password>               Password of the user
+  --ase_user <name>                 The ASE DB username
+  --ase_pw <name>                   Password of the ASE DB user
+  --update_ase_user <name>          Update the ASE DB username
+  --update_ase_pw <name>            The new ASE DB password
+  --old_host_address <name>         The current name of the host, as registered in
+                                    Delphix. Required for update
+  --new_host_address <name>         The desired name of the host, as registered in
+                                    Delphix. Required for update
+  --engine <name>                   Identifier of Delphix engine in dxtools.conf.
+                                    [default: default]
+  --poll <n>                        The number of seconds to wait between job polls
+                                    [default: 10]
+  --config <path_to_file>           The path to the dxtools.conf file
+                                    [default: ./config/dxtools.conf]
+  --logdir <path_to_file>           The path to the logfile you want to use.
+                                    [default: ./logs/dx_environment.log]
+  -h --help                         Show this screen.
+  -v --version                      Show version.
+  --single_thread <bool>            Run as a single thread? True or False
+                                    [default: False]
 
 """
 
@@ -101,7 +88,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.616'
+VERSION = 'v.0.3.615'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -157,6 +144,7 @@ def update_host_address(dlpx_obj, old_host_address, new_host_address):
     host_obj.address = new_host_address
     try:
         host.update(dlpx_obj.server_session, old_host_obj.reference, host_obj)
+
     except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
         dx_logging.print_exception(f'ERROR: Updating the host {host_obj.name} '
                                    f'encountered an error:\n{err}')
@@ -169,6 +157,9 @@ def list_env(dlpx_obj):
     :type dlpx_obj: lib.GetSession.GetSession object
     """
     all_envs = environment.get_all(dlpx_obj.server_session)
+    if not all_envs:
+        dx_logging.print_info(f'There are no environments on engine:{dlpx_obj.server_session.address}')
+        return
     env_host = ''
     for env in all_envs:
         env_user = get_references.find_obj_name(
@@ -199,12 +190,13 @@ def delete_env(dlpx_obj, env_name):
     :param env_name: Name of the environment to delete
     :type env_name: str
     """
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     env_obj = get_references.find_obj_by_name(dlpx_obj.server_session,
                                               environment, env_name)
     if env_obj:
         environment.delete(dlpx_obj.server_session, env_obj.reference)
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     elif env_obj is None:
         dlpx_exceptions.DlpxObjectNotFound(
             f'Environment was not found: {env_name}')
@@ -218,14 +210,15 @@ def refresh_env(dlpx_obj, env_name):
     :parm env_name: Name of the environment to refresh
     :type env_name: str
     """
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     if env_name == "all":
         env_list = get_references.find_all_objects(
             dlpx_obj.server_session, environment)
         for env_obj in env_list:
             try:
                 environment.refresh(dlpx_obj.server_session, env_obj.reference)
-                dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+                dlpx_obj.jobs[
+                    dlpx_obj.server_session.address
+                ] = dlpx_obj.server_session.last_job
             except (dlpx_exceptions.DlpxException,
                     exceptions.RequestError) as err:
                 dlpx_exceptions.DlpxException(
@@ -235,7 +228,9 @@ def refresh_env(dlpx_obj, env_name):
             env_obj = get_references.find_obj_by_name(
                 dlpx_obj.server_session, environment, env_name)
             environment.refresh(dlpx_obj.server_session, env_obj.reference)
-            dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+            dlpx_obj.jobs[
+                dlpx_obj.server_session.address
+            ] = dlpx_obj.server_session.last_job
         except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
             raise dlpx_exceptions.DlpxException(
                 f'Refreshing {env_name} encountered an error:\n{err}')
@@ -263,13 +258,18 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
     :param ase_pw: password for the ASE DB user
     :type ase_pw: str
     """
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
+
     env_params_obj = vo.HostEnvironmentCreateParameters()
-    env_params_obj.host_environment = vo.UnixHostCreateParameters()
-    env_params_obj.host_environment.host = vo.UnixHost()
-    env_params_obj.host_environment.host.address = ip_addr
+    # setting host env params
+    env_params_obj.host_environment = vo.UnixHostEnvironment()
     env_params_obj.host_environment.name = env_name
-    env_params_obj.host_environment.host.toolkit_path = toolkit_path
+    # setting host creation params
+    env_params_obj.host_parameters = vo.UnixHostCreateParameters()
+    env_params_obj.host_parameters.host = vo.UnixHost()
+    env_params_obj.host_parameters.host.address = ip_addr
+    env_params_obj.host_parameters.name = env_name
+    env_params_obj.host_parameters.host.toolkit_path = toolkit_path
+    # setting user credentials
     env_params_obj.primary_user = vo.EnvironmentUser()
     env_params_obj.primary_user.name = host_user
     if passwd is None:
@@ -277,11 +277,6 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
     else:
         env_params_obj.primary_user.credential = vo.PasswordCredential()
         env_params_obj.primary_user.credential.password = passwd
-        env_params_obj.host_parameters.host = vo.UnixHost()
-        env_params_obj.host_parameters.host.address = ip_addr
-        env_params_obj.host_parameters.host.toolkit_path = toolkit_path
-    env_params_obj.host_environment = vo.UnixHostEnvironment()
-    env_params_obj.host_environment.name = env_name
     if ase_user:
         env_params_obj.host_environment.ase_host_environment_parameters = \
             vo.ASEHostEnvironmentParameters()
@@ -293,7 +288,9 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
             ase_pw
     try:
         environment.create(dlpx_obj.server_session, env_params_obj)
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
@@ -321,7 +318,6 @@ def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
     :param connector_name: Name of the Delphix connector
     :type connector_name: str
     """
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     env_params_obj = vo.HostEnvironmentCreateParameters()
     env_params_obj.primary_user = vo.EnvironmentUser()
     env_params_obj.primary_user.name = host_user
@@ -339,13 +335,16 @@ def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
         env_obj = get_references.find_obj_by_name(
             dlpx_obj.server_session, environment, connector_name)
     if env_obj:
-        env_params_obj.host_environment.proxy = env_obj.host
+       env_params_obj.host_environment.proxy = env_obj.host
+
     elif env_obj is None:
         raise dlpx_exceptions.DlpxObjectNotFound(
             f'Host was not found in the Engine: {connector_name}')
     try:
         environment.create(dlpx_obj.server_session, env_params_obj)
-        dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
+        dlpx_obj.jobs[
+            dlpx_obj.server_session.address
+        ] = dlpx_obj.server_session.last_job
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
@@ -374,45 +373,50 @@ def main_workflow(engine, dlpx_obj, single_thread):
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_environment encountered an error authenticating to '
-            f' {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}')
-    thingstodo = ['thingstodo']
+            f' {engine["ip_address"]} :\n{err}')
     try:
         with dlpx_obj.job_mode(single_thread):
-            while dlpx_obj.jobs or thingstodo:
-                if thingstodo:
-                    env_name = ARGUMENTS['--env_name']
-                    host_user = ARGUMENTS['--host_user']
-                    passwd = ARGUMENTS['--passwd']
-                    ip_addr = ARGUMENTS['--ip']
-                    if ARGUMENTS['--type'] == 'windows':
-                        host_name = ARGUMENTS['--connector_name']
-                        create_windows_env(dlpx_obj, env_name, host_user,
-                                           ip_addr, passwd, host_name)
-                    elif ARGUMENTS['--type'] == 'linux':
-                        toolkit_path = ARGUMENTS['--toolkit']
-                        create_linux_env(dlpx_obj, env_name, host_user,
-                                         ip_addr, toolkit_path, passwd)
-                    elif ARGUMENTS['--delete']:
-                        delete_env(dlpx_obj, ARGUMENTS['--delete'])
-                    elif ARGUMENTS['--refresh']:
-                        refresh_env(dlpx_obj, ARGUMENTS['--refresh'])
-                    elif ARGUMENTS['--list']:
-                        list_env(dlpx_obj)
-                    elif ARGUMENTS['--update_host']:
-                        update_host_address(
-                            dlpx_obj, ARGUMENTS['--old_host_address'],
-                            ARGUMENTS['--new_host_address'])
-                    elif ARGUMENTS['--enable']:
-                        enable_environment(dlpx_obj, ARGUMENTS['--env_name'])
-                    elif ARGUMENTS['--disable']:
-                        disable_environment(dlpx_obj, ARGUMENTS['--env_name'])
-                    thingstodo.pop()
-                    run_job.find_job_state(engine, dlpx_obj)
+            if ARGUMENTS['--list']:
+                list_env(dlpx_obj)
+            elif ARGUMENTS['--create']:
+                env_name = ARGUMENTS['--env_name']
+                host_user = ARGUMENTS['--host_user']
+                passwd = ARGUMENTS['--passwd']
+                ip_addr = ARGUMENTS['--ip']
+                type = ARGUMENTS['--type']
+                toolkit_path = ARGUMENTS['--toolkit']
+                if type is None:
+                    raise dlpx_exceptions.DlpxException('--type parameter is required for environment creation')
+
+                type = type.lower()
+                if type == 'windows':
+                    host_name = ARGUMENTS['--connector_name']
+                    create_windows_env(dlpx_obj, env_name, host_user,
+                                       ip_addr, passwd, host_name)
+                elif type == 'linux':
+                    if toolkit_path is None:
+                        raise dlpx_exceptions.DlpxException('--toolkit parameter is required for environment creation')
+                    create_linux_env(dlpx_obj, env_name, host_user,
+                                     ip_addr, toolkit_path, passwd)
+            elif ARGUMENTS['--enable']:
+                enable_environment(dlpx_obj, ARGUMENTS['--env_name'])
+            elif ARGUMENTS['--disable']:
+                disable_environment(dlpx_obj, ARGUMENTS['--env_name'])
+            elif ARGUMENTS['--delete']:
+                delete_env(dlpx_obj, ARGUMENTS['--env_name'])
+            elif ARGUMENTS['--refresh']:
+                refresh_env(dlpx_obj, ARGUMENTS['--env_name'])
+            elif ARGUMENTS['--update_host']:
+                update_host_address(
+                    dlpx_obj, ARGUMENTS['--old_host_address'],
+                    ARGUMENTS['--new_host_address'])
+            #run_job.find_job_state(engine, dlpx_obj)
+            run_job.find_job_state_by_jobid(engine, dlpx_obj.job_id,5)
 
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
-        dx_logging.print_exception(f'Error in dx_environment: '
-                                   f'{engine["ip_address"]}\n{err}')
+        dx_logging.print_exception(f'Error in dx_environment for engine:'
+                                   f'{engine["ip_address"]}: Error Message: {err}')
 
 
 def main():
@@ -427,16 +431,12 @@ def main():
         single_thread = ARGUMENTS['--single_thread']
         engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
-        # This is the function that will handle processing main_workflow for
-        # all the servers.
         for each in run_job.run_job(main_workflow, dx_session_obj, engine,
                                     single_thread):
-            # join them back together so that we wait for all threads to
-            # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
-                              f'get this far.')
+        dx_logging.print_info(f'de_environment took {elapsed_minutes} minutes to '
+                              f'complete.')
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
@@ -462,8 +462,8 @@ def main():
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
             f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get '
-            f'this far')
+            f'{basename(__file__)} took {elapsed_minutes} minutes to '
+            f'complete')
         sys.exit(3)
 
     except KeyboardInterrupt:
@@ -471,7 +471,7 @@ def main():
         dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
-                              f'minutes to get this far.')
+                              f'minutes to complete.')
 
 
 if __name__ == "__main__":
