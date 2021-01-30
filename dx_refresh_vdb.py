@@ -82,7 +82,7 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
     :param vdb_name: VDB to be refreshed
     :type vdb_name: str
     :param timestamp: The Delphix semantic for the point in time on the
-        source from which you want to refresh your VDB
+        source from which to refresh the VDB
     :type timestamp: str
     :param timestamp_type: either SNAPSHOT or TIME
     :type timestamp_type: str

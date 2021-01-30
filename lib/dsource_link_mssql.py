@@ -88,13 +88,6 @@ class DsourceLinkMssql(DsourceLink):
                     f'Database link failed for {self.dsource_name}:\n{err}')
             self.dlpx_obj.jobs[self.engine_name] = \
                 self.dlpx_obj.server_session.last_job
-            self.dlpx_obj.jobs[self.engine_name + 'snap'] = \
-                get_references.get_running_job(
-                    self.dlpx_obj.server_session,
-                    get_references.find_obj_by_name(
-                        self.dlpx_obj.server_session, database,
-                        self.dsource_name).reference
-                )
 
     def get_or_create_mssql_sourcecfg(self, env_name, db_install_path):
         """

@@ -12,7 +12,7 @@ from lib.dsource_link import DsourceLink
 from lib import dlpx_exceptions
 from lib import get_references
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.3.002"
 
 
 class DsourceLinkASE(DsourceLink):
@@ -20,7 +20,7 @@ class DsourceLinkASE(DsourceLink):
     Derived class implementing linking of a ASE Sybase dSource
     """
     def __init__(self, dlpx_obj, dsource_name, db_passwd, db_user, dx_group,
-                 db_type):
+                 logsync, db_type):
         """
         Constructor method
         :param dlpx_obj: A Delphix DDP session object
@@ -33,6 +33,8 @@ class DsourceLinkASE(DsourceLink):
         :type db_passwd: str
         :param db_user: Username of the dSource
         :type db_user: str
+        :param logsync: Enable logsync
+        :type logsync: bool
         :param db_type: dSource type. mssql, sybase or oracle
         :type db_type: str
         """
@@ -43,6 +45,7 @@ class DsourceLinkASE(DsourceLink):
         self.db_passwd = db_passwd
         self.db_user = db_user
         self.dx_group = dx_group
+        self.logsync = logsync
         self.db_type = db_type
 
     def link_ase_dsource(self, backup_path, bck_file, create_bckup, env_name,
@@ -92,12 +95,6 @@ class DsourceLinkASE(DsourceLink):
                                         link_params)
             self.dlpx_obj.jobs[self.engine_name] = \
                 self.dlpx_obj.server_session.last_job
-            self.dlpx_obj.jobs[self.engine_name + 'snap'] = \
-                get_references.get_running_job(
-                    self.dlpx_obj.server_session,
-                    get_references.find_obj_by_name(
-                        self.dlpx_obj.server_session, database,
-                        self.dsource_name).reference)
             print(f'{dsource_ref} successfully linked {self.dsource_name}')
         except (exceptions.RequestError, exceptions.HttpError) as err:
             raise dlpx_exceptions.DlpxException(

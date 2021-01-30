@@ -36,3 +36,21 @@ class DlpxObjectNotFound(BaseException):
         Return an ErrorResult object describing this request message.
         """
         return self._message
+
+
+class DlpxObjectExists(BaseException):
+    """
+    Delphix Exception class. Exit signals are handled by calling method.
+    Raised when a Delphix Object is found
+    """
+
+    def __init__(self, message):
+        super(DlpxObjectFound, self).__init__(message)
+        self._message = message
+
+    @property
+    def message(self):
+        """
+        Return an ErrorResult object describing this request message.
+        """
+        return self._message

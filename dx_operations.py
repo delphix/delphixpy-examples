@@ -66,7 +66,7 @@ from lib import run_job
 from lib.run_async import run_async
 
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.3.003'
 
 
 def dx_obj_operation(dlpx_obj, vdb_name, operation):
@@ -85,7 +85,6 @@ def dx_obj_operation(dlpx_obj, vdb_name, operation):
     try:
         if vdb_obj:
             if operation == 'start':
-                #import pdb;pdb.set_trace()
                 source.start(dlpx_obj.server_session, vdb_obj.reference)
             elif operation == 'stop':
                 source.stop(dlpx_obj.server_session, vdb_obj.reference)
@@ -225,7 +224,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(
-            f'Error in {basename(__file__)}: {engine["hostname"]}\n{err}')
+            f'Error in {basename(__file__)}: {engine["ip_address"]}\n{err}')
 
 
 def main():

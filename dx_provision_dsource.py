@@ -11,7 +11,7 @@
 """Create and sync a dSource
 Usage:
   dx_provision_dsource.py --type <name> --dsource_name <name> \
-  --ip_addr <name> --db_name <name> --env_name <name> \
+  --ip_addr <name> --env_name <name> \
   --db_install_path <name> --dx_group <name> --db_passwd <name> \
   --db_user <name>
   [--port_num <name> --num_connections <name> --link_now <name>]
@@ -38,9 +38,10 @@ Create and sync a dSource
 Examples:
     Oracle:
     dx_provision_dsource.py --type oracle --dsource_name oradb1 \
-    --ip_addr 192.168.166.11 --db_name srcDB1 --env_name SourceEnv \
+    --ip_addr 192.168.166.11 --env_name SourceEnv \
     --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 \
-    --db_user delphixdb --db_passwd delphixdb --single_thread False
+    --dx_group Sources --db_user delphixdb --logsync --db_passwd delphixdb \
+    --single_thread False
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa \
     --ase_passwd sybase --backup_path /data/db --source_user aseadmin \
@@ -74,13 +75,14 @@ Options:
                             [default: oracle]
   --ip_addr <name>          IP Address of the dSource
                             [default: None]
-  --db_name <name>          Name of the dSource DB
-  --env_name<name>          Name of the environment where the dSource installed
-  --dx_group<name>          Group where the dSource will reside
+  --env_name <name>         Name of the environment where the dSource installed
+  --dx_group <name>          Group where the dSource will reside
   --db_install_path<name>   Location of the installation path of the DB.
   --num_connections <name>  Number of connections for Oracle RMAN
                             [default: 5]
-  --single_thread           Run as a single thred. False if running multiple
+  --logsync                 Enable logsync
+                            [default: True]
+  --single_thread           Run as a single thread. False if running multiple
                             threads.
                             [default: True]
   --link_now <name>         Link the dSource
@@ -90,22 +92,15 @@ Options:
   --rman_channels <name>    Configures the number of Oracle RMAN Channels
                             [default: 2]
   --create_bckup            Create and ingest a new Sybase backup
-                            [default: False]
   --db_user <name>          Username of the dSource DB
-                            [default: None]
   --db_passwd <name>        Password of the db_user
-                            [default: None]
   --bck_file <name>         Fully qualified name of backup file
-                            [default: None]
   --port_num <name>         Port number of the listener.
                             [default: 1521]
   --src_config <name>       Name of the configuration environment
   --ase_passwd <name>       ASE DB password
-                            [default: None]
   --ase_user <name>         ASE username
-                            [default: None]
   --backup_path <path>      Path to the ASE/MSSQL backups
-                            [default: None]
   --sync_mode <name>        MSSQL validated sync mode
                             TRANSACTION_LOG|FULL_OR_DIFFERENTIAL|FULL|NONE
                             [default: FULL]
@@ -114,18 +109,12 @@ Options:
   --stage_user <name>       Stage username
                             [default: delphix]
   --stage_repo <name>       Stage repository
-                            [default: None]
   --stage_instance <name>   Name of the PPT instance
-                            [default: None]
   --stage_env <name>        Name of the PPT server
-                            [default: None]
   --backup_loc_passwd <passwd>  Password of the shared backup path
-                            [default: None]
   --backup_loc_user <nam>   User of the shared backup path
-                            [default: None]
   --load_from_backup        If set, Delphix will try to load the most recent
                             full backup (MSSQL only)
-                            [default: None]
   --dsource_name <name>     Name of the dSource
   --engine <type>           Alt Identifier of Delphix engine in dxtools.conf.
                             [default: default]
@@ -139,6 +128,7 @@ Options:
   -h --help                 Show this screen.
   -v --version              Show version.
 """
+
 import sys
 from os.path import basename
 import time
@@ -186,18 +176,24 @@ def main_workflow(engine, dlpx_obj, single_thread):
             while dlpx_obj.jobs or thingstodo:
                 if thingstodo:
                     if ARGUMENTS['--type'].lower() == 'oracle':
-                        dsource_link_oracle.DsourceLinkOracle(
-                            dlpx_obj, ARGUMENTS['--db_name'],
+                        linked_ora = dsource_link_oracle.DsourceLinkOracle(
+                            dlpx_obj, ARGUMENTS['--dsource_name'],
+                            ARGUMENTS['--db_passwd'],
+                            ARGUMENTS['--db_user'],
+                            ARGUMENTS['--dx_group'], ARGUMENTS['--logsync'],
+                            ARGUMENTS['--type']
+                        )
+                        linked_ora.get_or_create_ora_sourcecfg(
                             ARGUMENTS['--env_name'],
                             ARGUMENTS['--db_install_path'],
-                            ARGUMENTS['--dx_group'], ARGUMENTS['--dx_user'],
-                            ARGUMENTS['--ip_addr'], ARGUMENTS['--dsource_name']
+                            ARGUMENTS['--ip_addr'], ARGUMENTS['--port_num']
                         )
                     elif ARGUMENTS['--type'].lower() == 'sybase':
                         ase_obj = dsource_link_ase.DsourceLinkASE(
                             dlpx_obj, ARGUMENTS['--dsource_name'],
                             ARGUMENTS['--db_passwd'], ARGUMENTS['--db_user'],
-                            ARGUMENTS['--dx_group'], ARGUMENTS['--type']
+                            ARGUMENTS['--dx_group'], ARGUMENTS['--logysnc'],
+                            ARGUMENTS['--type']
                         )
                         ase_obj.link_ase_dsource(
                             ARGUMENTS['--backup_path'],
@@ -220,11 +216,11 @@ def main_workflow(engine, dlpx_obj, single_thread):
                             ARGUMENTS['--backup_loc_user']
                         )
                     thingstodo.pop()
+                run_job.find_job_state(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(
-            f'Error in {basename(__file__)}: {engine["hostname"]}\n{err}')
-    run_job.find_job_state(engine, dlpx_obj)
+            f'ERROR: {basename(__file__)}: {engine["ip_address"]}\n{err}')
 
 
 def main():

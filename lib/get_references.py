@@ -17,7 +17,7 @@ from delphixpy.v1_10_2.web import group
 
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.004'
+VERSION = 'v.0.3.005'
 
 
 def convert_timestamp(engine, timestamp):
@@ -74,7 +74,7 @@ def find_obj_by_name(engine, f_class, obj_name):
     for obj in f_class.get_all(engine):
         if obj.name == obj_name:
             return obj
-    raise dlpx_exceptions.DlpxObjectNotFound(f' Object not found.')
+    raise dlpx_exceptions.DlpxObjectNotFound(f'Object {obj_name} not found.')
 
 
 def find_source_by_db_name(engine, obj_name):
@@ -240,7 +240,7 @@ def find_all_objects(engine, f_class):
     """
     Return all objects from a given class
     :param engine: A Delphix engine session object
-    :type dlpx_obj: lib.GetSession.GetSession object
+    :type engine: lib.GetSession.GetSession object
     :param f_class: The objects class. I.E. database or timeflow.
     :return: list
     """

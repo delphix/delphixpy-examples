@@ -9,7 +9,8 @@ from delphixpy.v1_10_2.web import job
 from lib import dx_logging
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.3.002'
+
 
 def run_job(main_func, dx_obj, engine='default', single_thread=True):
     """
@@ -32,14 +33,13 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
         dx_logging.print_info(f'Executing against all Delphix Engines')
         try:
             for delphix_ddp in dx_obj.dlpx_ddps:
-                t = main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
+                t = main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
+                              single_thread)
                 threads.append(t)
-                # TODO: Revisit threading logic
-                # This sleep has been tactically added to prevent errors in the parallel
-                # processing of operations across multiple engines
-                time.sleep(5)
+                time.sleep(1)
         except dlpx_exceptions.DlpxException as err:
-            dx_logging.print_exception(f'Error encountered in run_job():\n{err}')
+            dx_logging.print_exception(
+                f'Error encountered in run_job():\n{err}')
     elif engine == 'default':
         try:
             for delphix_ddp in dx_obj.dlpx_ddps.keys():
@@ -47,8 +47,10 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
                     dx_obj_default = dx_obj
                     dx_obj_default.dlpx_ddps = {
                         delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
-                    dx_logging.print_info(f'Executing against default Delphix Engine')
-                    t=main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj, single_thread)
+                    dx_logging.print_info('Executing against default'
+                                          'Delphix Engine')
+                    t=main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
+                                single_thread)
                     threads.append(t)
                 break
         except TypeError as err:
@@ -71,8 +73,7 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
     return threads
 
 
-
-def find_job_state(engine, dx_obj, poll=10):
+def find_job_state(engine, dx_obj, poll=5):
     """
     Retrieves running job state
     :param engine: Dictionary containing info on the DDP (IP, username, etc.)
@@ -85,13 +86,16 @@ def find_job_state(engine, dx_obj, poll=10):
     # get all the jobs, then inspect them
     i = 0
     for j in dx_obj.jobs.keys():
+        print(len(dx_obj.jobs), j)
         job_obj = job.get(dx_obj.server_session, dx_obj.jobs[j])
-        dx_logging.print_debug(job_obj)
-        dx_logging.print_info( f'{engine["ip_address"]}: Running job: {job_obj.job_state}')
+        dx_logging.print_info(f'{engine["ip_address"]}: Running job: '
+                              f'{job_obj.job_state}')
         if job_obj.job_state in ['CANCELED', 'COMPLETED', 'FAILED']:
             # If the job is in a non-running state, remove it
             # from the running jobs list.
             del dx_obj.jobs[j]
+            if len(dx_obj.jobs) == 0:
+                break
         elif job_obj.job_state in 'RUNNING':
             # If the job is in a running state, increment the
             # running job count.

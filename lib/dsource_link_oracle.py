@@ -11,12 +11,12 @@ from lib import dlpx_exceptions
 from lib import get_references
 from lib.dsource_link import DsourceLink
 
-VERSION = "v.0.3.000"
+VERSION = "v.0.3.001"
 
 
 class DsourceLinkOracle(DsourceLink):
     """
-    Base class for linking dSources
+    Class for linking Oracle dSources
     """
     def __init__(self, dlpx_obj, dsource_name, db_passwd, db_user, dx_group,
                  logsync, db_type):
@@ -40,16 +40,15 @@ class DsourceLinkOracle(DsourceLink):
         super().__init__(dlpx_obj, dsource_name, db_passwd, db_user, dx_group,
                          db_type)
         self.dlpx_obj = dlpx_obj
-        self.group = dx_group
+        self.dx_group = dx_group
         self.db_passwd = db_passwd
         self.db_user = db_user
         self.dsource_name = dsource_name
         self.logsync = logsync
         self.db_type = db_type
-        self.engine_name = self.dlpx_obj.dlpx_ddps['engine_name']
 
     def get_or_create_ora_sourcecfg(self, env_name, db_install_path, ip_addr,
-                                     port_num=1521):
+                                    port_num=1521):
         """
         Create the sourceconfig used for provisioning an Oracle dSource
         :param env_name: Name of the environment in Delphix
@@ -63,11 +62,15 @@ class DsourceLinkOracle(DsourceLink):
         :type port_num: int
         """
         port_num = str(port_num)
-        env_obj = get_references.find_obj_by_name(
-            self.dlpx_obj.server_session, environment, env_name)
-        repo_ref = get_references.find_db_repo(
-            self.dlpx_obj.server_session, 'OracleInstall', env_obj.reference,
-            db_install_path)
+        try:
+            env_obj = get_references.find_obj_by_name(
+                self.dlpx_obj.server_session, environment, env_name)
+            repo_ref = get_references.find_db_repo(
+                self.dlpx_obj.server_session, 'OracleInstall',
+                env_obj.reference, db_install_path)
+        except dlpx_exceptions.DlpxObjectNotFound as err:
+            raise dlpx_exceptions.DlpxException(f'ERROR: creating '
+                                                f'sourceconfig:\n{err}')
         sourcecfg_params = vo.OracleSIConfig()
         connect_str = f'jdbc:oracle:thin:@{ip_addr}:{port_num}:' \
                       f'{self.dsource_name}'
@@ -83,15 +86,12 @@ class DsourceLinkOracle(DsourceLink):
         sourcecfg_params.services = vo.OracleService()
         sourcecfg_params.repository = repo_ref
         sourcecfg_params.jdbcConnectionString = connect_str
-        sourceconfig_ref = self.get_or_create_sourceconfig(sourcecfg_params)
-        self.link_ora_dsource(sourceconfig_ref, env_obj.primary_user)
+        self.link_ora_dsource(env_obj.primary_user)
 
-    def link_ora_dsource(self, srccconfig_ref, primary_user_ref,
+    def link_ora_dsource(self, primary_user_ref,
                          num_connections=5, files_per_set=5, rman_channels=2):
         """
         Link an Oracle dSource
-        :param srccconfig_ref: Reference to the sourceconfig object
-        :type srccconfig_ref: str
         :param primary_user_ref: Reference to the environment user
         :type primary_user_ref: str
         :param num_connections: Number of connections for Oracle RMAN
@@ -114,13 +114,6 @@ class DsourceLinkOracle(DsourceLink):
             database.link(self.dlpx_obj.server_session, link_params)
             self.dlpx_obj.jobs[self.engine_name] = \
                 self.dlpx_obj.server_session.last_job
-            self.dlpx_obj.jobs[self.engine_name + 'snap'] = \
-                get_references.get_running_job(
-                    self.dlpx_obj.server_session,
-                    get_references.find_obj_by_name(
-                        self.dlpx_obj.server_session, database,
-                        self.dsource_name).reference
-                )
         except (exceptions.HttpError, exceptions.RequestError,
                 exceptions.JobError) as err:
             dlpx_exceptions.DlpxException(

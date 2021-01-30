@@ -88,7 +88,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.615'
+VERSION = 'v.0.3.616'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -386,7 +386,8 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 type = ARGUMENTS['--type']
                 toolkit_path = ARGUMENTS['--toolkit']
                 if type is None:
-                    raise dlpx_exceptions.DlpxException('--type parameter is required for environment creation')
+                    raise dlpx_exceptions.DlpxException(
+                        '--type parameter is required for environment creation')
 
                 type = type.lower()
                 if type == 'windows':
@@ -395,7 +396,9 @@ def main_workflow(engine, dlpx_obj, single_thread):
                                        ip_addr, passwd, host_name)
                 elif type == 'linux':
                     if toolkit_path is None:
-                        raise dlpx_exceptions.DlpxException('--toolkit parameter is required for environment creation')
+                        raise dlpx_exceptions.DlpxException(
+                            '--toolkit parameter is required for environment '
+                            'creation')
                     create_linux_env(dlpx_obj, env_name, host_user,
                                      ip_addr, toolkit_path, passwd)
             elif ARGUMENTS['--enable']:
@@ -410,9 +413,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 update_host_address(
                     dlpx_obj, ARGUMENTS['--old_host_address'],
                     ARGUMENTS['--new_host_address'])
-            #run_job.find_job_state(engine, dlpx_obj)
-            run_job.find_job_state_by_jobid(engine, dlpx_obj.job_id,5)
-
+            run_job.find_job_state_by_jobid(engine, dlpx_obj.job_id, 1)
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in dx_environment for engine:'
