@@ -19,7 +19,7 @@ delphixpy is a python module created by Delphix to enable users to
 directly invoke the Delphix API via python.
 
 ## Where can I get delphixpy?
-delphixpy is available on PyPy, so you can install it by invoking pip
+delphixpy is available on PyPI, so you can install it by invoking pip
 
     pip install delphixpy
 
