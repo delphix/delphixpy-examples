@@ -55,10 +55,10 @@ Options:
   --type <type>             The type of VDB this is.
                             oracle | mssql | ase | vfiles
   --logsync                 Enable logsync
-  --prerefresh <name>       Pre-Hook commands
-  --postrefresh <name>      Post-Hook commands
-  --prerollback <name>      Post-Hook commands
-  --postrollback <name>     Post-Hook commands
+  --prerefresh <name>       Pre-Hook commands before a refresh
+  --postrefresh <name>      Post-Hook commands after a refresh
+  --prerollback <name>      Post-Hook commands before a rollback
+  --postrollback <name>     Post-Hook commands after a rollback
   --configure-clone <name>  Configure Clone commands
   --vdb_restart <bool>      Either True or False. Default: False
   --envinst <name>          The identifier of the instance in Delphix.
@@ -106,6 +106,7 @@ from delphixpy.v1_10_2.web import repository
 from delphixpy.v1_10_2.web import vo
 
 from lib import dlpx_exceptions
+
 from lib import get_references
 from lib import get_session
 from lib import dx_logging
@@ -113,7 +114,7 @@ from lib import run_job
 from lib import dx_timeflow
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.002'
+VERSION = 'v.0.3.003'
 
 
 def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, environment_obj,
@@ -127,9 +128,11 @@ def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, environment_obj,
     :type vdb_group: str
     :param vdb_name: Name of the VDB
     :type vdb_name: str
-    :param environment_obj:
+    :param environment_obj: Environment object where the VDB will be created
+    :type environment_obj: class 'delphixpy.v1_10_2.web.objects
     :param source_obj: Database object of the source
-    :type source_obj:
+    :type source_obj: class
+    delphixpy.v1_10_2.web.objects.UnixHostEnvironment.UnixHostEnvironment
     :param env_inst: Environment installation identifier in Delphix.
     EX: "/u01/app/oracle/product/11.2.0/dbhome_1"
     EX: ASETARGET
@@ -191,7 +194,7 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
     :param vdb_name: Name of the VDB
     :type vdb_name: str
     :param environment_obj: Environment object where the VDB will be created
-    :type environment_obj:
+    :type environment_obj: class 'delphixpy.v1_10_2.web.objects
     :param source_obj: Database object of the source
     :type source_obj:
     :param env_inst: Environment installation identifier in Delphix.
@@ -231,6 +234,7 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
                                         timestamp)
     vdb_params.timeflow_point_parameters.container = source_obj.reference
     dx_logging.print_info(f'{engine_name} provisioning {vdb_name}')
+    print(type(source_obj), type(environment_obj))
     database.provision(dlpx_obj.server_session, vdb_params)
     # Add the job into the jobs dictionary so we can track its progress
     dlpx_obj.jobs[
@@ -251,8 +255,11 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     :type group_ref: str
     :param vfiles_name: Name of the vfiles VDB
     :type vfiles_name: str
+    :param environment_obj: Environment object where the VDB will be created
+    :type environment_obj: class 'delphixpy.v1_10_2.web.objects
     :param source_obj: vfiles object of the source
-    :type source_obj: str
+    :type source_obj: class
+    delphixpy.v1_10_2.web.objects.OracleDatabaseContainer.OracleDatabaseContainer
     :param env_inst: Environment installation identifier in Delphix.
     EX: "/u01/app/oracle/product/11.2.0/dbhome_1"
     EX: ASETARGET
@@ -263,6 +270,16 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     :param timestamp_type: The Delphix semantic for the point in time on
     the source from which you want to refresh your VDB either SNAPSHOT or TIME
     :type timestamp_type: str
+    :param pre_refresh: Pre-Hook commands before a refresh
+    :type pre_refresh: str
+    :param post_refresh: Post-Hook commands after a refresh
+    :type post_refresh: str
+    :param pre_rollback: Commands before a rollback
+    :type pre_rollback: str
+    :param post_rollback: Commands after a rollback
+    :type post_rollback: str
+    :param configure_clone: Configure clone commands
+    :type configure_clone: str
     """
     engine_name = list(dlpx_obj.dlpx_ddps)[0]
     timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
@@ -359,7 +376,10 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     :param vdb_name: Name of the VDB
     :type vdb_name: str
     :param source_obj: Database object of the source
-    :type source_obj:
+    :type source_obj: class
+    delphixpy.v1_10_2.web.objects.OracleDatabaseContainer.OracleDatabaseContainer
+    :param environment_obj: Environment object where the VDB will be created
+    :type environment_obj: class 'delphixpy.v1_10_2.web.objects
     :param env_inst: Environment installation identifier in Delphix.
     EX: "/u01/app/oracle/product/11.2.0/dbhome_1"
     EX: ASETARGET
@@ -423,6 +443,8 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
             timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
                                             timestamp)
         dx_logging.print_info(f'{engine_name}: Provisioning {vdb_name}')
+        print(type(source_obj), type(environment_obj))
+        sys.exit(1)
         try:
             database.provision(dlpx_obj.server_session, vdb_params)
         except (exceptions.RequestError, exceptions.HttpError) as err:

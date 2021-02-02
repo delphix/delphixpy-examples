@@ -2,7 +2,6 @@
 Create an object to link Oracle dSources
 """
 from delphixpy.v1_10_2 import exceptions
-from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import database
 from delphixpy.v1_10_2.web import vo
 from delphixpy.v1_10_2.web import environment
@@ -11,7 +10,7 @@ from lib import dlpx_exceptions
 from lib import get_references
 from lib.dsource_link import DsourceLink
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.3.002"
 
 
 class DsourceLinkOracle(DsourceLink):
@@ -88,8 +87,8 @@ class DsourceLinkOracle(DsourceLink):
         sourcecfg_params.jdbcConnectionString = connect_str
         self.link_ora_dsource(env_obj.primary_user)
 
-    def link_ora_dsource(self, primary_user_ref,
-                         num_connections=5, files_per_set=5, rman_channels=2):
+    def link_ora_dsource(self, primary_user_ref, num_connections=5,
+                         files_per_set=5, rman_channels=2):
         """
         Link an Oracle dSource
         :param primary_user_ref: Reference to the environment user

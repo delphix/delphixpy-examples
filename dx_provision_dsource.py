@@ -34,13 +34,14 @@ Usage:
   [--parallel <n> --poll <n> --config <path_to_file> --logdir <path_to_file>]
   dx_provision_dsource.py -h | --help | -v | --version
 
+
 Create and sync a dSource
 Examples:
     Oracle:
-    dx_provision_dsource.py --type oracle --dsource_name oradb1 \
-    --ip_addr 192.168.166.11 --env_name SourceEnv \
-    --db_install_path /u01/app/oracle/product/11.2.0.4/dbhome_1 \
-    --dx_group Sources --db_user delphixdb --logsync --db_passwd delphixdb \
+    dx_provision_dsource.py --type oracle --dsource_name nc11r2 \
+    --ip_addr 172.16.62.4 --env_name Oracle \
+    --db_install_path /u01/app/oracle/product/11.2.0.4/db_1 \
+    --dx_group Sources --db_passwd delphix --db_user delphix \
     --single_thread False
     Sybase:
     dx_provision_dsource.py --type sybase --dsource_name dbw1 --ase_user sa \
@@ -77,7 +78,7 @@ Options:
                             [default: None]
   --env_name <name>         Name of the environment where the dSource installed
   --dx_group <name>          Group where the dSource will reside
-  --db_install_path<name>   Location of the installation path of the DB.
+  --db_install_path <name>   Location of the installation path of the DB.
   --num_connections <name>  Number of connections for Oracle RMAN
                             [default: 5]
   --logsync                 Enable logsync
@@ -145,7 +146,7 @@ from lib import dsource_link_ase
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.0002'
+VERSION = 'v.0.3.003'
 
 
 @run_async
