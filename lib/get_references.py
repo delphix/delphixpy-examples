@@ -17,7 +17,7 @@ from delphixpy.v1_10_2.web import group
 
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.005'
+VERSION = 'v.0.3.006'
 
 
 def convert_timestamp(engine, timestamp):
@@ -139,9 +139,14 @@ def find_db_repo(engine, install_type, f_environment_ref, f_install_path):
             if (obj.type == install_type and
                     obj.instance_name == f_install_path):
                 return obj.reference
+        elif install_type == 'AppDataRepository':
+            if (obj.type == install_type and
+                    obj.name == f_install_path):
+                return obj.reference
         else:
             raise dlpx_exceptions.DlpxException(
-                f'Only OracleInstall or MSSqlInstance types are supported.\n')
+                'Only OracleInstall, AppDataRepository or MSSqlInstance '
+                'types are supported.\n')
 
 
 def find_sourceconfig(engine, sourceconfig_name, f_environment_ref):
