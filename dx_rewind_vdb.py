@@ -70,7 +70,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.004"
+VERSION = "v.0.3.005"
 
 
 def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
@@ -156,7 +156,8 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine["ip_address"], engine["username"], engine["password"]
+            engine["ip_address"], engine["username"], engine["password"],
+            engine['use_https']
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(

@@ -45,7 +45,7 @@ class DlpxObjectExists(BaseException):
     """
 
     def __init__(self, message):
-        super(DlpxObjectFound, self).__init__(message)
+        super(DlpxObjectExists, self).__init__(message)
         self._message = message
 
     @property

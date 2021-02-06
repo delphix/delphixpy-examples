@@ -9,7 +9,7 @@ from delphixpy.v1_10_2.web import job
 from lib import dx_logging
 from lib import dlpx_exceptions
 
-VERSION = 'v.0.3.002'
+VERSION = 'v.0.3.003'
 
 
 def run_job(main_func, dx_obj, engine='default', single_thread=True):
@@ -47,10 +47,10 @@ def run_job(main_func, dx_obj, engine='default', single_thread=True):
                     dx_obj_default = dx_obj
                     dx_obj_default.dlpx_ddps = {
                         delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]}
-                    dx_logging.print_info('Executing against default'
-                                          'Delphix Engine')
-                    t=main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
-                                single_thread)
+                    dx_logging.print_info('Executing against the default'
+                                          ' Delphix Engine')
+                    t = main_func(dx_obj.dlpx_ddps[delphix_ddp], dx_obj,
+                                  single_thread)
                     threads.append(t)
                 break
         except TypeError as err:
@@ -86,7 +86,6 @@ def find_job_state(engine, dx_obj, poll=5):
     # get all the jobs, then inspect them
     i = 0
     for j in dx_obj.jobs.keys():
-        print(len(dx_obj.jobs), j)
         job_obj = job.get(dx_obj.server_session, dx_obj.jobs[j])
         dx_logging.print_info(f'{engine["ip_address"]}: Running job: '
                               f'{job_obj.job_state}')
