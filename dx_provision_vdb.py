@@ -113,11 +113,11 @@ from lib import run_job
 from lib import dx_timeflow
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.005'
+VERSION = 'v.0.3.006'
 
 
-def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, environment_obj,
-                   source_obj, env_inst, timestamp, timestamp_type='SNAPSHOT',
+def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, source_obj, env_inst,
+                   timestamp, timestamp_type='SNAPSHOT',
                    no_truncate_log=False):
     """
     Create a Sybase ASE VDB
@@ -127,8 +127,6 @@ def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, environment_obj,
     :type vdb_group: str
     :param vdb_name: Name of the VDB
     :type vdb_name: str
-    :param environment_obj: Environment object where the VDB will be created
-    :type environment_obj: class 'delphixpy.v1_10_2.web.objects
     :param source_obj: Database object of the source
     :type source_obj: class
     delphixpy.v1_10_2.web.objects.UnixHostEnvironment.UnixHostEnvironment
@@ -244,7 +242,7 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
 def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
                       environment_obj, source_obj, env_inst, timestamp,
                       timestamp_type='SNAPSHOT', pre_refresh=None,
-                      post_refresh=None, pre_rollback=None, 
+                      post_refresh=None, pre_rollback=None,
                       post_rollback=None, configure_clone=None):
     """
     Create a vfiles VDB
@@ -326,8 +324,7 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
             configure_clone
     if timestamp_type is None:
         vfiles_params.timeflow_point_parameters = vo.TimeflowPointSemantic()
-        vfiles_params.timeflow_point_parameters.container = \
-            source_obj.reference,
+        vfiles_params.timeflow_point_parameters.container = source_obj.reference
         vfiles_params.timeflow_point_parameters.location = 'LATEST_POINT'
     elif timestamp_type.upper() == 'SNAPSHOT':
         try:
@@ -389,6 +386,16 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     :param timestamp_type: The Delphix semantic for the point in time on
     the source from which you want to refresh your VDB either SNAPSHOT or TIME
     :type timestamp_type: str
+        :param pre_refresh: Pre-Hook commands before a refresh
+    :type pre_refresh: str
+    :param post_refresh: Post-Hook commands after a refresh
+    :type post_refresh: str
+    :param pre_rollback: Commands before a rollback
+    :type pre_rollback: str
+    :param post_rollback: Commands after a rollback
+    :type post_rollback: str
+    :param configure_clone: Configure clone commands
+    :type configure_clone: str
     """
     engine_name = list(dlpx_obj.dlpx_ddps)[0]
     try:
@@ -503,7 +510,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         )
                     elif arg_type == "ase":
                         create_ase_vdb(dlpx_obj, group_ref, ARGUMENTS['--db'],
-                                       environment_obj, source_obj,
+                                       source_obj,
                                        ARGUMENTS['--envinst'],
                                        ARGUMENTS['--timestamp'],
                                        ARGUMENTS['--timestamp_type'],
