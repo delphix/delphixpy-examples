@@ -88,7 +88,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.616'
+VERSION = 'v.0.3.617'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -369,7 +369,9 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'])
+            engine['ip_address'], engine['username'], engine['password'],
+            engine['use_https']
+        )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_environment encountered an error authenticating to '
@@ -478,6 +480,6 @@ def main():
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script
     ARGUMENTS = docopt.docopt(__doc__,
-                              version=basename(__file__) + " " + VERSION)
+                              version=basename(__file__) + ' ' + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

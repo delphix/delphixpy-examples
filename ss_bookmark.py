@@ -12,20 +12,13 @@
 #
 """Creates, lists, removes a Self Service Bookmark
 Usage:
- ss_bookmark.py ( 	--create_bookmark <name> --data_layout <name> --type <type> \
-  					[--tags <tags> --description <name> --branch_name <name> ] | \
-  					--list [--tags <tags>] | \
-  					--delete_bookmark <name> | \
-  					--activate_bookmark <name> | \
-				   	--update_bookmark <name> | \
-				   	--share_bookmark <name> | \
-				   	--unshare_bookmark <name>)
-					[--engine <enginename> ]
-					[--single_thread <bool>]
-					[--poll <n>]
-					[--debug]
-					[--config <path_to_file>]
-					[--logdir <path_to_file>]
+ ss_bookmark.py (--create_bookmark <name> --data_layout <name> --type <type> \
+ [--tags <tags> --description <name> --branch_name <name> ] | \
+ --list [--tags <tags>] | --delete_bookmark <name> | \
+ --activate_bookmark <name> | --update_bookmark <name> | \
+ --share_bookmark <name> | --unshare_bookmark <name>)
+[--engine <enginename> --single_thread <bool> --poll <n>] \
+--config <path_to_file> --logdir <path_to_file>]
 ss_bookmark.py -h | --help | -v | --version
 
 Creates, Lists, Removes a Self Service Bookmark
@@ -61,7 +54,6 @@ Options:
   --engine <name>             Alt Identifier of Delphix DDP in dxtools.conf.
                               [default: default]
   --all                       Run against all engines.
-  --debug                     Enable debug logging
   --single_thread             Run as a single thread. False if running multiple
                               threads.
                               [default: True]
@@ -90,7 +82,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.002"
+VERSION = 'v.0.3.003'
 
 
 def create_bookmark(
@@ -100,7 +92,7 @@ def create_bookmark(
     branch_name=None,
     tags=None,
     description=None,
-    type="container"
+    type='container'
 ):
     """
     Create the Self Service Bookmark
@@ -140,14 +132,15 @@ def create_bookmark(
                 break
         if ss_bookmark_params.bookmark.branch is None:
             raise dlpx_exceptions.DlpxException(
-                f"{branch_name} was not found. Set the --data_layout "
-                f"parameter to the Self Service Template for the bookmark.\n"
+                f'{branch_name} was not found. Set the --data_layout '
+                f'parameter to the Self Service Template for the bookmark.\n'
             )
     elif branch_name is None:
         try:
             if type == 'container':
                 data_layout_obj = get_references.find_obj_by_name(
-                    dlpx_obj.server_session, selfservice.container, source_layout
+                    dlpx_obj.server_session, selfservice.container,
+                    source_layout
                 )
             else:
                 data_layout_obj = get_references.find_obj_by_name(
@@ -156,7 +149,8 @@ def create_bookmark(
             ss_bookmark_params.bookmark.branch = data_layout_obj.active_branch
         except (dlpx_exceptions.DlpxException, exceptions.RequestError):
             raise dlpx_exceptions.DlpxException(
-                f"Could not find a default branch in engine {dlpx_obj.server_session.address}"
+                f'Could not find a default branch in engine '
+                f'{dlpx_obj.server_session.address}'
             )
     if tags:
         ss_bookmark_params.bookmark.tags = tags.split(",")
@@ -179,9 +173,10 @@ def create_bookmark(
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f"\nThe bookmark {bookmark_name} was not " f"created. The error was:\n{err}"
+            f'\nThe bookmark {bookmark_name} was not created. '
+            f'The error was:\n{err}'
         )
-    dx_logging.print_info(f"SS Bookmark {bookmark_name} was created " f"successfully.")
+    dx_logging.print_info(f'Bookmark {bookmark_name} was created successfully.')
     return bookmark_ref
 
 
@@ -209,24 +204,24 @@ def list_bookmarks(dlpx_obj, tags=None):
                 if tag:
                     tag = ", ".join(tag for tag in ss_bookmark.tags)
                 print(
-                    f"{ss_bookmark.name}, {ss_bookmark.reference},"
-                    f"{branch_name}, {ss_bookmark.template_name}, {tag}"
+                    f'{ss_bookmark.name}, {ss_bookmark.reference},'
+                    f'{branch_name}, {ss_bookmark.template_name}, {tag}'
                 )
             elif all(tag in ss_bookmark.tags for tag in tag_filter):
                 print(
-                    f"{ss_bookmark.name}, {ss_bookmark.reference},"
-                    f"{branch_name}, {ss_bookmark.template_name}",
+                    f'{ss_bookmark.name}, {ss_bookmark.reference},'
+                    f'{branch_name}, {ss_bookmark.template_name}'
                     f'{", ".join(tag for tag in ss_bookmark.tags)}',
                 )
-        print("\n")
+        print('\n')
     except (
         dlpx_exceptions.DlpxException,
         exceptions.HttpError,
         exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(
-            f"\nERROR: The bookmarks on could not be "
-            f"listed. The error was:\n\n{err}"
+            f'\nERROR: The bookmarks on could not be '
+            f'listed. The error was:\n\n{err}'
         )
 
 
@@ -246,7 +241,7 @@ def unshare_bookmark(dlpx_obj, bookmark_name):
             ).reference,
         )
         dx_logging.print_info(
-            f"Bookmark {bookmark_name} was unshared " f"successfully."
+            f'Bookmark {bookmark_name} was unshared successfully.'
         )
     except (
         dlpx_exceptions.DlpxException,
@@ -254,7 +249,8 @@ def unshare_bookmark(dlpx_obj, bookmark_name):
         exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(
-            f"\nERROR: {bookmark_name} could not be " f"unshared. The error was:\n{err}"
+            f"ERROR: {bookmark_name} could not be unshared. "
+            f"The error was:\n{err}"
         )
 
 
@@ -276,7 +272,8 @@ def share_bookmark(dlpx_obj, bookmark_name):
         dx_logging.print_info(f"{bookmark_name} was shared successfully.")
     except (exceptions.HttpError, exceptions.RequestError) as err:
         dx_logging.print_exception(
-            f"ERROR: {bookmark_name} could not be " f"shared. The error was:\n{err}"
+            f'ERROR: {bookmark_name} could not be shared. '
+            f'The error was:\n{err}'
         )
 
 
@@ -304,7 +301,8 @@ def update_bookmark(dlpx_obj, bookmark_name):
         exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(
-            f"ERROR: {bookmark_name} could not be " f"updated. The error was:\n{err}"
+            f'ERROR: {bookmark_name} could not be updated.'
+            f' The error was:\n{err}'
         )
 
 
@@ -324,15 +322,15 @@ def delete_bookmark(dlpx_obj, bookmark_name):
                 dlpx_obj.server_session, selfservice.bookmark, bookmark_name
             ).reference,
         )
-        dx_logging.print_info(f"{bookmark_name} was deleted successfully.")
+        dx_logging.print_info(f'{bookmark_name} was deleted successfully.')
     except (
         dlpx_exceptions.DlpxException,
         exceptions.HttpError,
         exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(
-            f"ERROR: The bookmark {bookmark_name} "
-            f"was not deleted. The error was:\n{err}"
+            f'ERROR: The bookmark {bookmark_name} '
+            f'was not deleted. The error was:\n{err}'
         )
 
 
@@ -354,41 +352,42 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine["ip_address"], engine["username"], engine["password"]
+            engine['ip_address'], engine['username'], engine['password'],
+            engine['use_https']
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f"ERROR: ss_bookmark encountered an error "
+            f'ERROR: ss_bookmark encountered an error '
             f'authenticating to {engine["hostname"]} '
             f'{ARGUMENTS["--target"]}:\n{err}\n'
         )
     try:
         with dlpx_obj.job_mode(single_thread):
-            if ARGUMENTS["--create_bookmark"]:
+            if ARGUMENTS['--create_bookmark']:
                 create_bookmark(
                     dlpx_obj,
-                    ARGUMENTS["--create_bookmark"],
-                    ARGUMENTS["--data_layout"],
-                    ARGUMENTS["--branch_name"]
-                    if ARGUMENTS["--branch_name"]
+                    ARGUMENTS['--create_bookmark'],
+                    ARGUMENTS['--data_layout'],
+                    ARGUMENTS['--branch_name']
+                    if ARGUMENTS['--branch_name']
                     else None,
-                    ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
-                    ARGUMENTS["--description"]
-                    if ARGUMENTS["--description"]
+                    ARGUMENTS['--tags'] if ARGUMENTS['--tags'] else None,
+                    ARGUMENTS['--description']
+                    if ARGUMENTS['--description']
                     else None,
                 )
-            elif ARGUMENTS["--delete_bookmark"]:
-                delete_bookmark(dlpx_obj, ARGUMENTS["--delete_bookmark"])
-            elif ARGUMENTS["--update_bookmark"]:
-                update_bookmark(dlpx_obj, ARGUMENTS["--update_bookmark"])
-            elif ARGUMENTS["--share_bookmark"]:
-                share_bookmark(dlpx_obj, ARGUMENTS["--share_bookmark"])
-            elif ARGUMENTS["--unshare_bookmark"]:
-                unshare_bookmark(dlpx_obj, ARGUMENTS["--unshare_bookmark"])
-            elif ARGUMENTS["--list"]:
+            elif ARGUMENTS['--delete_bookmark']:
+                delete_bookmark(dlpx_obj, ARGUMENTS['--delete_bookmark'])
+            elif ARGUMENTS['--update_bookmark']:
+                update_bookmark(dlpx_obj, ARGUMENTS['--update_bookmark'])
+            elif ARGUMENTS['--share_bookmark']:
+                share_bookmark(dlpx_obj, ARGUMENTS['--share_bookmark'])
+            elif ARGUMENTS['--unshare_bookmark']:
+                unshare_bookmark(dlpx_obj, ARGUMENTS['--unshare_bookmark'])
+            elif ARGUMENTS['--list']:
                 list_bookmarks(
                     dlpx_obj,
-                    ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
+                    ARGUMENTS['--tags'] if ARGUMENTS['--tags'] else None,
                 )
     except (
         dlpx_exceptions.DlpxException,
@@ -397,7 +396,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f"Error in ss_bookmark:" f'{engine["ip_address"]}\n{err}'
+            f'Error in ss_bookmark:' f'{engine["ip_address"]}\n{err}'
         )
     run_job.find_job_state(engine, dlpx_obj)
 
@@ -409,10 +408,10 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS["--logdir"])
-        config_file_path = ARGUMENTS["--config"]
-        single_thread = ARGUMENTS["--single_thread"]
-        engine = ARGUMENTS["--engine"]
+        dx_logging.logging_est(ARGUMENTS['--logdir'])
+        config_file_path = ARGUMENTS['--config']
+        single_thread = ARGUMENTS['--single_thread']
+        engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
         for each in run_job.run_job(
             main_workflow, dx_session_obj, engine, single_thread
@@ -420,7 +419,7 @@ def main():
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f"script took {elapsed_minutes} minutes to " f"get this far."
+            f'script took {elapsed_minutes} minutes to ' f'get this far.'
         )
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
@@ -431,15 +430,15 @@ def main():
         # We use this exception handler when an error occurs in a function
         # call.
         dx_logging.print_exception(
-            f"ERROR: Please check the ERROR message " f"below:\n {err.error}"
+            f'ERROR: Please check the ERROR message ' f'below:\n {err.error}'
         )
         sys.exit(2)
 
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         dx_logging.print_exception(
-            f"ERROR: Connection failed to the Delphix DDP. Please check "
-            f"the ERROR message below:\n{err.status}"
+            f'ERROR: Connection failed to the Delphix DDP. Please check '
+            f'the ERROR message below:\n{err.status}'
         )
         sys.exit(2)
 
@@ -448,23 +447,25 @@ def main():
         # have actionable data
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
-            f"A job failed in the Delphix Engine:\n{err.job}."
-            f"{basename(__file__)} took {elapsed_minutes} minutes to get "
-            f"this far"
+            f'A job failed in the Delphix Engine:\n{err.job}.'
+            f'{basename(__file__)} took {elapsed_minutes} minutes to get '
+            f'this far'
         )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
+        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f"{basename(__file__)} took {elapsed_minutes} " f"minutes to get this far."
+            f'{basename(__file__)} took {elapsed_minutes} minutes to '
+            f'get this far.'
         )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Grab our ARGUMENTS from the doc at the top of the script
-    ARGUMENTS = docopt.docopt(__doc__, version=basename(__file__) + " " + VERSION)
+    ARGUMENTS = docopt.docopt(__doc__,
+                              version=basename(__file__) + ' ' + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

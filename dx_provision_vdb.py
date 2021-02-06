@@ -13,7 +13,7 @@
 Usage:
   dx_provision_db.py --source <name> --target_grp <name> --db <name> \
   --env_name <name> --type <type>
-  [--envinst <name> --vfiles_path <path> --timestamp_type <type>]
+  [--envinst <name> --timestamp_type <type>]
   [--timestamp <timepoint_semantic> --timeflow <name> --no_truncate_log]
   [--instname <sid> --mntpoint <path> --uniqname <name> --engine <identifier>]
   [--single_thread <bool> --vdb_restart <bool> --parallel <n> --poll <n>]
@@ -39,7 +39,7 @@ Examples:
 
   dx_provision_vdb.py --source UF_Source --db appDataVDB \
   --target_grp Untitled --env_name LinuxTarget --type vfiles \
-  --vfiles_path /mnt/provision/appDataVDB \
+  --mntpoint /mnt/provision/appDataVDB \
   --prerollback "/u01/app/oracle/product/scripts/PreRollback.sh" \
   --postrollback "/u01/app/oracle/product/scripts/PostRollback.sh" \
   --vdb_restart true
@@ -48,8 +48,6 @@ Options:
   --source <name>           Name of the source object
   --target_grp <name>       The group into which Delphix will place the VDB.
   --db <name>               The name you want to give the database (Oracle Only)
-  --vfiles_path <path>      The full path on the Target server where Delphix
-                            will provision the vFiles
   --no_truncate_log         Don't truncate log on checkpoint (ASE only)
   --env_name <name>         The name of the Target environment in Delphix
   --type <type>             The type of VDB this is.
@@ -116,15 +114,15 @@ from lib.run_async import run_async
 VERSION = 'v.0.3.006'
 
 
-def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, source_obj, env_inst,
+def create_ase_vdb(dlpx_obj, group_ref, vdb_name, source_obj, env_inst,
                    timestamp, timestamp_type='SNAPSHOT',
                    no_truncate_log=False):
     """
     Create a Sybase ASE VDB
     :param dlpx_obj: DDP session object
     :type dlpx_obj: lib.GetSession.GetSession object
-    :param vdb_group: Group name where the VDB will be created
-    :type vdb_group: str
+    :param group_ref: Reference of Group name where the VDB will be created
+    :type group_ref: str
     :param vdb_name: Name of the VDB
     :type vdb_name: str
     :param source_obj: Database object of the source
@@ -152,17 +150,16 @@ def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, source_obj, env_inst,
         raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
-    vdb_group_ref = get_references.find_obj_by_name(
-        dlpx_obj.server_session, group, vdb_group)
     vdb_params = vo.ASEProvisionParameters()
     vdb_params.container = vo.ASEDBContainer()
     if no_truncate_log:
         vdb_params.truncate_log_on_checkpoint = False
     else:
         vdb_params.truncate_log_on_checkpoint = True
-    vdb_params.container.group = vdb_group_ref
+    vdb_params.container.group = group_ref
     vdb_params.container.name = vdb_name
     vdb_params.source = vo.ASEVirtualSource()
+    vdb_params.source.allow_auto_vdb_restart_on_host_reboot = True
     vdb_params.source_config = vo.ASESIConfig()
     vdb_params.source_config.database_name = vdb_name
     vdb_params.source_config.repository = get_references.find_obj_by_name(
@@ -231,7 +228,6 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
                                         timestamp)
     vdb_params.timeflow_point_parameters.container = source_obj.reference
     dx_logging.print_info(f'{engine_name} provisioning {vdb_name}')
-    print(type(source_obj), type(environment_obj))
     database.provision(dlpx_obj.server_session, vdb_params)
     # Add the job into the jobs dictionary so we can track its progress
     dlpx_obj.jobs[
@@ -240,8 +236,8 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
 
 
 def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
-                      environment_obj, source_obj, env_inst, timestamp,
-                      timestamp_type='SNAPSHOT', pre_refresh=None,
+                      environment_obj, source_obj, mntpoint,
+                      timestamp, timestamp_type='SNAPSHOT', pre_refresh=None,
                       post_refresh=None, pre_rollback=None,
                       post_rollback=None, configure_clone=None):
     """
@@ -257,10 +253,8 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     :param source_obj: vfiles object of the source
     :type source_obj: class
     delphixpy.v1_10_2.web.objects.OracleDatabaseContainer.OracleDatabaseContainer
-    :param env_inst: Environment installation identifier in Delphix.
-    EX: "/u01/app/oracle/product/11.2.0/dbhome_1"
-    EX: ASETARGET
-    :type env_inst: str
+    :param mntpoint: Where to mount the Delphix filesystem
+    :type mntpoint: str
     :param timestamp: The Delphix semantic for the point in time on the
     source from which to refresh the VDB
     :type timestamp: str
@@ -291,15 +285,17 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     vfiles_params.source_config = vo.AppDataDirectSourceConfig()
     vfiles_params.source.allow_auto_vdb_restart_on_host_reboot = True
     vfiles_params.container = vo.AppDataContainer()
-    vfiles_params.group = group_ref
-    vfiles_params.name = vfiles_name
-    vfiles_params.source_config.name = ARGUMENTS['--target']
-    vfiles_params.source_config.path = ARGUMENTS['--vfiles_path']
+    vfiles_params.container.group = group_ref
+    vfiles_params.container.name = vfiles_name
+    vfiles_params.source_config.name = vfiles_name
+    vfiles_params.source_config.path = f'{mntpoint}/{vfiles_name}'
     vfiles_params.source_config.environment_user = environment_obj.primary_user
-    vfiles_params.source_config.repository = get_references.find_obj_by_name(
-        dlpx_obj.server_session, repository, env_inst).reference
+    vfiles_params.source_config.repository = \
+        get_references.find_db_repo(
+            dlpx_obj.server_session, 'AppDataRepository',
+            environment_obj.reference, 'Unstructured Files')
     vfiles_params.source.name = vfiles_name
-    vfiles_params.source.name = vfiles_name
+    vfiles_params.source.parameters = {}
     vfiles_params.source.operations = vo.VirtualSourceOperations()
     if pre_refresh:
         vfiles_params.source.operations.pre_refresh = \
@@ -359,10 +355,12 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
 
 
 def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
-                         environment_obj, source_obj, env_inst, timestamp,
-                         timestamp_type='SNAPSHOT', pre_refresh=None,
-                         post_refresh=None, pre_rollback=None,
-                         post_rollback=None, configure_clone=None):
+                         environment_obj, source_obj, env_inst, mntpoint,
+                         timestamp, timestamp_type='SNAPSHOT',
+                         pre_refresh=None, post_refresh=None,
+                         pre_rollback=None, post_rollback=None,
+                         configure_clone=None
+                         ):
     """
     Create an Oracle SI VDB
     :param dlpx_obj: DDP session object
@@ -380,13 +378,15 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     EX: "/u01/app/oracle/product/11.2.0/dbhome_1"
     EX: ASETARGET
     :type env_inst: str
+    :param mntpoint: Where to mount the Delphix filesystem
+    :type mntpoint: str
     :param timestamp: The Delphix semantic for the point in time on the
     source from which to refresh the VDB
     :type timestamp: str
     :param timestamp_type: The Delphix semantic for the point in time on
     the source from which you want to refresh your VDB either SNAPSHOT or TIME
     :type timestamp_type: str
-        :param pre_refresh: Pre-Hook commands before a refresh
+    :param pre_refresh: Pre-Hook commands before a refresh
     :type pre_refresh: str
     :param post_refresh: Post-Hook commands after a refresh
     :type post_refresh: str
@@ -411,7 +411,7 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     vdb_params.container.name = vdb_name
     vdb_params.source = vo.OracleVirtualSource()
     vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
-    vdb_params.source.mount_base = ARGUMENTS['--mntpoint']
+    vdb_params.source.mount_base = mntpoint
     vdb_params.source_config = vo.OracleSIConfig()
     vdb_params.source_config.environment_user = \
         environment_obj.primary_user
@@ -479,7 +479,9 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'])
+            engine['ip_address'], engine['username'], engine['password'],
+            engine['use_https']
+        )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_provision_vdb encountered an error authenticating to '
@@ -500,7 +502,8 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         create_oracle_si_vdb(
                             dlpx_obj, group_ref, ARGUMENTS['--db'],
                             environment_obj, source_obj,
-                            ARGUMENTS['--envinst'], ARGUMENTS['--timestamp'],
+                            ARGUMENTS['--envinst'], ARGUMENTS['--mntpoint'],
+                            ARGUMENTS['--timestamp'],
                             ARGUMENTS['--timestamp_type'],
                             ARGUMENTS['--prerefresh'],
                             ARGUMENTS['--postrefresh'],
@@ -527,6 +530,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         create_vfiles_vdb(
                             dlpx_obj, group_ref, ARGUMENTS['--db'],
                             environment_obj, source_obj,
+                            ARGUMENTS['--envinst'], ARGUMENTS['--mntpoint'],
                             ARGUMENTS['--prerefresh'],
                             ARGUMENTS['--postrefresh'],
                             ARGUMENTS['--prerollback'],
@@ -542,7 +546,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
         exceptions.JobError,
         exceptions.HttpError,
     ) as err:
-        dx_logging.print_exception(f'Error in dx_rewind_vdb: '
+        dx_logging.print_exception(f'Error in dx_provision_vdb: '
                                    f'{engine["ip_address"]}\n{err}')
 
 
