@@ -46,8 +46,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.015"
-
 import sys
 import traceback
 from os.path import basename
@@ -75,6 +73,8 @@ from lib.DxLogging import print_exception
 from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.015"
 
 
 def create_authorization(dlpx_obj, role_name, target_type, target_name, user_name):
@@ -196,9 +196,11 @@ def list_authorization(dlpx_obj):
             elif auth_obj.target.startswith("DOMAIN"):
                 target_obj = User()
                 target_obj.name = "DOMAIN"
-            print("{}, {}, {}, {}".format(
-                user_obj.name, role_obj.name, target_obj.name, auth_obj.reference
-            ))
+            print(
+                "{}, {}, {}, {}".format(
+                    user_obj.name, role_obj.name, target_obj.name, auth_obj.reference
+                )
+            )
     except (RequestError, HttpError, JobError, AttributeError) as e:
         print_exception(
             "An error occurred while listing authorizations.:\n" "{}\n".format((e))

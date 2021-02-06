@@ -47,8 +47,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.3.018"
-
 import sys
 import traceback
 from os.path import basename
@@ -75,6 +73,8 @@ from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_list
 from lib.GetSession import GetSession
+
+VERSION = "v.0.3.018"
 
 
 def dx_obj_operation(dlpx_obj, vdb_name, operation):
@@ -152,7 +152,7 @@ def list_databases(dlpx_obj):
             if source_stats is not None:
                 if source_stats.virtual is False:
                     db_size = source_stats.runtime.database_size / 1024 / 1024 / 1024
-                    print (
+                    print(
                         "name: {}, provision container: dSource, disk usage: "
                         "{:.2f}GB, Size of Snapshots: {:.2f}GB, "
                         "dSource Size: {:.2f}GB, Log Size: {:.2f}MB,"
@@ -167,7 +167,7 @@ def list_databases(dlpx_obj):
                         )
                     )
                 elif source_stats.virtual is True:
-                    print (
+                    print(
                         "name: {}, provision container: {}, disk usage: "
                         "{:.2f}GB, Size of Snapshots: {:.2f}GB, "
                         "Log Size: {:.2f}MB, Enabled: {}, "
@@ -182,7 +182,7 @@ def list_databases(dlpx_obj):
                         )
                     )
             elif source_stats is None:
-                print (
+                print(
                     "name: {},provision container: {},database disk "
                     "usage: {:.2f} GB,Size of Snapshots: {:.2f} GB,"
                     "Could not find source information. This could be a "

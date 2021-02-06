@@ -2,17 +2,9 @@
 List, create, destroy and refresh Delphix timeflows
 """
 from __future__ import print_function
-# TODO:
-#    implement debug flag
 
 import re
 import sys
-
-from .DlpxException import DlpxException
-from .DxLogging import print_exception
-from .GetReferences import convert_timestamp
-from .GetReferences import find_obj_by_name
-from .GetReferences import get_obj_reference
 
 from delphixpy.v1_8_0 import job_context
 from delphixpy.v1_8_0.exceptions import HttpError
@@ -29,6 +21,16 @@ from delphixpy.v1_8_0.web.vo import RefreshParameters
 from delphixpy.v1_8_0.web.vo import TimeflowPointLocation
 from delphixpy.v1_8_0.web.vo import TimeflowPointSemantic
 from delphixpy.v1_8_0.web.vo import TimeflowPointTimestamp
+
+from .DlpxException import DlpxException
+from .DxLogging import print_exception
+from .GetReferences import convert_timestamp
+from .GetReferences import find_obj_by_name
+from .GetReferences import get_obj_reference
+
+# TODO:
+#    implement debug flag
+
 
 VERSION = "v.0.2.003"
 
@@ -67,11 +69,13 @@ class DxTimeflow(object):
             try:
                 db_name = get_obj_reference(self.engine, database, tfbm_lst.container)
 
-                print("{}, {}, {}\n".format(
-                    str(db_name),
-                    str(tfbm_lst.name),
-                    str(tfbm_lst.parent_point.timestamp),
-                ))
+                print(
+                    "{}, {}, {}\n".format(
+                        str(db_name),
+                        str(tfbm_lst.name),
+                        str(tfbm_lst.parent_point.timestamp),
+                    )
+                )
 
             except AttributeError:
                 print("{}, {}\n".format(str(tfbm_lst.name), str(db_name)))
@@ -122,9 +126,11 @@ class DxTimeflow(object):
         tf_create_params.timeflow_point = otfp
 
         try:
-            print("Bookmark {} successfully created with reference {}".format(
-                bookmark.bookmark.create(self.engine, tf_create_params)
-            ))
+            print(
+                "Bookmark {} successfully created with reference {}".format(
+                    bookmark.bookmark.create(self.engine, tf_create_params)
+                )
+            )
 
         except RequestError as e:
             raise DlpxException(e.message)
@@ -145,7 +151,7 @@ class DxTimeflow(object):
         all_bookmarks = bookmark.bookmark.get_all(self.engine)
 
         if parsable is False:
-            print ("\nBookmark name\tReference\tTimestamp\t" "Location\tTimeflow\n")
+            print("\nBookmark name\tReference\tTimestamp\t" "Location\tTimeflow\n")
 
         elif parsable is True:
             print("Bookmark name,Reference,Timestamp,Location,Timeflow")
@@ -161,21 +167,25 @@ class DxTimeflow(object):
                     )
 
                 if parsable is False:
-                    print("{} {} {} {} {}".format(
-                        tfbm_lst.name,
-                        tfbm_lst.reference,
-                        str(converted_timestamp),
-                        tfbm_lst.location,
-                        tfbm_lst.timeflow,
-                    ))
+                    print(
+                        "{} {} {} {} {}".format(
+                            tfbm_lst.name,
+                            tfbm_lst.reference,
+                            str(converted_timestamp),
+                            tfbm_lst.location,
+                            tfbm_lst.timeflow,
+                        )
+                    )
                 elif parsable is True:
-                    print("{},{},{},{},{}".format(
-                        tfbm_lst.name,
-                        tfbm_lst.reference,
-                        str(converted_timestamp),
-                        tfbm_lst.location,
-                        tfbm_lst.timeflow,
-                    ))
+                    print(
+                        "{},{},{},{},{}".format(
+                            tfbm_lst.name,
+                            tfbm_lst.reference,
+                            str(converted_timestamp),
+                            tfbm_lst.location,
+                            tfbm_lst.timeflow,
+                        )
+                    )
 
             except TypeError:
                 print("No timestamp found for {}".format(tfbm_lst.name))

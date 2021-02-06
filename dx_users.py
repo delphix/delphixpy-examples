@@ -55,8 +55,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.004"
-
 import sys
 from os.path import basename
 from time import sleep
@@ -84,6 +82,8 @@ from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
 
+VERSION = "v.0.0.004"
+
 
 def add_user(user_name, user_password, user_email, jsonly=None):
     """
@@ -97,7 +97,7 @@ def add_user(user_name, user_password, user_email, jsonly=None):
 
     try:
         user.create(dx_session_obj.server_session, user_obj)
-        print ("Attempting to create {}".format(user_name))
+        print("Attempting to create {}".format(user_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Creating the user {} "
@@ -158,7 +158,7 @@ def update_user(user_name, user_password=None, user_email=None, jsonly=None):
                 ).reference,
                 updated_user_obj,
             )
-            print ("Attempting to update {}".format(user_name))
+            print("Attempting to update {}".format(user_name))
         except (DlpxException, RequestError) as e:
             print_exception(
                 "\nERROR: Updating the user {} "
@@ -179,7 +179,7 @@ def update_user(user_name, user_password=None, user_email=None, jsonly=None):
                 ).reference,
                 new_password_obj,
             )
-            print ("Attempting to update {} password".format(user_name))
+            print("Attempting to update {} password".format(user_name))
         except (DlpxException, RequestError) as e:
             print_exception(
                 "\nERROR: Updating the user {} password "
@@ -198,7 +198,7 @@ def delete_user(user_name):
 
     try:
         user.delete(dx_session_obj.server_session, user_obj.reference)
-        print ("Attempting to delete {}".format(user_name))
+        print("Attempting to delete {}".format(user_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Deleting the user {} "
@@ -214,7 +214,7 @@ def list_users():
     user_list = find_all_objects(dx_session_obj.server_session, user)
 
     for user_obj in user_list:
-        print ("User: {}".format(user_obj.name))
+        print("User: {}".format(user_obj.name))
 
 
 def run_async(func):

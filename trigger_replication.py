@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # Adam Bowen Sept 2016
 from __future__ import print_function
-VERSION = "v.0.0.002"
-# just a quick and dirty example of executing a replication profile
 
 from delphixpy.v1_6_0.delphix_engine import DelphixEngine
 from delphixpy.v1_6_0.web import replication
 from delphixpy.v1_6_0.web.vo import ReplicationSpec
+
+VERSION = "v.0.0.002"
+# just a quick and dirty example of executing a replication profile
+
 
 engine_address = "192.168.218.177"
 engine_username = "delphix_admin"
@@ -30,7 +32,13 @@ def find_obj_by_name(server, f_class, obj_name):
     Function to find objects by name and object class, and return object's reference as a string
     You might use this function to find objects like groups.
     """
-    print("Searching objects in the " + f_class.__name__ + ' class\n   for one named "' + obj_name + '"')
+    print(
+        "Searching objects in the "
+        + f_class.__name__
+        + ' class\n   for one named "'
+        + obj_name
+        + '"'
+    )
     obj_ref = ""
 
     all_objs = f_class.get_all(server)

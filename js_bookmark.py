@@ -64,8 +64,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.019"
-
 import sys
 import traceback
 from os.path import basename
@@ -93,6 +91,8 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
 from lib.GetReferences import get_obj_reference
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.019"
 
 
 def create_bookmark(
@@ -201,24 +201,28 @@ def list_bookmarks(dlpx_obj, tags=None):
             )
             tag_filter = [x.strip() for x in tags.decode("utf-8", "ignore").split(",")]
             if all(tag in js_bookmark.tags for tag in tag_filter):
-                print("{}, {}, {}, {}, {}".format(
-                    js_bookmark.name,
-                    js_bookmark.reference,
-                    branch_name,
-                    js_bookmark.template_name,
-                    ", ".join(tag for tag in js_bookmark.tags),
-                ))
+                print(
+                    "{}, {}, {}, {}, {}".format(
+                        js_bookmark.name,
+                        js_bookmark.reference,
+                        branch_name,
+                        js_bookmark.template_name,
+                        ", ".join(tag for tag in js_bookmark.tags),
+                    )
+                )
             elif tag_filter is None:
                 tag = js_bookmark.tags if js_bookmark.tags else None
                 if tag:
                     tag = ", ".join(tag for tag in js_bookmark.tags)
-                print("{}, {}, {}, {}, {}".format(
-                    js_bookmark.name,
-                    js_bookmark.reference,
-                    branch_name,
-                    js_bookmark.template_name,
-                    tag,
-                ))
+                print(
+                    "{}, {}, {}, {}, {}".format(
+                        js_bookmark.name,
+                        js_bookmark.reference,
+                        branch_name,
+                        js_bookmark.template_name,
+                        tag,
+                    )
+                )
         print("\n")
 
     except (DlpxException, HttpError, RequestError) as e:

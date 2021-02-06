@@ -59,8 +59,6 @@ Options:
   -v --version              Show version.
 """
 from __future__ import print_function
-VERSION = "v.0.1.615"
-
 
 import json
 import logging
@@ -96,6 +94,8 @@ from lib.DxLogging import print_exception
 from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.1.615"
 
 
 def run_async(func):
@@ -382,13 +382,15 @@ def list_snapshots(server):
         container_name = get_obj_name(server, database, snap.container)
         snap_range = snapshot.timeflow_range(server, snap.reference)
 
-        print("{}, {}, {}, {}, {}".format(
-            str(snap.name),
-            container_name,
-            snap_range.start_point.timestamp,
-            snap_range.start_point.location,
-            snap_range.end_point.timestamp,
-        ))
+        print(
+            "{}, {}, {}, {}, {}".format(
+                str(snap.name),
+                container_name,
+                snap_range.start_point.timestamp,
+                snap_range.start_point.location,
+                snap_range.end_point.timestamp,
+            )
+        )
 
 
 @run_async
@@ -652,9 +654,9 @@ def refresh_database(engine, server, jobs, source_obj, container_obj):
                 jobs[container_obj] = server.last_job
 
             except RequestError as e:
-                print("\nERROR: Could not set timeflow point:\n%s\n" % (
-                    e.message.action
-                ))
+                print(
+                    "\nERROR: Could not set timeflow point:\n%s\n" % (e.message.action)
+                )
                 sys.exit(1)
 
             except DlpxException as e:
@@ -775,11 +777,14 @@ def list_timeflows(server):
         try:
 
             db_name = get_obj_name(server, database, tfbm_lst.container)
-            print("%s, %s, %s\n" % (
-                str(db_name),
-                str(tfbm_lst.name),
-                str(tfbm_lst.parent_point.timestamp),
-            ))
+            print(
+                "%s, %s, %s\n"
+                % (
+                    str(db_name),
+                    str(tfbm_lst.name),
+                    str(tfbm_lst.parent_point.timestamp),
+                )
+            )
 
         except AttributeError:
             print("%s, %s\n" % (str(tfbm_lst.name), str(db_name)))

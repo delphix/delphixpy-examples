@@ -69,8 +69,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.020"
-
 import sys
 import traceback
 from os.path import basename
@@ -104,6 +102,8 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
 from lib.GetReferences import get_obj_reference
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.020"
 
 
 def create_container(dlpx_obj, template_name, container_name, database_name):
@@ -666,9 +666,10 @@ def main():
         sys.exit(2)
     except HttpError as e:
         # We use this exception handler when our connection to Delphix fails
-        print("\nERROR: Connection failed to the Delphix Engine. Please " "check the ERROR message below:\n{}".format(
-            e.message
-        ))
+        print(
+            "\nERROR: Connection failed to the Delphix Engine. Please "
+            "check the ERROR message below:\n{}".format(e.message)
+        )
         sys.exit(2)
     except JobError as e:
         # We use this exception handler when a job fails in Delphix so that we

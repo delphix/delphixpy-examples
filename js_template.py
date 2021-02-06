@@ -52,8 +52,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.015"
-
 import sys
 import traceback
 from os.path import basename
@@ -78,6 +76,8 @@ from lib.DxLogging import print_info
 from lib.GetReferences import convert_timestamp
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.015"
 
 
 def create_template(dlpx_obj, template_name, database_name):
@@ -411,7 +411,7 @@ def main():
     except JobError as e:
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
-        print ("A job failed in the Delphix Engine:\n{}".format(e.job))
+        print("A job failed in the Delphix Engine:\n{}".format(e.job))
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(

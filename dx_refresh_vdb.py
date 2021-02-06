@@ -59,9 +59,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.3.004"
-
-
 import sys
 import traceback
 from os.path import basename
@@ -94,6 +91,8 @@ from lib.DxTimeflow import DxTimeflow
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_source_by_dbname
 from lib.GetSession import GetSession
+
+VERSION = "v.0.3.004"
 
 
 def refresh_database(vdb_name, timestamp, timestamp_type="SNAPSHOT"):
@@ -201,9 +200,9 @@ def refresh_database(vdb_name, timestamp, timestamp_type="SNAPSHOT"):
                 ] = dx_session_obj.server_session.last_job
 
             except RequestError as e:
-                print("\nERROR: Could not set timeflow point:\n%s\n" % (
-                    e.message.action
-                ))
+                print(
+                    "\nERROR: Could not set timeflow point:\n%s\n" % (e.message.action)
+                )
                 sys.exit(1)
 
             except DlpxException as e:

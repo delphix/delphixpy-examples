@@ -4,7 +4,6 @@ Adam Bowen - Jan 2016
 This script configures the Delphix Engine networking.
 """
 from __future__ import print_function
-VERSION = "v.2.3.002"
 
 import errno
 import getopt
@@ -31,6 +30,8 @@ from delphixpy.v1_8_0.web.vo import PasswordCredential
 from delphixpy.v1_8_0.web.vo import SystemInfo
 from delphixpy.v1_8_0.web.vo import User
 
+VERSION = "v.2.3.002"
+
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
     """
@@ -43,38 +44,38 @@ def system_serversess(f_engine_address, f_engine_username, f_engine_password):
 
 
 def help():
-    print (
+    print(
         basename(__file__) + " [-e <engine ip>] [-o <old sysadmin "
         "password] [-p <new sysadmin password]"
     )
-    print (
+    print(
         "Script requires five parameters, the IP of the Delphix Engine, "
         "the default\n gateway, a comma delimited string of DNS servers, the "
         "initial sysadmin \n password to connect with, and the new sysadmin "
         "password you want to use"
     )
-    print ("-h - Prints this message")
-    print (
+    print("-h - Prints this message")
+    print(
         "-e <Delphix Engine IP>  - The IP to use to connect to the Delphix "
         "Engine. \nEngine must be up, unconfigured, and console screen must be "
         "green"
     )
-    print (
+    print(
         "-p <new sysadmin password>  - will set the sysadmin user to this " "password"
     )
-    print (
+    print(
         "-n <new Delphix Engine CIDR>  - will set the Delphix Engine to this "
         "IP address \n(i.e. 10.0.1.10/24)"
     )
-    print (
+    print(
         "-g <default gateway> - will set the default gateway to point to "
         "this \nIP address"
     )
-    print (
+    print(
         "-d <dns servers> - comma delimited string of dns servers to use \n"
         '(i.e. "4.2.2.2,192.168.2.1"")'
     )
-    print ("-v - Print version information and exit")
+    print("-v - Print version information and exit")
     sys.exit(2)
 
 
@@ -146,7 +147,7 @@ def time_elapsed():
 
 
 def version():
-    print ("Version: " + VERSION)
+    print("Version: " + VERSION)
     logging_est()
     set_exit_handler(on_exit)
     sys.exit(1)

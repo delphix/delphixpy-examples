@@ -71,8 +71,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.3.612"
-
 import sys
 import traceback
 from os.path import basename
@@ -103,6 +101,8 @@ from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
 from lib.GetSession import GetSession
 
+VERSION = "v.0.3.612"
+
 
 def enable_environment(dlpx_obj, env_name):
     """
@@ -114,7 +114,7 @@ def enable_environment(dlpx_obj, env_name):
 
     try:
         environment.enable(dlpx_obj.server_session, env_obj.reference)
-        print ("Attempting to enable {}".format(env_name))
+        print("Attempting to enable {}".format(env_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Enabling the host {} "
@@ -132,7 +132,7 @@ def disable_environment(dlpx_obj, env_name):
 
     try:
         environment.disable(dlpx_obj.server_session, env_obj.reference)
-        print ("Attempting to disable {}".format(env_name))
+        print("Attempting to disable {}".format(env_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Disabling the host {} "
@@ -155,7 +155,7 @@ def update_host_address(dlpx_obj, old_host_address, new_host_address):
     try:
         host.update(dlpx_obj.server_session, old_host_obj.reference, host_obj)
 
-        print (
+        print(
             "Attempting to update {} to {}".format(old_host_address, new_host_address)
         )
 
@@ -184,27 +184,31 @@ def list_env(dlpx_obj):
             pass
 
         if env.type == "WindowsHostEnvironment":
-            print (
+            print(
                 "Environment Name: {}, Username: {}, Host: {},"
                 "Enabled: {}, ".format(env.name, env_user, env_host, env.enabled)
             )
         elif env.type == "WindowsCluster" or env.type == "OracleCluster":
-            print (
+            print(
                 "Environment Name: {}, Username: {}"
                 "Enabled: {}, ".format(env.name, env_user, env.enabled)
             )
         else:
-            print("Environment Name: {}, Username: {}, Host: {}, Enabled: {}," " ASE Environment Params: {}".format(
-                env.name,
-                env_user,
-                env_host,
-                env.enabled,
-                env.ase_host_environment_parameters
-                if isinstance(
-                    env.ase_host_environment_parameters, ASEHostEnvironmentParameters
+            print(
+                "Environment Name: {}, Username: {}, Host: {}, Enabled: {},"
+                " ASE Environment Params: {}".format(
+                    env.name,
+                    env_user,
+                    env_host,
+                    env.enabled,
+                    env.ase_host_environment_parameters
+                    if isinstance(
+                        env.ase_host_environment_parameters,
+                        ASEHostEnvironmentParameters,
+                    )
+                    else "Undefined",
                 )
-                else "Undefined",
-            ))
+            )
 
 
 def delete_env(dlpx_obj, env_name):
@@ -223,7 +227,7 @@ def delete_env(dlpx_obj, env_name):
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
 
     elif env_obj is None:
-        print ("Environment was not found in the Engine: {}".format(env_name))
+        print("Environment was not found in the Engine: {}".format(env_name))
         sys.exit(1)
 
 
@@ -385,7 +389,7 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path, pw=No
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
 
     except (DlpxException, RequestError, HttpError) as e:
-        print (
+        print(
             "\nERROR: Encountered an exception while creating the "
             "environment:\n{}".format(e)
         )
@@ -440,7 +444,7 @@ def create_windows_env(
         if env_obj:
             env_params_obj.host_environment.proxy = env_obj.host
         elif env_obj is None:
-            print (
+            print(
                 "Host was not found in the Engine: {}".format(
                     arguments[--connector_name]
                 )
@@ -452,7 +456,7 @@ def create_windows_env(
         dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
 
     except (DlpxException, RequestError, HttpError) as e:
-        print (
+        print(
             "\nERROR: Encountered an exception while creating the "
             "environment:\n{}".format(e)
         )

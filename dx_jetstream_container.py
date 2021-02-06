@@ -55,9 +55,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.005"
-
-
 import json
 import logging
 import signal
@@ -81,6 +78,9 @@ from delphixpy.v1_6_0.web import job
 from delphixpy.v1_6_0.web.vo import JSBookmark
 from delphixpy.v1_6_0.web.vo import JSBookmarkCreateParameters
 from delphixpy.v1_6_0.web.vo import JSTimelinePointLatestTimeInput
+
+VERSION = "v.0.0.005"
+
 
 # from delphixpy.v1_6_0.web.vo import
 
