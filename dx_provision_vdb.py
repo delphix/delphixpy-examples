@@ -106,7 +106,6 @@ from delphixpy.v1_10_2.web import repository
 from delphixpy.v1_10_2.web import vo
 
 from lib import dlpx_exceptions
-
 from lib import get_references
 from lib import get_session
 from lib import dx_logging
@@ -114,7 +113,7 @@ from lib import run_job
 from lib import dx_timeflow
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.003'
+VERSION = 'v.0.3.005'
 
 
 def create_ase_vdb(dlpx_obj, vdb_group, vdb_name, environment_obj,
@@ -398,62 +397,62 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
         raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
-        vdb_params = vo.OracleProvisionParameters()
-        vdb_params.open_resetlogs = True
-        vdb_params.container = vo.OracleDatabaseContainer()
-        vdb_params.container.group = group_ref
-        vdb_params.container.name = vdb_name
-        vdb_params.source = vo.OracleVirtualSource()
-        vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
-        vdb_params.source.mount_base = ARGUMENTS['--mntpoint']
-        vdb_params.source_config = vo.OracleSIConfig()
-        vdb_params.source_config.environment_user = \
-            environment_obj.primary_user
-        vdb_params.source.operations = vo.VirtualSourceOperations()
-        if pre_refresh:
-            vdb_params.source.operations.pre_refresh = \
-                vo.RunCommandOnSourceOperation()
-            vdb_params.source.operations.pre_refresh.command = pre_refresh
-        if post_refresh:
-            vdb_params.source.operations.post_refresh = \
-                vo.RunCommandOnSourceOperation()
-            vdb_params.source.operations.post_refresh.command = post_refresh
-        if pre_rollback:
-            vdb_params.source.operations.pre_rollback = \
-                vo.RunCommandOnSourceOperation
-            vdb_params.source.operations.pre_rollback.command = pre_rollback
-        if post_rollback:
-            vdb_params.source.operations.post_rollback = \
-                vo.RunCommandOnSourceOperation()
-            vdb_params.source.operations.post_rollback.command = post_rollback
-        if configure_clone:
-            vdb_params.source.operations.configure_clone = \
-                vo.RunCommandOnSourceOperation()
-            vdb_params.source.operations.configure_clone.command = \
-                configure_clone
-        vdb_params.source_config.database_name = vdb_name
-        vdb_params.source_config.unique_name = vdb_name
-        vdb_params.source_config.instance = vo.OracleInstance()
-        vdb_params.source_config.instance.instance_name = vdb_name
-        vdb_params.source_config.instance.instance_number = 1
-        vdb_params.source_config.repository = get_references.find_obj_by_name(
-            dlpx_obj.server_session, repository, env_inst).reference
-        timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
-        vdb_params.timeflow_point_parameters = \
-            timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
-                                            timestamp)
-        dx_logging.print_info(f'{engine_name}: Provisioning {vdb_name}')
-        print(type(source_obj), type(environment_obj))
-        sys.exit(1)
-        try:
-            database.provision(dlpx_obj.server_session, vdb_params)
-        except (exceptions.RequestError, exceptions.HttpError) as err:
-            raise dlpx_exceptions.DlpxException(
-                f'ERROR: Could not provision the database {vdb_name}\n{err}')
-        # Add the job into the jobs dictionary so we can track its progress
-        dlpx_obj.jobs[
-            dlpx_obj.server_session.address
-        ] = dlpx_obj.server_session.last_job
+    vdb_params = vo.OracleProvisionParameters()
+    vdb_params.open_resetlogs = True
+    vdb_params.container = vo.OracleDatabaseContainer()
+    vdb_params.container.group = group_ref
+    vdb_params.container.name = vdb_name
+    vdb_params.source = vo.OracleVirtualSource()
+    vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
+    vdb_params.source.mount_base = ARGUMENTS['--mntpoint']
+    vdb_params.source_config = vo.OracleSIConfig()
+    vdb_params.source_config.environment_user = \
+        environment_obj.primary_user
+    vdb_params.source.operations = vo.VirtualSourceOperations()
+    if pre_refresh:
+        vdb_params.source.operations.pre_refresh = \
+            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.pre_refresh.command = pre_refresh
+    if post_refresh:
+        vdb_params.source.operations.post_refresh = \
+            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_refresh.command = post_refresh
+    if pre_rollback:
+        vdb_params.source.operations.pre_rollback = \
+            vo.RunCommandOnSourceOperation
+        vdb_params.source.operations.pre_rollback.command = pre_rollback
+    if post_rollback:
+        vdb_params.source.operations.post_rollback = \
+            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_rollback.command = post_rollback
+    if configure_clone:
+        vdb_params.source.operations.configure_clone = \
+            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.configure_clone.command = \
+            configure_clone
+    vdb_params.source_config.database_name = vdb_name
+    vdb_params.source_config.unique_name = vdb_name
+    vdb_params.source_config.instance = vo.OracleInstance()
+    vdb_params.source_config.instance.instance_name = vdb_name
+    vdb_params.source_config.instance.instance_number = 1
+    vdb_params.source_config.repository = get_references.find_db_repo(
+        dlpx_obj.server_session, 'OracleInstall', environment_obj.reference,
+        env_inst
+    )
+    timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
+    vdb_params.timeflow_point_parameters = \
+        timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
+                                        timestamp)
+    dx_logging.print_info(f'{engine_name}: Provisioning {vdb_name}')
+    try:
+        database.provision(dlpx_obj.server_session, vdb_params)
+    except (exceptions.RequestError, exceptions.HttpError) as err:
+        raise dlpx_exceptions.DlpxException(
+            f'ERROR: Could not provision the database {vdb_name}\n{err}')
+    # Add the job into the jobs dictionary so we can track its progress
+    dlpx_obj.jobs[
+        dlpx_obj.server_session.address
+    ] = dlpx_obj.server_session.last_job
 
 
 @run_async
