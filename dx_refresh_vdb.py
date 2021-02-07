@@ -10,18 +10,21 @@
 """Refresh a vdb
 Usage:
   dx_refresh_vdb.py --vdb <name>
-  [--timestamp_type <type> --timestamp <timepoint_semantic> ]
-  [--timeflow <timeflow> --engine <identifier>]
-  [--debug] [--parallel <n> --poll <n> --single_thread <bool>]
-  [--config <path_to_file> --logdir <path_to_file>]
+    [--timestamp_type <type> --timestamp <timepoint_semantic>]
+    [--timeflow <timeflow> --engine <identifier>]
+    [--debug] [--poll <n> --single_thread <bool>]
+    [--config <path_to_file> --logdir <path_to_file>]
   dx_refresh_vdb.py -h | --help | -v | --version
+
 Refresh a Delphix VDB
+
 Examples:
   dx_refresh_vdb.py --vdb "aseTest"
+  dx_refresh_vdb.py --vdb testdb1 --timestamp @2021-02-02T20:33:59.052Z --timestamp_type SNAPSHOT
+  dx_refresh_vdb.py --vdb testdb1 --timestamp 2021-02-04T04:43:58.000Z --timestamp_type TIME
+
 Options:
   --vdb <name>              Name of the object you are refreshing.
-  --all_vdbs                Refresh all VDBs that meet the filter criteria.
-  --group_name <name>       Name of the group to execute against.
   --single_thread           Run as a single thread. False if running multiple
                             threads.
                             [default: True]
@@ -39,10 +42,9 @@ Options:
                             [default: LATEST]
   --timeflow <name>         Name of the timeflow to refresh a VDB
   --engine <name>           Alt Identifier of Delphix DDP in dxtools.conf.
-                              [default: default]
-  --all                     Run against all engines.
+                            all|engine-name
+                            [default: default]
   --debug                   Enable debug logging
-  --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
@@ -70,7 +72,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.003'
+VERSION = 'v.0.3.004'
 
 
 def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
@@ -88,6 +90,7 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
     :type timestamp_type: str
     """
     dx_timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
+    dx_logging.print_info(f' Refreshing {vdb_name}')
     container_obj = get_references.find_obj_by_name(
         dlpx_obj.server_session, database, vdb_name)
     source_obj = get_references.find_source_by_db_name(
@@ -113,22 +116,36 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
         except (exceptions.RequestError, exceptions.JobError) as err:
             raise dlpx_exceptions.DlpxException(
                 f'Encountered error while refreshing {vdb_name}:\n{err}')
-        rewind_params = vo.RollbackParameters()
-        rewind_params.timeflow_point_parameters = \
-            dx_timeflow_obj.set_timeflow_point(container_obj, timestamp_type,
-                                               timestamp)
+
         if str(container_obj.reference).startswith("ORACLE"):
             refresh_params = vo.OracleRefreshParameters()
         else:
             refresh_params = vo.RefreshParameters()
-        try:
+
+        if timestamp_type and timestamp_type=='SNAPSHOT':
+            if timestamp and timestamp != 'LATEST':
+                refresh_params.timeflow_point_parameters = vo.TimeflowPointSnapshot()
+                snapshot_ref = dx_timeflow_obj.find_snapshot(timestamp)
+                if not snapshot_ref:
+                    dx_logging.print_exception(f'ERROR: Unable to find the specified snapshot: {timestamp} on  {source_db}')
+                    raise dlpx_exceptions.DlpxObjectNotFound(f'ERROR: Unable to find the specified snapshot: {timestamp} on  {source_db}')
+                refresh_params.timeflow_point_parameters.snapshot = snapshot_ref
+            else:
+                # refresh to latest snapshot of source database
+                refresh_params.timeflow_point_parameters = \
+                    dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
+                                                       timestamp)
+        else:
+            refresh_params.timeflow_point_parameters = vo.TimeflowPointTimestamp()
             refresh_params.timeflow_point_parameters = \
                 dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
                                                    timestamp)
+        try:
             database.refresh(dlpx_obj.server_session, container_obj.reference,
                              refresh_params)
-            dlpx_obj.jobs[dlpx_obj.server_session.address] = \
-                dlpx_obj.server_session.last_job
+            dlpx_obj.jobs[
+                dlpx_obj.server_session.address
+            ].append(dlpx_obj.server_session.last_job)
         except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
             raise dlpx_exceptions.DlpxObjectNotFound(
                 f'ERROR: Could not set timeflow point:\n{err}')
@@ -155,21 +172,21 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(engine['ip_address'], engine['username'],
-                              engine['password'], engine['use_https'])
+                              engine['password'])
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_refresh_vdb encountered an error authenticating to '
             f'{engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}\n')
-    thingstodo = ['thingstodo']
     try:
         with dlpx_obj.job_mode(single_thread):
-            while dlpx_obj.jobs or thingstodo:
-                if thingstodo:
-                    refresh_vdb(
-                        dlpx_obj, ARGUMENTS['--vdb'], ARGUMENTS['--timestamp'],
-                        ARGUMENTS['--timestamp_type'])
-                thingstodo.pop()
-                run_job.find_job_state(engine, dlpx_obj)
+            vdb_list = ARGUMENTS['--vdb'].split(':')
+            for vdb_name in vdb_list:
+                dx_logging.print_info(f'main_workflow(): refresh {vdb_name}')
+                refresh_vdb(
+                    dlpx_obj, vdb_name, ARGUMENTS['--timestamp'],
+                    ARGUMENTS['--timestamp_type'])
+            dx_logging.print_info(f'main_workflow(): All refreshes must be running now')
+            run_job.track_running_jobs(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxException, dlpx_exceptions.DlpxObjectNotFound,
             exceptions.RequestError, exceptions.JobError,
             exceptions.HttpError) as err:
@@ -191,8 +208,8 @@ def main():
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
-                                    single_thread):
+        for each in run_job.run_job_mt(main_workflow, dx_session_obj, engine,
+                                   single_thread):
             # join them back together so that we wait for all threads to
             # complete
             each.join()
