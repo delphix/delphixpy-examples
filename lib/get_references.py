@@ -38,7 +38,7 @@ def convert_timestamp(engine, timestamp):
         utc = utc.replace(tzinfo=default_tz)
         converted_tz = utc.astimezone(convert_tz)
         engine_local_tz = f'{str(converted_tz.date())} ' \
-            f'{str(converted_tz.time())} {str(converted_tz.tzname())}'
+          f'{str(converted_tz.time())} {str(converted_tz.tzname())}'
         return engine_local_tz
     except TypeError:
         return None
@@ -71,10 +71,30 @@ def find_obj_by_name(engine, f_class, obj_name):
     :type obj_name: str
     :return: object of f_class type
     """
-    for obj in f_class.get_all(engine):
+    obj_list = f_class.get_all(engine)
+    for obj in obj_list:
         if obj.name == obj_name:
             return obj
     raise dlpx_exceptions.DlpxObjectNotFound(f'Object {obj_name} not found.')
+
+def find_obj_by_reference(engine, f_class, reference):
+    """
+    Function to find objects by reference and object class
+    :param engine: A Delphix DDP session object
+    :type engine: lib.GetSession.GetSession object
+    :param f_class: The objects class. I.E. database or timeflow.
+    :type f_class: Supported class type by Delphix
+    :param obj_name: The refere ce of the object
+    :type reference: str
+    :return: object of f_class type
+    """
+    obj_list = f_class.get_all(engine)
+    for obj in obj_list:
+        if obj.reference == reference:
+            return obj
+    raise dlpx_exceptions.DlpxObjectNotFound(f'Object with reference {reference} not found.')
+
+
 
 
 def find_source_by_db_name(engine, obj_name):
