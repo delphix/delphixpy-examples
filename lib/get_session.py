@@ -57,20 +57,20 @@ class GetSession:
                 f"again.\n {err}"
             )
         for each in config.keys():
-            tmp_config = config[each].pop()
-            use_https = tmp_config['use_https']
+            temp_config = config[each].pop()
+            use_https = temp_config['use_https']
             if use_https and use_https.lower() == 'true':
-                tmp_config['use_https'] = True
+                temp_config['use_https']= True
             else:
-                tmp_config['use_https'] = False
-            self.dlpx_ddps[each] = tmp_config
+                temp_config['use_https'] = False
+            self.dlpx_ddps[each] = temp_config
 
     def dlpx_session(
         self,
         f_engine_address,
         f_engine_username,
         f_engine_password=None,
-        enable_https=True
+        enable_https=True,
     ):
         """
         Method to setup the session with DDP
@@ -108,7 +108,7 @@ class GetSession:
                 f"ERROR: An error occurred while authenticating to "
                 f"{f_engine_address}:\n {err}\n"
             )
-        except TimeoutError as err:
+        except (TimeoutError) as err:
             raise dlpx_exceptions.DlpxException(
                 f"ERROR: Timeout while authenticating to "
                 f"{f_engine_address}:\n {err}\n"
