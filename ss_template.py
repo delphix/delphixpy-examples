@@ -73,7 +73,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.000"
+VERSION = "v.0.3.001"
 
 
 def create_template(engine,dlpx_obj, template_name, database_name):
@@ -123,16 +123,19 @@ def list_templates(dlpx_obj):
     """
     header = "Name, Reference, Active Branch, Last Updated"
     try:
-        print(header)
         ss_templates = selfservice.template.get_all(dlpx_obj.server_session)
-        for ss_template in ss_templates:
-            last_updated = get_references.convert_timestamp(
-                dlpx_obj.server_session, ss_template.last_updated[:-5]
-            )
-            dx_logging.print_info(
-                f"{ss_template.name}, {ss_template.reference},"
-                f"{ss_template.active_branch},{last_updated}"
-            )
+        if not ss_templates:
+            dx_logging.print_info(f'No Self Service templates on engine')
+        else:
+            dx_logging.print_info(header)
+            for ss_template in ss_templates:
+                last_updated = get_references.convert_timestamp(
+                    dlpx_obj.server_session, ss_template.last_updated[:-5]
+                )
+                dx_logging.print_info(
+                    f"{ss_template.name}, {ss_template.reference},"
+                    f"{ss_template.active_branch},{last_updated}"
+                )
     except (
         dlpx_exceptions.DlpxException,
         exceptions.HttpError,
@@ -242,7 +245,7 @@ def main():
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         dx_session_obj.get_config(config_file_path)
-        for each in run_job.run_job(
+        for each in run_job.run_job_mt(
             main_workflow, dx_session_obj, engine, single_thread
         ):
             each.join()
