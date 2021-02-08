@@ -18,7 +18,7 @@ from lib import dlpx_exceptions
 from lib import get_references
 from lib import dx_logging
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.3.002"
 
 
 class DxTimeflow:
@@ -133,7 +133,7 @@ class DxTimeflow:
                     tfbm_obj.timestamp = \
                         get_references.convert_timestamp(
                             self._engine, tfbm_obj.timestamp[:-5])
-                yield tfbm_obj
+                tfbm_obj
             except TypeError:
                 raise dlpx_exceptions.DlpxException(f'No timestamp found '
                                                     f'for {tfbm_obj.name}')
@@ -151,10 +151,25 @@ class DxTimeflow:
         snapshots = snapshot.get_all(self._engine)
         for snapshot_obj in snapshots:
             if str(snapshot_obj.name).startswith(snap_name):
-                return snapshot_obj.name
+                return snapshot_obj.reference
             elif str(snapshot_obj.latest_change_point.timestamp).startswith(
                     snap_name):
-                return snapshot_obj.name
+                return snapshot_obj.reference
+
+    def find_snapshot_object(self, snap_name):
+        """
+        Method to find a snapshot by name
+        :param snap_name: Name of the snapshot
+        :type snap_name: str
+        :return: snapshot name
+        """
+        snapshots = snapshot.get_all(self._engine)
+        for snapshot_obj in snapshots:
+            if str(snapshot_obj.name).startswith(snap_name):
+                return snapshot_obj
+            elif str(snapshot_obj.latest_change_point.timestamp).startswith(
+                    snap_name):
+                return snapshot_obj
 
     def set_timeflow_point(self, container_obj, timestamp_type,
                            timestamp='LATEST', timeflow_name=None):
@@ -183,9 +198,8 @@ class DxTimeflow:
                 timeflow_point_parameters.container = container_obj.reference
                 timeflow_point_parameters.location = 'LATEST_SNAPSHOT'
             elif timestamp:
-                snapshot_obj = self.find_snapshot(container_obj.reference)
+                snapshot_obj = self.find_snapshot_object(timestamp)
                 if snapshot_obj:
-                    import pdb;pdb.set_trace()
                     timeflow_point_parameters = vo.TimeflowPointTimestamp()
                     timeflow_point_parameters.timeflow = snapshot_obj.timeflow
                     timeflow_point_parameters.timestamp = \
@@ -201,8 +215,7 @@ class DxTimeflow:
                 timeflow_point_parameters.location = 'LATEST_POINT'
             elif timestamp:
                 timeflow_point_parameters = vo.TimeflowPointTimestamp()
-                timeflow_obj = get_references.find_obj_by_name(
-                    self._engine, timeflow, timeflow_name)
+                timeflow_obj = get_references.find_obj_by_reference(self._engine, timeflow, container_obj.current_timeflow)
                 timeflow_point_parameters.timeflow = timeflow_obj.reference
                 timeflow_point_parameters.timestamp = timestamp
         else:

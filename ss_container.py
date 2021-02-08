@@ -97,7 +97,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.000"
+VERSION = "v.0.3.001"
 
 
 def create_container(dlpx_obj, template_name, container_name, database_name):
@@ -380,7 +380,7 @@ def list_hierarchy(dlpx_obj, container_name):
         dlpx_obj.server_session, selfservice.container, container_name
     ).reference
     for data_source in selfservice.datasource.get_all(
-        dlpx_obj.server_session, data_layout=layout_ref
+            dlpx_obj.server_session, data_layout=layout_ref
     ):
         db_name = get_references.find_obj_name(
             dlpx_obj.server_session, database, data_source.container
@@ -510,10 +510,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 reset_container(dlpx_obj, ARGUMENTS["--reset_container"])
                 print(f'Container {ARGUMENTS["--reset_container"]} was reset.')
     except (
-        dlpx_exceptions.DlpxException,
-        exceptions.RequestError,
-        exceptions.JobError,
-        exceptions.HttpError,
+            dlpx_exceptions.DlpxException,
+            exceptions.RequestError,
+            exceptions.JobError,
+            exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
             f"Error in ss_container:" f'{engine["hostname"]}\n{err}'
@@ -533,8 +533,8 @@ def main():
         single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
-        for each in run_job.run_job(
-            main_workflow, dx_session_obj, engine, single_thread
+        for each in run_job.run_job_mt(
+                main_workflow, dx_session_obj, engine, single_thread
         ):
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
