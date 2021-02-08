@@ -121,25 +121,9 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
             refresh_params = vo.OracleRefreshParameters()
         else:
             refresh_params = vo.RefreshParameters()
-
-        if timestamp_type and timestamp_type=='SNAPSHOT':
-            if timestamp and timestamp != 'LATEST':
-                refresh_params.timeflow_point_parameters = vo.TimeflowPointSnapshot()
-                snapshot_ref = dx_timeflow_obj.find_snapshot(timestamp)
-                if not snapshot_ref:
-                    dx_logging.print_exception(f'ERROR: Unable to find the specified snapshot: {timestamp} on  {source_db}')
-                    raise dlpx_exceptions.DlpxObjectNotFound(f'ERROR: Unable to find the specified snapshot: {timestamp} on  {source_db}')
-                refresh_params.timeflow_point_parameters.snapshot = snapshot_ref
-            else:
-                # refresh to latest snapshot of source database
-                refresh_params.timeflow_point_parameters = \
-                    dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
-                                                       timestamp)
-        else:
-            refresh_params.timeflow_point_parameters = vo.TimeflowPointTimestamp()
-            refresh_params.timeflow_point_parameters = \
-                dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
-                                                   timestamp)
+        refresh_params.timeflow_point_parameters = \
+            dx_timeflow_obj.set_timeflow_point(source_db, timestamp_type,
+                                               timestamp)
         try:
             database.refresh(dlpx_obj.server_session, container_obj.reference,
                              refresh_params)
@@ -147,12 +131,12 @@ def refresh_vdb(dlpx_obj, vdb_name, timestamp, timestamp_type='SNAPSHOT'):
                 dlpx_obj.server_session.address
             ].append(dlpx_obj.server_session.last_job)
         except (dlpx_exceptions.DlpxException, exceptions.RequestError) as err:
-            raise dlpx_exceptions.DlpxObjectNotFound(
-                f'ERROR: Could not set timeflow point:\n{err}')
+            dx_logging.print_exception(f'ERROR: Could not set timeflow point:{err}')
+            raise dlpx_exceptions.DlpxException(
+                f'ERROR: Could not set timeflow point:{err}')
     # Don't do anything if the database is disabled
     else:
-        dx_logging.print_info(f'INFO: {container_obj.name} is not '
-                              f'enabled. Skipping sync.\n')
+        dx_logging.print_info(f'INFO: {container_obj.name} is not enabled. Refresh will not continue.\n')
 
 
 @run_async
@@ -172,7 +156,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(engine['ip_address'], engine['username'],
-                              engine['password'])
+                              engine['password'], engine['use_https'])
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_refresh_vdb encountered an error authenticating to '
