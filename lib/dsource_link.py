@@ -4,12 +4,13 @@ Create an object to link MS SQL or ASE dSources
 
 from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import group
+from delphixpy.v1_10_2.web import environment
 from delphixpy.v1_10_2.web import vo
 
 from lib import dlpx_exceptions
 from lib import get_references
 
-VERSION = 'v.0.3.002'
+VERSION = "v.0.3.003"
 
 
 class DsourceLink:
@@ -59,22 +60,24 @@ class DsourceLink:
         self.link_params.link_data.db_credentials = vo.PasswordCredential()
         self.link_params.link_data.db_credentials.password = self.db_passwd
         self.link_params.link_data.db_user = self.db_user
+        # Create blank sourcing policy
         self.link_params.link_data.sourcing_policy = vo.SourcingPolicy()
-        # Enforce logsync. Set this to False if logsync is not needed
-        self.link_params.link_data.sourcing_policy.logsync_enabled = True
-        self.link_params.link_data.config = self.get_sourceconfig()
+        self.link_params.link_data.sourcing_policy.logsync_enabled = False
+        self.link_params.link_data.config = self.get_or_create_sourceconfig(self.srccfg_obj)
         return self.link_params
 
-    def get_sourceconfig(self):
+    def get_or_create_sourceconfig(self, sourceconfig_obj=None):
         """
-        Get current sourceconfig
+        Get current sourceconfig or create it
+        :param sourceconfig_obj:
+        :return: link_params
         """
         try:
             return get_references.find_obj_by_name(
                 self.dlpx_obj.server_session, sourceconfig,
                 self.dsource_name).reference
         except dlpx_exceptions.DlpxObjectNotFound:
-            raise dlpx_exceptions.DlpxException(
-                f'Object {self.dsource_name} not found on {self.engine_name}')
+            self.link_params.link_data.config = sourceconfig.create(
+                self.dlpx_obj.server_session, sourceconfig_obj).reference
 
 

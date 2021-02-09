@@ -19,7 +19,7 @@ class DsourceLinkMssql(DsourceLink):
     Derived class implementing linking of a MSSQL dSource
     """
     def __init__(self, dlpx_obj, dsource_name, db_passwd, db_user, dx_group,
-                 db_type):
+                 db_type,logsync,validated_sync_mode,initial_load_type,delphix_managed=False):
         """
         Constructor method
         :param dlpx_obj: A Delphix DDP session object
@@ -43,9 +43,45 @@ class DsourceLinkMssql(DsourceLink):
         self.db_user = db_user
         self.dx_group = dx_group
         self.db_type = db_type
+        self.logsync = logsync
+        self.validated_sync_mode = validated_sync_mode
+        self.initial_load_type = initial_load_type
+        self.delphix_managed = delphix_managed
+        if delphix_managed:
+            self.initial_load_type = "COPY_ONLY"
+
+    def get_or_create_mssql_sourcecfg(self, env_name, db_install_path,
+                                      stage_env, stage_instance, backup_path, backup_loc_passwd, backup_loc_user,
+                                      ip_addr=None, port_num=None,backup_uuid=None):
+        """
+        Create the sourceconfig used for provisioning an MSSQL dSource
+        :param env_name: Name of the environment in Delphix
+        :type env_name: str
+        :param db_install_path: Path to where the Oracle binaries are installed
+        :type db_install_path: str
+        """
+        env_obj = get_references.find_obj_by_name(
+            self.dlpx_obj.server_session, environment, env_name)
+        repo_ref = get_references.find_db_repo(
+            self.dlpx_obj.server_session, 'MSSqlInstance', env_obj.reference,
+            db_install_path)
+
+        # source config for single instance MSSQL
+        sourcecfg_params = vo.MSSqlSIConfig()
+        sourcecfg_params.user = self.db_user
+        sourcecfg_params.credentials = vo.PasswordCredential()
+        sourcecfg_params.credentials.password = self.db_passwd
+        sourcecfg_params.database_name = self.dsource_name
+        #sourcecfg_params.unique_name = self.dsource_name
+        sourcecfg_params.repository = repo_ref
+        sourcecfg_params.environment_user = env_obj.primary_user
+        sourcecfg_params.recovery_model = 'FULL'
+        self.link_mssql_dsource(stage_env, stage_instance, backup_path,
+                                backup_loc_passwd, backup_loc_user,backup_uuid)
+
 
     def link_mssql_dsource(self, stage_env, stage_instance, backup_path,
-                           backup_loc_passwd, backup_loc_user):
+                           backup_loc_passwd, backup_loc_user, uuid):
         """
         Link an MSSQL dSource
         :param stage_env: Name of the staging environment
@@ -60,54 +96,57 @@ class DsourceLinkMssql(DsourceLink):
         :type backup_loc_user: str
         """
         link_params = super().dsource_prepare_link()
+        if self.delphix_managed:
+            link_params.link_data.ingestion_strategy = vo.DelphixManagedBackupIngestionStrategy()
+            link_params.link_data.ingestion_strategy.backup_policy = "PRIMARY"
+            link_params.link_data.ingestion_strategy.compression_enabled = False
+        else:
+            link_params.link_data.ingestion_strategy = vo.ExternalBackupIngestionStrategy()
+            link_params.link_data.ingestion_strategy.validated_sync_mode = self.validated_sync_mode
+        link_params.link_data.sourcing_policy = vo.SourcingPolicy()
+        link_params.link_data.sourcing_policy.logsync_enabled = False
+        if self.validated_sync_mode and self.validated_sync_mode =="TRANSACTION_LOG":
+            link_params.link_data.sourcing_policy.logsync_enabled = self.logsync
         try:
             env_obj_ref = get_references.find_obj_by_name(
                 self.dlpx_obj.server_session, environment,
                 stage_env).reference
-            link_params.link_data.ppt_repository = \
-                get_references.find_db_repo(
-                    self.dlpx_obj.server_session, 'MSSqlInstance',
-                    env_obj_ref, stage_instance).reference
+            ppt_repo_ref = get_references.find_db_repo(
+                self.dlpx_obj.server_session, 'MSSqlInstance',
+                env_obj_ref, stage_instance)
+            link_params.link_data.ppt_repository = ppt_repo_ref
         except dlpx_exceptions.DlpxException as err:
             raise dlpx_exceptions.DlpxException(
                 f'Could not link {self.dsource_name}:\n{err}')
-        if backup_path != "auto":
-            link_params.link_data.shared_backup_location = backup_path
+
+        # specifying backup locations
+        link_params.link_data.shared_backup_locations = []
+        if backup_path and backup_path != "auto":
+            link_params.link_data.shared_backup_locations = backup_path.split(':')
         if backup_loc_passwd:
             link_params.link_data.backup_location_credentials = \
                 vo.PasswordCredential()
             link_params.link_data.backup_location_credentials.password = \
                 backup_loc_passwd
             link_params.link_data.backup_location_user = backup_loc_user
-            link_params.link_data.sourcing_policy = vo.SourcingPolicy()
-            try:
-                database.link(self.dlpx_obj.server_session, link_params)
-            except (exceptions.HttpError, exceptions.RequestError,
-                    exceptions.JobError) as err:
-                dlpx_exceptions.DlpxException(
-                    f'Database link failed for {self.dsource_name}:\n{err}')
-            self.dlpx_obj.jobs[self.engine_name] = \
-                self.dlpx_obj.server_session.last_job
 
-    def get_or_create_mssql_sourcecfg(self, env_name, db_install_path):
-        """
-        Create the sourceconfig used for provisioning an MSSQL dSource
-        :param env_name: Name of the environment in Delphix
-        :type env_name: str
-        :param db_install_path: Path to where the Oracle binaries are installed
-        :type db_install_path: str
-        """
-        env_obj = get_references.find_obj_by_name(
-            self.dlpx_obj.server_session, environment, env_name)
-        repo_ref = get_references.find_db_repo(
-            self.dlpx_obj.server_session, 'MSSqlInstance', env_obj.reference,
-            db_install_path)
-        sourcecfg_params = vo.MSSqlSIConfig()
-        sourcecfg_params.user = self.db_user
-        sourcecfg_params.credentials = vo.PasswordCredential()
-        sourcecfg_params.credentials.password = self.db_passwd
-        sourcecfg_params.database_name = self.dsource_name
-        sourcecfg_params.unique_name = self.dsource_name
-        sourcecfg_params.repository = repo_ref
-        sourcecfg_params.environment_user = env_obj.primary_user
-        sourceconfig_ref = self.get_or_create_sourceconfig(sourcecfg_params)
+        #specify the initial sync Parameters
+        if self.initial_load_type and self.initial_load_type == "SPECIFIC":
+            link_params.link_data.sync_parameters = vo.MSSqlExistingSpecificBackupSyncParameters()
+            link_params.link_data.sync_parameters.backup_uuid = uuid
+        elif self.initial_load_type and self.initial_load_type == "COPY_ONLY":
+            link_params.link_data.sync_parameters = vo.MSSqlNewCopyOnlyFullBackupSyncParameters()
+            link_params.link_data.sync_parameters.backup_policy = "PRIMARY"
+            link_params.link_data.sync_parameters.compression_enabled = False
+        else:
+            link_params.link_data.sync_parameters = vo.MSSqlExistingMostRecentBackupSyncParameters()
+
+        try:
+            database.link(self.dlpx_obj.server_session, link_params)
+        except (exceptions.HttpError, exceptions.RequestError,
+                exceptions.JobError) as err:
+            dlpx_exceptions.DlpxException(
+                f'Database link failed for {self.dsource_name}:{err}')
+        self.dlpx_obj.jobs[
+            self.dlpx_obj.server_session.address
+        ].append(self.dlpx_obj.server_session.last_job)

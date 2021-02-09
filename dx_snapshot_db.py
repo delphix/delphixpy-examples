@@ -21,10 +21,10 @@ Usage:
 Snapshot a Delphix dSource or VDB
 
 Examples:
-  dx_snapshot_db.py --group "Sources" --object_type dsource --usebackup
+  dx_snapshot_db.py --group "Sources" --usebackup
   dx_snapshot_db.py --name "Employee Oracle 11G DB"
   dx_snapshot_db.py --name dbw2 --usebackup --group Sources --create_bckup
-  dx_snapshot_db.py --name dbw2 --usebackup --group Sources \
+  dx_snapshot_db.py --name dbw2 --usebackup --group Production \
   --bck_file dbw2_full_20170317_001.dmp
 
 
@@ -34,23 +34,25 @@ Options:
   --all_dbs                 Run against all database objects
   --single_thread           Run as a single thread. False if running multiple
                             threads.
-                            [default: True]
-  --bck_file <name>         Name of the specific ASE Sybase backup file(s).
+                            [default: False]
+  --bck_file <name>         Name of the specific ASE Sybase backup file(s)
+                            or backup uuid for MSSQL.
                             [default: None]
   --name <name>             Name of object in Delphix to execute against.
   --group <name>            Name of group in Delphix to execute against.
   --usebackup               Snapshot using "Most Recent backup".
                             Available for MSSQL and ASE only.
                             [default: False]
-  --create_bckup            Create and ingest a new Sybase backup
+  --create_bckup            Create and ingest a new Sybase backup or
+                            copy-only MS SQL backup
                             [default: False]
   --parallel <n>            Limit number of jobs to maxjob
   --poll <n>                The number of seconds to wait between job polls
                             [default: 10]
   --config <path_to_file>   The path to the dxtools.conf file
-                            [default: ./dxtools.conf]
+                            [default: ./config/dxtools.conf]
   --logdir <path_to_file>    The path to the logfile you want to use.
-                            [default: ./dx_snapshot_db.log]
+                            [default: ./logs/dx_snapshot_db.log]
   -h --help                 Show this screen.
   -v --version              Show version.
 """
@@ -72,7 +74,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.001'
+VERSION = 'v.0.3.002'
 
 
 def snapshot_database(dlpx_obj, db_name=None, all_or_group_dbs=None,
@@ -93,7 +95,6 @@ def snapshot_database(dlpx_obj, db_name=None, all_or_group_dbs=None,
     :param create_bckup: Create a backup to use for the snapshot
     :type create_bckup: bool
     """
-    engine_name = list(dlpx_obj.dlpx_ddps)[0]
     sync_params = None
     if isinstance(db_name, str):
         all_or_group_dbs = [db_name]
@@ -118,11 +119,15 @@ def snapshot_database(dlpx_obj, db_name=None, all_or_group_dbs=None,
             # Delphix will just ignore the extra parameters if it is a VDB,
             # so we will omit any extra code to check
             if db_source_info.type == "MSSqlLinkedSource":
-                sync_params = vo.MSSqlSyncParameters()
-                if use_backup is True:
-                    sync_params.load_from_backup = True
-                else:
-                    sync_params.load_from_backup = False
+                if create_bckup is True:
+                    sync_params = vo.MSSqlNewCopyOnlyFullBackupSyncParameters()
+                    sync_params.compression_enabled = False
+                elif use_backup is True:
+                    if backup_file != None:
+                        sync_params = vo.MSSqlExistingSpecificBackupSyncParameters()
+                        sync_params.backup_uuid = backup_file
+                    else:
+                        sync_params = vo.MSSqlExistingMostRecentBackupSyncParameters()
             # Else if the database is a dSource and a ASE type, we need also to
             # tell Delphix how we want to sync the database...
             # Delphix will just ignore the extra parameters if it is a VDB, so
@@ -144,12 +149,9 @@ def snapshot_database(dlpx_obj, db_name=None, all_or_group_dbs=None,
             else:
                 database.sync(dlpx_obj.server_session, container_obj_ref)
             # Add the job into the jobs dictionary so we can track its progress
-            dlpx_obj.jobs[engine_name] = dlpx_obj.server_session.last_job
-            dlpx_obj.jobs[engine_name + 'sync'] = \
-                get_references.get_running_job(
-                    dlpx_obj.server_session, get_references.find_obj_by_name(
-                        dlpx_obj.server_session, database, db_sync).reference
-                )
+            dlpx_obj.jobs[
+                dlpx_obj.server_session.address
+            ].append(dlpx_obj.server_session.last_job)
 
 
 @run_async
@@ -174,39 +176,35 @@ def main_workflow(engine, dlpx_obj, single_thread):
         dx_logging.print_exception(
             f'ERROR: {basename(__file__)} encountered an error authenticating'
             f' to {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}')
-    thingstodo = ['thingstodo']
     try:
         with dlpx_obj.job_mode(single_thread):
-            while dlpx_obj.jobs or thingstodo:
-                if thingstodo:
-                    if ARGUMENTS['--name'] is not None:
-                        snapshot_database(dlpx_obj, ARGUMENTS['--name'],
-                                          None, ARGUMENTS['--usebackup'],
-                                          ARGUMENTS['--bck_file'],
-                                          ARGUMENTS['--create_bckup'])
-                    if ARGUMENTS['--group']:
-                        databases = get_references.find_all_databases_by_group(
-                            dlpx_obj.server_session, ARGUMENTS['--group'])
-                        database_lst = []
-                        for db_name in databases:
-                            database_lst.append(db_name.name)
-                        snapshot_database(dlpx_obj, None, database_lst,
-                                          ARGUMENTS['--usebackup'],
-                                          ARGUMENTS['--bck_file'],
-                                          ARGUMENTS['--create_bckup'])
-                    elif ARGUMENTS['--all_dbs']:
-                        # Grab all databases
-                        databases = database.get_all(
-                            dlpx_obj.server_session, no_js_data_source=False)
-                        database_lst = []
-                        for db_name in databases:
-                            database_lst.append(db_name.name)
-                        snapshot_database(dlpx_obj, None, database_lst,
-                                          ARGUMENTS['--usebackup'],
-                                          ARGUMENTS['--bck_file'],
-                                          ARGUMENTS['--create_bckup'])
-                    thingstodo.pop()
-                run_job.find_job_state(engine, dlpx_obj)
+            if ARGUMENTS['--name'] is not None:
+                snapshot_database(dlpx_obj, ARGUMENTS['--name'],
+                                  None, ARGUMENTS['--usebackup'],
+                                  ARGUMENTS['--bck_file'],
+                                  ARGUMENTS['--create_bckup'])
+            if ARGUMENTS['--group']:
+                databases = get_references.find_all_databases_by_group(
+                    dlpx_obj.server_session, ARGUMENTS['--group'])
+                database_lst = []
+                for db_name in databases:
+                    database_lst.append(db_name.name)
+                snapshot_database(dlpx_obj, None, database_lst,
+                                  ARGUMENTS['--usebackup'],
+                                  ARGUMENTS['--bck_file'],
+                                  ARGUMENTS['--create_bckup'])
+            elif ARGUMENTS['--all_dbs']:
+                # Grab all databases
+                databases = database.get_all(
+                    dlpx_obj.server_session, no_js_data_source=False)
+                database_lst = []
+                for db_name in databases:
+                    database_lst.append(db_name.name)
+                snapshot_database(dlpx_obj, None, database_lst,
+                                  ARGUMENTS['--usebackup'],
+                                  ARGUMENTS['--bck_file'],
+                                  ARGUMENTS['--create_bckup'])
+            run_job.track_running_jobs(engine, dlpx_obj)
     except (dlpx_exceptions.DlpxObjectNotFound, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(
@@ -227,8 +225,8 @@ def main():
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
-                                    single_thread):
+        for each in run_job.run_job_mt(main_workflow, dx_session_obj, engine,
+                                       single_thread):
             # join them back together so that we wait for all threads to
             # complete
             each.join()

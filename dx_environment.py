@@ -8,11 +8,12 @@
 
 Usage:
     dx_environment.py ( [--list] | [--create] | [--enable] | [--disable] | [--delete] | [--refresh] | [--update_host])
-                    [--type <name>]
+                    [--os_type <name>]
+                    [--host_type <type>]
                     [--toolkit <toolkit>]
                     [--env_name <name>]
                     [--passwd <passwd>]
-                    [--connector_name <name>]
+                    [--connector_host_name <host>]
                     [--ip <ipaddress>]
                     [--old_host_address <name> ]
                     [--new_host_address <name>]
@@ -30,7 +31,12 @@ Create a Delphix environment.
 
 Examples:
   dx_environment.py --list
-  dx_environment.py --create --engine mymask --type Linux --env_name oratgt --host_user delphix --passwd xxxx --ip 10.0.1.30 --toolkit /home/delphix
+  dx_environment.py --create --engine mymask --os_type Linux --env_name oratgt \
+  --host_user delphix --passwd xxxx --ip 10.0.1.30 --toolkit /home/delphix
+  dx_environment.py --create --engine mymask --os_type Windows --env_name wintgt \
+  --host_user delphix\dephix_trgt --passwd xxxx --ip 10.0.1.60 --connector_host_name wintgt
+  dx_environment.py --create --os_type Windows --env_name winsrc \
+  --host_user delphix\delphix_src --passwd delphix --ip 10.0.1.50 --connector_host_name wintgt
   dx_environment.py --enable --engine mymask --env_name oratgt
   dx_environment.py --disable --engine mymask --env_name oratgt
   dx_environment.py --refresh --engine mymask --env_name oratgt
@@ -40,10 +46,10 @@ Examples:
 
 
 Options:
-  --type <name>                     The OS type for the environment
+  --os_type <name>                  The OS type for the environment
   --env_name <name>                 The name of the Delphix environment
   --toolkit <path>                  Path of the toolkit. Required for Unix/Linux
-  --connector_name <environment>    The name of the Delphix connector to use.
+  --connector_host_name <host>      The name of the Delphix connector Host to use.
                                     Required for Windows source environments
   --ip <addr>                       The IP address of the Delphix environment
   --host_user <username>            The username on the Delphix environment
@@ -66,7 +72,7 @@ Options:
                                     [default: ./logs/dx_environment.log]
   -h --help                         Show this screen.
   -v --version                      Show version.
-  --single_thread <bool>            Run as a single thread? True or False
+  --single_thread                   Run as a single thread? True or False
                                     [default: False]
 
 """
@@ -88,7 +94,7 @@ from lib import dx_logging
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.617'
+VERSION = 'v.0.3.616'
 
 
 def enable_environment(dlpx_obj, env_name):
@@ -260,12 +266,10 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
     """
 
     env_params_obj = vo.HostEnvironmentCreateParameters()
-    # setting host env params
     env_params_obj.host_environment = vo.UnixHostEnvironment()
-    env_params_obj.host_environment.name = env_name
-    # setting host creation params
     env_params_obj.host_parameters = vo.UnixHostCreateParameters()
     env_params_obj.host_parameters.host = vo.UnixHost()
+    env_params_obj.host_environment.name = env_name
     env_params_obj.host_parameters.host.address = ip_addr
     env_params_obj.host_parameters.name = env_name
     env_params_obj.host_parameters.host.toolkit_path = toolkit_path
@@ -302,7 +306,7 @@ def create_linux_env(dlpx_obj, env_name, host_user, ip_addr, toolkit_path,
 
 
 def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
-                       connector_name=None):
+                       connector_host_name=None):
     """
     Create a Windows environment.
     :param dlpx_obj: DDP session object
@@ -325,26 +329,24 @@ def create_windows_env(dlpx_obj, env_name, host_user, ip_addr, passwd=None,
     env_params_obj.primary_user.credential.password = passwd
     env_params_obj.host_parameters = vo.WindowsHostCreateParameters()
     env_params_obj.host_parameters.host = vo.WindowsHost()
-    env_params_obj.host_parameters.name = env_name
     env_params_obj.host_parameters.host.connector_port = 9100
     env_params_obj.host_parameters.host.address = ip_addr
     env_params_obj.host_environment = vo.WindowsHostEnvironment()
     env_params_obj.host_environment.name = env_name
     env_obj = None
-    if connector_name:
+    if connector_host_name:
         env_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, environment, connector_name)
+            dlpx_obj.server_session, environment, connector_host_name)
     if env_obj:
-       env_params_obj.host_environment.proxy = env_obj.host
-
-    elif env_obj is None:
+        env_params_obj.host_environment.proxy = env_obj.host
+    elif connector_host_name is not None and env_obj is None:
         raise dlpx_exceptions.DlpxObjectNotFound(
-            f'Host was not found in the Engine: {connector_name}')
+            f'Host was not found in the Engine: {connector_host_name}')
     try:
         environment.create(dlpx_obj.server_session, env_params_obj)
         dlpx_obj.jobs[
             dlpx_obj.server_session.address
-        ] = dlpx_obj.server_session.last_job
+        ].append(dlpx_obj.server_session.last_job)
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
@@ -369,9 +371,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'],
-            engine['use_https']
-        )
+            engine['ip_address'], engine['username'], engine['password'])
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
             f'ERROR: dx_environment encountered an error authenticating to '
@@ -385,17 +385,17 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 host_user = ARGUMENTS['--host_user']
                 passwd = ARGUMENTS['--passwd']
                 ip_addr = ARGUMENTS['--ip']
-                type = ARGUMENTS['--type']
+                type = ARGUMENTS['--os_type']
                 toolkit_path = ARGUMENTS['--toolkit']
                 if type is None:
                     raise dlpx_exceptions.DlpxException(
-                        '--type parameter is required for environment creation')
+                        '--os_type parameter is required for environment creation')
 
                 type = type.lower()
                 if type == 'windows':
-                    host_name = ARGUMENTS['--connector_name']
+                    connector_host_name = ARGUMENTS['--connector_host_name']
                     create_windows_env(dlpx_obj, env_name, host_user,
-                                       ip_addr, passwd, host_name)
+                                       ip_addr, passwd, connector_host_name)
                 elif type == 'linux':
                     if toolkit_path is None:
                         raise dlpx_exceptions.DlpxException(
@@ -415,7 +415,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 update_host_address(
                     dlpx_obj, ARGUMENTS['--old_host_address'],
                     ARGUMENTS['--new_host_address'])
-            run_job.find_job_state_by_jobid(engine, dlpx_obj.job_id, 1)
+            run_job.track_running_jobs(engine, dlpx_obj,5)
     except (dlpx_exceptions.DlpxException, exceptions.RequestError,
             exceptions.JobError, exceptions.HttpError) as err:
         dx_logging.print_exception(f'Error in dx_environment for engine:'
@@ -434,7 +434,7 @@ def main():
         single_thread = ARGUMENTS['--single_thread']
         engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
+        for each in run_job.run_job_mt(main_workflow, dx_session_obj, engine,
                                     single_thread):
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
@@ -480,6 +480,6 @@ def main():
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script
     ARGUMENTS = docopt.docopt(__doc__,
-                              version=basename(__file__) + ' ' + VERSION)
+                              version=basename(__file__) + " " + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()
