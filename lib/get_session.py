@@ -58,11 +58,11 @@ class GetSession:
             )
         for each in config.keys():
             temp_config = config[each].pop()
-            use_https = temp_config['use_https']
-            if use_https and use_https.lower() == 'true':
-                temp_config['use_https']= True
+            use_https = temp_config["use_https"]
+            if use_https and use_https.lower() == "true":
+                temp_config["use_https"] = True
             else:
-                temp_config['use_https'] = False
+                temp_config["use_https"] = False
             self.dlpx_ddps[each] = temp_config
 
     def dlpx_session(
@@ -102,7 +102,7 @@ class GetSession:
         except (
             exceptions.HttpError,
             exceptions.RequestError,
-            exceptions.JobError
+            exceptions.JobError,
         ) as err:
             raise dlpx_exceptions.DlpxException(
                 f"ERROR: An error occurred while authenticating to "
