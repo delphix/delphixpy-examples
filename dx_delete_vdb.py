@@ -45,6 +45,7 @@ Options:
 import sys
 import time
 from os.path import basename
+
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
@@ -59,59 +60,62 @@ from lib.run_async import run_async
 
 VERSION = "v.0.3.002"
 
-def delete_vdb(dlpx_obj, vdb_name,force_delete):
-    vdb_list = vdb_name.split(':')
+
+def delete_vdb(dlpx_obj, vdb_name, force_delete):
+    vdb_list = vdb_name.split(":")
     for vdb in vdb_list:
-        dx_logging.print_info(f'delete_vdb for: {vdb}')
+        dx_logging.print_info(f"delete_vdb for: {vdb}")
         container_obj = get_references.find_obj_by_name(
             dlpx_obj.server_session, database, vdb
         )
         # Check to make sure our container object has a reference
-        source_obj = get_references.find_source_by_db_name(
-            dlpx_obj.server_session, vdb
-        )
+        source_obj = get_references.find_source_by_db_name(dlpx_obj.server_session, vdb)
         if container_obj.reference:
             try:
                 if source_obj.virtual is not True or source_obj.staging is True:
                     raise dlpx_exceptions.DlpxException(
-                        f'ERROR: {container_obj.name} is not a virtual object'
+                        f"ERROR: {container_obj.name} is not a virtual object"
                     )
                 else:
                     dx_logging.print_info(
-                        f'INFO: Deleting {container_obj.name} on engine {dlpx_obj.server_session.address}'
+                        f"INFO: Deleting {container_obj.name} on engine {dlpx_obj.server_session.address}"
                     )
                     delete_params = None
-                    if force_delete and str(container_obj.reference).startswith('MSSQL'):
+                    if force_delete and str(container_obj.reference).startswith(
+                        "MSSQL"
+                    ):
                         delete_params = vo.DeleteParameters()
                         delete_params.force = True
                     try:
-                        dx_logging.print_info(f'triggering delete for: {vdb}')
+                        dx_logging.print_info(f"triggering delete for: {vdb}")
                         database.delete(
-                            dlpx_obj.server_session, container_obj.reference,delete_params
+                            dlpx_obj.server_session,
+                            container_obj.reference,
+                            delete_params,
                         )
-                        dx_logging.print_info(f'delete for: {vdb} is running')
-                        dlpx_obj.jobs[
-                            dlpx_obj.server_session.address
-                        ].append(dlpx_obj.server_session.last_job)
+                        dx_logging.print_info(f"delete for: {vdb} is running")
+                        dlpx_obj.jobs[dlpx_obj.server_session.address].append(
+                            dlpx_obj.server_session.last_job
+                        )
                     except (
                         dlpx_exceptions.DlpxException,
                         exceptions.RequestError,
-                        exceptions.HttpError
+                        exceptions.HttpError,
                     ) as err:
-                        raise dlpx_exceptions.DlpxException( f'{err}')
+                        raise dlpx_exceptions.DlpxException(f"{err}")
             # This exception is raised if refreshing a vFiles VDB since
             # AppDataContainer does not have virtual, staging or enabled attributes
             except AttributeError as err:
                 dx_logging.print_exception(
-                    f'ERROR: Deleting {container_obj.name} on engine {dlpx_obj.server_session.address}'
+                    f"ERROR: Deleting {container_obj.name} on engine {dlpx_obj.server_session.address}"
                 )
-                dx_logging.print_exception(f'AttributeError:{err}')
+                dx_logging.print_exception(f"AttributeError:{err}")
             except dlpx_exceptions.DlpxException as err:
-                dx_logging.print_exception(f'DlpxException:{err}')
+                dx_logging.print_exception(f"DlpxException:{err}")
             except Exception as err:
-                dx_logging.print_exception(f'Exception:\n{err}')
-    dx_logging.print_info(
-        f' Delete operation has been initiated for vdbs ')
+                dx_logging.print_exception(f"Exception:\n{err}")
+    dx_logging.print_info(f" Delete operation has been initiated for vdbs ")
+
 
 @run_async
 def main_workflow(engine, dlpx_obj, single_thread):
@@ -129,33 +133,38 @@ def main_workflow(engine, dlpx_obj, single_thread):
     """
     try:
         # Setup the connection to the Delphix DDP
-        dx_logging.print_info(f'Executing main_workflow')
+        dx_logging.print_info(f"Executing main_workflow")
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'], engine['use_https']
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f'ERROR: dx_delete_vdb encountered an error authenticating to '
+            f"ERROR: dx_delete_vdb encountered an error authenticating to "
             f'{engine["ip_address"]}:{err}'
         )
-        dx_logging.print_exception(f'Cannot continue operation on '
-                               f'{engine["ip_address"]}')
+        dx_logging.print_exception(
+            f"Cannot continue operation on " f'{engine["ip_address"]}'
+        )
         return
     try:
         with dlpx_obj.job_mode(single_thread):
-            delete_vdb( dlpx_obj, ARGUMENTS['--vdb'],ARGUMENTS['--force'])
+            delete_vdb(dlpx_obj, ARGUMENTS["--vdb"], ARGUMENTS["--force"])
             # locking threads
-            run_job.track_running_jobs(engine, dlpx_obj,5)
+            run_job.track_running_jobs(engine, dlpx_obj, 5)
     except (
         dlpx_exceptions.DlpxException,
         dlpx_exceptions.DlpxObjectNotFound,
         exceptions.RequestError,
         exceptions.JobError,
-        exceptions.HttpError
+        exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
             f'Error in dx_delete_vdb on Delpihx Engine: * {engine["ip_address"]} * : {err}'
         )
+
 
 def main():
     """
@@ -164,24 +173,22 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS['--logdir'])
-        config_file_path = ARGUMENTS['--config']
-        single_thread = ARGUMENTS['--single_thread']
+        dx_logging.logging_est(ARGUMENTS["--logdir"])
+        config_file_path = ARGUMENTS["--config"]
+        single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for all the servers.
-        t = run_job.run_job_mt(
-            main_workflow, dx_session_obj, engine, single_thread
-        )
+        t = run_job.run_job_mt(main_workflow, dx_session_obj, engine, single_thread)
         dx_logging.print_info(
-            f'delete operation(s) are in progress. Process will terminate once all operations are complete.'
+            f"delete operation(s) are in progress. Process will terminate once all operations are complete."
         )
         for each in t:
             # join them back together so that we wait for all threads to complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f'delete operation took {elapsed_minutes} minutes to complete.'
+            f"delete operation took {elapsed_minutes} minutes to complete."
         )
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
@@ -192,14 +199,14 @@ def main():
         # We use this exception handler when an error occurs in a function
         # call.
         dx_logging.print_exception(
-            f'ERROR: Please check the ERROR message below:\n {err.error}'
+            f"ERROR: Please check the ERROR message below:\n {err.error}"
         )
         sys.exit(2)
 
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         dx_logging.print_exception(
-            f'ERROR: Connection failed to the Delphix DDP. Please check the ERROR message below:\n{err.status}'
+            f"ERROR: Connection failed to the Delphix DDP. Please check the ERROR message below:\n{err.status}"
         )
         sys.exit(2)
 
@@ -208,17 +215,18 @@ def main():
         # have actionable data
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
-            f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes to complete'
+            f"A job failed in the Delphix Engine:\n{err.job}."
+            f"{basename(__file__)} took {elapsed_minutes} minutes to complete"
         )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f'{basename(__file__)} took {elapsed_minutes} minutes to complete.')
+            f"{basename(__file__)} took {elapsed_minutes} minutes to complete."
+        )
 
 
 if __name__ == "__main__":

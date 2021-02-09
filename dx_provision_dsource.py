@@ -129,22 +129,22 @@ Options:
 """
 
 import sys
-from os.path import basename
 import time
+from os.path import basename
+
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
-
 from lib import dlpx_exceptions
-from lib import get_session
-from lib import dx_logging
+from lib import dsource_link_ase
 from lib import dsource_link_mssql
 from lib import dsource_link_oracle
-from lib import dsource_link_ase
+from lib import dx_logging
+from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.004'
+VERSION = "v.0.3.004"
 
 
 @run_async
@@ -163,75 +163,86 @@ def main_workflow(engine, dlpx_obj, single_thread):
     """
     try:
         # Setup the connection to the Delphix DDP
-        dlpx_obj.dlpx_session(engine['ip_address'], engine['username'],
-                              engine['password'])
+        dlpx_obj.dlpx_session(
+            engine["ip_address"], engine["username"], engine["password"]
+        )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f'ERROR: {basename(__file__)} encountered an error authenticating'
-            f' to {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}')
-    thingstodo = ['thingstodo']
+            f"ERROR: {basename(__file__)} encountered an error authenticating"
+            f' to {engine["hostname"]} {ARGUMENTS["--target"]}:\n{err}'
+        )
+    thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
-            if ARGUMENTS['--type'].lower() == 'oracle':
+            if ARGUMENTS["--type"].lower() == "oracle":
                 linked_ora = dsource_link_oracle.DsourceLinkOracle(
                     dlpx_obj,
-                    ARGUMENTS['--dsource_name'],
-                    ARGUMENTS['--db_passwd'],
-                    ARGUMENTS['--db_user'],
-                    ARGUMENTS['--dx_group'],
-                    ARGUMENTS['--logsync'],
-                    ARGUMENTS['--logsync_mode'],
-                    ARGUMENTS['--type']
+                    ARGUMENTS["--dsource_name"],
+                    ARGUMENTS["--db_passwd"],
+                    ARGUMENTS["--db_user"],
+                    ARGUMENTS["--dx_group"],
+                    ARGUMENTS["--logsync"],
+                    ARGUMENTS["--logsync_mode"],
+                    ARGUMENTS["--type"],
                 )
                 linked_ora.get_or_create_ora_sourcecfg(
-                    ARGUMENTS['--env_name'],
-                    ARGUMENTS['--envinst'],
-                    ARGUMENTS['--ip_addr'],
-                    ARGUMENTS['--port_num']
+                    ARGUMENTS["--env_name"],
+                    ARGUMENTS["--envinst"],
+                    ARGUMENTS["--ip_addr"],
+                    ARGUMENTS["--port_num"],
                 )
-            elif ARGUMENTS['--type'].lower() == 'sybase':
+            elif ARGUMENTS["--type"].lower() == "sybase":
                 ase_obj = dsource_link_ase.DsourceLinkASE(
-                    dlpx_obj, ARGUMENTS['--dsource_name'],
-                    ARGUMENTS['--db_passwd'], ARGUMENTS['--db_user'],
-                    ARGUMENTS['--dx_group'], ARGUMENTS['--logysnc'],
-                    ARGUMENTS['--type']
+                    dlpx_obj,
+                    ARGUMENTS["--dsource_name"],
+                    ARGUMENTS["--db_passwd"],
+                    ARGUMENTS["--db_user"],
+                    ARGUMENTS["--dx_group"],
+                    ARGUMENTS["--logysnc"],
+                    ARGUMENTS["--type"],
                 )
                 ase_obj.link_ase_dsource(
-                    ARGUMENTS['--backup_path'],
-                    ARGUMENTS['--bck_file'],
-                    ARGUMENTS['--create_backup'],
-                    ARGUMENTS['--env_name'], ARGUMENTS['--stage_repo']
+                    ARGUMENTS["--backup_path"],
+                    ARGUMENTS["--bck_file"],
+                    ARGUMENTS["--create_backup"],
+                    ARGUMENTS["--env_name"],
+                    ARGUMENTS["--stage_repo"],
                 )
-            elif ARGUMENTS['--type'].lower() == 'mssql':
+            elif ARGUMENTS["--type"].lower() == "mssql":
                 mssql_obj = dsource_link_mssql.DsourceLinkMssql(
                     dlpx_obj,
-                    ARGUMENTS['--dsource_name'],
-                    ARGUMENTS['--db_passwd'],
-                    ARGUMENTS['--db_user'],
-                    ARGUMENTS['--dx_group'],
-                    ARGUMENTS['--type'],
-                    ARGUMENTS['--logsync'],
-                    ARGUMENTS['--val_sync_mode'],
-                    ARGUMENTS['--init_load_type'],
-                    ARGUMENTS['--delphix_managed']
+                    ARGUMENTS["--dsource_name"],
+                    ARGUMENTS["--db_passwd"],
+                    ARGUMENTS["--db_user"],
+                    ARGUMENTS["--dx_group"],
+                    ARGUMENTS["--type"],
+                    ARGUMENTS["--logsync"],
+                    ARGUMENTS["--val_sync_mode"],
+                    ARGUMENTS["--init_load_type"],
+                    ARGUMENTS["--delphix_managed"],
                 )
                 mssql_obj.get_or_create_mssql_sourcecfg(
-                    ARGUMENTS['--env_name'],
-                    ARGUMENTS['--envinst'],
-                    ARGUMENTS['--stage_env'],
-                    ARGUMENTS['--stage_instance'],
-                    ARGUMENTS['--backup_path'],
-                    ARGUMENTS['--backup_loc_passwd'],
-                    ARGUMENTS['--backup_loc_user'],
-                    ARGUMENTS['--ip_addr'],
-                    ARGUMENTS['--port_num'],
-                    ARGUMENTS['--backup_uuid'],
+                    ARGUMENTS["--env_name"],
+                    ARGUMENTS["--envinst"],
+                    ARGUMENTS["--stage_env"],
+                    ARGUMENTS["--stage_instance"],
+                    ARGUMENTS["--backup_path"],
+                    ARGUMENTS["--backup_loc_passwd"],
+                    ARGUMENTS["--backup_loc_user"],
+                    ARGUMENTS["--ip_addr"],
+                    ARGUMENTS["--port_num"],
+                    ARGUMENTS["--backup_uuid"],
                 )
             run_job.track_running_jobs(engine, dlpx_obj)
-    except (dlpx_exceptions.DlpxException, exceptions.RequestError,
-            exceptions.JobError, exceptions.HttpError) as err:
+    except (
+        dlpx_exceptions.DlpxException,
+        exceptions.RequestError,
+        exceptions.JobError,
+        exceptions.HttpError,
+    ) as err:
         dx_logging.print_exception(
-            f'ERROR: {basename(__file__)}: {engine["ip_address"]}\n{err}')
+            f'ERROR: {basename(__file__)}: {engine["ip_address"]}\n{err}'
+        )
 
 
 def main():
@@ -241,18 +252,19 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS['--logdir'])
-        config_file_path = ARGUMENTS['--config']
-        single_thread = ARGUMENTS['--single_thread']
-        engine = ARGUMENTS['--engine']
+        dx_logging.logging_est(ARGUMENTS["--logdir"])
+        config_file_path = ARGUMENTS["--config"]
+        single_thread = ARGUMENTS["--single_thread"]
+        engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job_mt(main_workflow, dx_session_obj, engine,
-                                       single_thread):
+        for each in run_job.run_job_mt(
+            main_workflow, dx_session_obj, engine, single_thread
+        ):
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'script took {elapsed_minutes} minutes to complete')
+        dx_logging.print_info(f"script took {elapsed_minutes} minutes to complete")
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
@@ -261,14 +273,14 @@ def main():
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function
         # call.
-        dx_logging.print_exception(f'ERROR: {err.error}')
+        dx_logging.print_exception(f"ERROR: {err.error}")
         sys.exit(2)
 
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         dx_logging.print_exception(
-            f'ERROR: Connection failed to the Delphix DDP.'
-            f'Message: {err.status}')
+            f"ERROR: Connection failed to the Delphix DDP." f"Message: {err.status}"
+        )
         sys.exit(2)
 
     except exceptions.JobError as err:
@@ -276,21 +288,22 @@ def main():
         # have actionable data
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
-            f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes complete ')
+            f"A job failed in the Delphix Engine:\n{err.job}."
+            f"{basename(__file__)} took {elapsed_minutes} minutes complete "
+        )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
-                              f'minutes to complete.')
+        dx_logging.print_info(
+            f"{basename(__file__)} took {elapsed_minutes} " f"minutes to complete."
+        )
 
 
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script
-    ARGUMENTS = docopt.docopt(__doc__,
-                              version=basename(__file__) + " " + VERSION)
+    ARGUMENTS = docopt.docopt(__doc__, version=basename(__file__) + " " + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

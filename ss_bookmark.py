@@ -96,7 +96,7 @@ def create_bookmark(
     branch_name=None,
     tags=None,
     description=None,
-    type="container"
+    type="container",
 ):
     """
     Create the Self Service Bookmark
@@ -141,7 +141,7 @@ def create_bookmark(
             )
     elif branch_name is None:
         try:
-            if type == 'container':
+            if type == "container":
                 data_layout_obj = get_references.find_obj_by_name(
                     dlpx_obj.server_session, selfservice.container, source_layout
                 )
@@ -166,9 +166,9 @@ def create_bookmark(
         bookmark_ref = selfservice.bookmark.create(
             dlpx_obj.server_session, ss_bookmark_params
         )
-        dlpx_obj.jobs[
-            dlpx_obj.server_session.address
-        ].append(dlpx_obj.server_session.last_job)
+        dlpx_obj.jobs[dlpx_obj.server_session.address].append(
+            dlpx_obj.server_session.last_job
+        )
     except (
         dlpx_exceptions.DlpxException,
         exceptions.RequestError,
@@ -177,7 +177,9 @@ def create_bookmark(
         dx_logging.print_exception(
             f"\nThe bookmark {bookmark_name} was not " f"created. The error was:\n{err}"
         )
-        raise dlpx_exceptions.DlpxException(f"The bookmark {bookmark_name} was not created.\n ERROR: {err}")
+        raise dlpx_exceptions.DlpxException(
+            f"The bookmark {bookmark_name} was not created.\n ERROR: {err}"
+        )
     dx_logging.print_info(f"SS Bookmark {bookmark_name} was created " f"successfully.")
     return bookmark_ref
 
@@ -242,9 +244,7 @@ def unshare_bookmark(dlpx_obj, bookmark_name):
                 dlpx_obj.server_session, selfservice.bookmark, bookmark_name
             ).reference,
         )
-        dx_logging.print_info(
-            f"Bookmark {bookmark_name} was unshared successfully."
-        )
+        dx_logging.print_info(f"Bookmark {bookmark_name} was unshared successfully.")
     except (
         dlpx_exceptions.DlpxException,
         exceptions.HttpError,
@@ -332,6 +332,7 @@ def delete_bookmark(dlpx_obj, bookmark_name):
             f"was not deleted. The error was:\n{err}"
         )
 
+
 @run_async
 def main_workflow(engine, dlpx_obj, single_thread):
     """
@@ -350,8 +351,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'],
-            engine['use_https']
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
@@ -366,13 +369,9 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     dlpx_obj,
                     ARGUMENTS["--create_bookmark"],
                     ARGUMENTS["--data_layout"],
-                    ARGUMENTS["--branch_name"]
-                    if ARGUMENTS["--branch_name"]
-                    else None,
+                    ARGUMENTS["--branch_name"] if ARGUMENTS["--branch_name"] else None,
                     ARGUMENTS["--tags"] if ARGUMENTS["--tags"] else None,
-                    ARGUMENTS["--description"]
-                    if ARGUMENTS["--description"]
-                    else None,
+                    ARGUMENTS["--description"] if ARGUMENTS["--description"] else None,
                 )
             elif ARGUMENTS["--delete_bookmark"]:
                 delete_bookmark(dlpx_obj, ARGUMENTS["--delete_bookmark"])
@@ -397,7 +396,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
             f"Error in ss_bookmark:" f'{engine["ip_address"]}\n ERROR: {err}'
         )
         raise err
-    run_job.track_running_jobs(engine,dlpx_obj)
+    run_job.track_running_jobs(engine, dlpx_obj)
 
 
 def main():
@@ -416,7 +415,7 @@ def main():
             main_workflow, dx_session_obj, engine, single_thread
         ):
             each.join()
-        #run_job.run_job_mt( main_workflow, dx_session_obj, engine, single_thread)
+        # run_job.run_job_mt( main_workflow, dx_session_obj, engine, single_thread)
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
             f"script took {elapsed_minutes} minutes to " f"get this far."
@@ -429,9 +428,7 @@ def main():
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function
         # call.
-        dx_logging.print_exception(
-            f"Errow while executing the bookmark operation"
-        )
+        dx_logging.print_exception(f"Errow while executing the bookmark operation")
         sys.exit(2)
 
     except exceptions.HttpError as err:

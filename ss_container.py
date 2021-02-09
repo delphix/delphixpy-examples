@@ -250,7 +250,7 @@ def add_owner(dlpx_obj, owner_name, container_name):
         )
 
 
-def refresh_container(engine,dlpx_obj, container_name):
+def refresh_container(engine, dlpx_obj, container_name):
     """
     Refreshes a container
     :param dlpx_obj: DDP session object
@@ -380,7 +380,7 @@ def list_hierarchy(dlpx_obj, container_name):
         dlpx_obj.server_session, selfservice.container, container_name
     ).reference
     for data_source in selfservice.datasource.get_all(
-            dlpx_obj.server_session, data_layout=layout_ref
+        dlpx_obj.server_session, data_layout=layout_ref
     ):
         db_name = get_references.find_obj_name(
             dlpx_obj.server_session, database, data_source.container
@@ -438,12 +438,12 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix Engine
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password']
+            engine["ip_address"], engine["username"], engine["password"]
         )
     except dlpx_exceptions.DlpxObjectNotFound as err:
         dx_logging.print_exception(
             f'ERROR: Delphix Engine {engine["ip_address"]} encountered '
-            f'an error while creating the session:\n{err}\n'
+            f"an error while creating the session:\n{err}\n"
         )
     try:
         with dlpx_obj.job_mode(single_thread):
@@ -499,7 +499,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     f'access to {ARGUMENTS["--container_name"]}'
                 )
             elif ARGUMENTS["--refresh_container"]:
-                refresh_container(engine,dlpx_obj, ARGUMENTS["--refresh_container"])
+                refresh_container(engine, dlpx_obj, ARGUMENTS["--refresh_container"])
                 dx_logging.print_info(
                     f'The container {ARGUMENTS["--refresh_container"]}'
                     f" was refreshed."
@@ -510,10 +510,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 reset_container(dlpx_obj, ARGUMENTS["--reset_container"])
                 print(f'Container {ARGUMENTS["--reset_container"]} was reset.')
     except (
-            dlpx_exceptions.DlpxException,
-            exceptions.RequestError,
-            exceptions.JobError,
-            exceptions.HttpError,
+        dlpx_exceptions.DlpxException,
+        exceptions.RequestError,
+        exceptions.JobError,
+        exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
             f"Error in ss_container:" f'{engine["hostname"]}\n{err}'
@@ -534,7 +534,7 @@ def main():
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         for each in run_job.run_job_mt(
-                main_workflow, dx_session_obj, engine, single_thread
+            main_workflow, dx_session_obj, engine, single_thread
         ):
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)

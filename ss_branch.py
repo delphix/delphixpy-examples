@@ -81,7 +81,12 @@ VERSION = "v.0.3.001"
 
 
 def create_branch(
-        dlpx_obj, branch_name, container_name, template_name=None, bookmark_name=None, timestamp=None
+    dlpx_obj,
+    branch_name,
+    container_name,
+    template_name=None,
+    bookmark_name=None,
+    timestamp=None,
 ):
     """
     Create a Self-Service Branch
@@ -124,16 +129,14 @@ def create_branch(
         ss_branch.timeline_point_parameters.source_data_layout = source_layout_ref
     try:
         selfservice.branch.create(dlpx_obj.server_session, ss_branch)
-        dlpx_obj.jobs[
-            dlpx_obj.server_session.address
-        ].append(dlpx_obj.server_session.last_job)
+        dlpx_obj.jobs[dlpx_obj.server_session.address].append(
+            dlpx_obj.server_session.last_job
+        )
     except (exceptions.RequestError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
             f"The branch was not created. The error was:\n{err}"
         )
-    dx_logging.print_info(
-        f"Self Service Branch {branch_name} is being created\n"
-    )
+    dx_logging.print_info(f"Self Service Branch {branch_name} is being created\n")
 
 
 def list_branches(dlpx_obj):
@@ -143,22 +146,30 @@ def list_branches(dlpx_obj):
     :type dlpx_obj: lib.GetSession.GetSession object
     """
     try:
-        #header = "\nBranch Name Data Layout Reference End Time"
+        # header = "\nBranch Name Data Layout Reference End Time"
         js_data_layout = ""
         ss_branches = selfservice.branch.get_all(dlpx_obj.server_session)
         if ss_branches:
-            dx_logging.print_info("="*130)
-            header = "{:<25} {:<25} {:<25} {:<25} {:<25}".format('Branch Name','Data Layout','Layout Type',' Branch Reference','End Time')
+            dx_logging.print_info("=" * 130)
+            header = "{:<25} {:<25} {:<25} {:<25} {:<25}".format(
+                "Branch Name",
+                "Data Layout",
+                "Layout Type",
+                " Branch Reference",
+                "End Time",
+            )
             dx_logging.print_info(header)
-            dx_logging.print_info("-"*130)
+            dx_logging.print_info("-" * 130)
             for ss_branch in ss_branches:
                 js_end_time = selfservice.operation.get(
                     dlpx_obj.server_session, ss_branch.first_operation
                 ).end_time
-                js_obj_type="CONTAINER"
+                js_obj_type = "CONTAINER"
                 if re.search("TEMPLATE", ss_branch.data_layout):
                     js_data_layout = get_references.find_obj_name(
-                        dlpx_obj.server_session, selfservice.template, ss_branch.data_layout
+                        dlpx_obj.server_session,
+                        selfservice.template,
+                        ss_branch.data_layout,
                     )
                     js_obj_type = "TEMPLATE"
                 elif re.search("CONTAINER", ss_branch.data_layout):
@@ -167,8 +178,16 @@ def list_branches(dlpx_obj):
                         selfservice.container,
                         ss_branch.data_layout,
                     )
-                dx_logging.print_info("{:<25} {:<25} {:<25} {:<25} {:<25}".format(ss_branch._name[0],js_data_layout,js_obj_type,ss_branch.reference,js_end_time))
-            dx_logging.print_info("="*130)
+                dx_logging.print_info(
+                    "{:<25} {:<25} {:<25} {:<25} {:<25}".format(
+                        ss_branch._name[0],
+                        js_data_layout,
+                        js_obj_type,
+                        ss_branch.reference,
+                        js_end_time,
+                    )
+                )
+            dx_logging.print_info("=" * 130)
         else:
             dx_logging.print_info(f"No branches found on engine.")
 
@@ -220,9 +239,9 @@ def activate_branch(dlpx_obj, branch_name):
             dlpx_obj.server_session, selfservice.branch, branch_name
         )
         selfservice.branch.activate(dlpx_obj.server_session, branch_obj.reference)
-        dlpx_obj.jobs[
-            dlpx_obj.server_session.address
-        ].append(dlpx_obj.server_session.last_job)
+        dlpx_obj.jobs[dlpx_obj.server_session.address].append(
+            dlpx_obj.server_session.last_job
+        )
     except exceptions.RequestError as err:
         raise dlpx_exceptions.DlpxException(
             f"ERROR: An error occurred activating the {branch_name}:\n{err}"
@@ -244,13 +263,13 @@ def delete_branch(dlpx_obj, branch_name):
             dlpx_obj.server_session, selfservice.branch, branch_name
         )
         selfservice.branch.delete(dlpx_obj.server_session, branch_obj.reference)
-        dlpx_obj.jobs[
-            dlpx_obj.server_session.address
-        ].append(dlpx_obj.server_session.last_job)
+        dlpx_obj.jobs[dlpx_obj.server_session.address].append(
+            dlpx_obj.server_session.last_job
+        )
     except (
-            dlpx_exceptions.DlpxException,
-            exceptions.HttpError,
-            exceptions.RequestError,
+        dlpx_exceptions.DlpxException,
+        exceptions.HttpError,
+        exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(f"The branch could not be deleted: \n ERROR:{err}")
         raise dlpx_exceptions.DlpxException(
@@ -278,7 +297,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine["ip_address"], engine["username"], engine["password"], engine["use_https"]
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
@@ -294,33 +316,26 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     ARGUMENTS["--container_name"],
                     ARGUMENTS["--template_name"],
                     ARGUMENTS["--bookmark_name"],
-                    ARGUMENTS["--timestamp"]
+                    ARGUMENTS["--timestamp"],
                 )
             elif ARGUMENTS["--delete_branch"]:
-                delete_branch(
-                    dlpx_obj,
-                    ARGUMENTS["--delete_branch"]
-                )
+                delete_branch(dlpx_obj, ARGUMENTS["--delete_branch"])
             elif ARGUMENTS["--activate_branch"]:
-                activate_branch(
-                    dlpx_obj,
-                    ARGUMENTS["--activate_branch"]
-                )
+                activate_branch(dlpx_obj, ARGUMENTS["--activate_branch"])
             elif ARGUMENTS["--list"]:
                 list_branches(dlpx_obj)
             run_job.track_running_jobs(engine, dlpx_obj)
     except (
-            dlpx_exceptions.DlpxException,
-            dlpx_exceptions.DlpxObjectNotFound,
-            exceptions.RequestError,
-            exceptions.JobError,
-            exceptions.HttpError,
+        dlpx_exceptions.DlpxException,
+        dlpx_exceptions.DlpxObjectNotFound,
+        exceptions.RequestError,
+        exceptions.JobError,
+        exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
             f"Error in ss_branch:" f'{engine["ip_address"]}\n{err}'
         )
         raise err
-
 
 
 def main():

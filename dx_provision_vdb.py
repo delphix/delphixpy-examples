@@ -94,6 +94,7 @@ Options:
 import sys
 import time
 from os.path import basename
+
 import docopt
 
 from delphixpy.v1_10_2 import exceptions
@@ -102,21 +103,27 @@ from delphixpy.v1_10_2.web import environment
 from delphixpy.v1_10_2.web import group
 from delphixpy.v1_10_2.web import repository
 from delphixpy.v1_10_2.web import vo
-
 from lib import dlpx_exceptions
+from lib import dx_logging
+from lib import dx_timeflow
 from lib import get_references
 from lib import get_session
-from lib import dx_logging
 from lib import run_job
-from lib import dx_timeflow
 from lib.run_async import run_async
 
-VERSION = 'v.0.3.006'
+VERSION = "v.0.3.006"
 
 
-def create_ase_vdb(dlpx_obj, group_ref, vdb_name, source_obj, env_inst,
-                   timestamp, timestamp_type='SNAPSHOT',
-                   no_truncate_log=False):
+def create_ase_vdb(
+    dlpx_obj,
+    group_ref,
+    vdb_name,
+    source_obj,
+    env_inst,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+    no_truncate_log=False,
+):
     """
     Create a Sybase ASE VDB
     :param dlpx_obj: DDP session object
@@ -146,8 +153,9 @@ def create_ase_vdb(dlpx_obj, group_ref, vdb_name, source_obj, env_inst,
     dx_timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
     try:
         vdb_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, database, vdb_name)
-        raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
+            dlpx_obj.server_session, database, vdb_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
     vdb_params = vo.ASEProvisionParameters()
@@ -163,22 +171,28 @@ def create_ase_vdb(dlpx_obj, group_ref, vdb_name, source_obj, env_inst,
     vdb_params.source_config = vo.ASESIConfig()
     vdb_params.source_config.database_name = vdb_name
     vdb_params.source_config.repository = get_references.find_obj_by_name(
-                    dlpx_obj.server_session, repository, env_inst).reference
+        dlpx_obj.server_session, repository, env_inst
+    ).reference
     vdb_params.timeflow_point_parameters = dx_timeflow_obj.set_timeflow_point(
-        source_obj, timestamp_type, timestamp)
+        source_obj, timestamp_type, timestamp
+    )
     vdb_params.timeflow_point_parameters.container = source_obj.reference
-    dx_logging.print_info(f'{engine_name} provisioning {vdb_name}')
+    dx_logging.print_info(f"{engine_name} provisioning {vdb_name}")
     database.provision(dlpx_obj.server_session, vdb_params)
     # Add the job into the jobs dictionary so we can track its progress
-    dlpx_obj.jobs[
-        dlpx_obj.server_session.address
-    ] = dlpx_obj.server_session.last_job
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
-def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
-                     environment_obj, source_obj, env_inst, timestamp,
-                     timestamp_type='SNAPSHOT'
-                     ):
+def create_mssql_vdb(
+    dlpx_obj,
+    group_ref,
+    vdb_name,
+    environment_obj,
+    source_obj,
+    env_inst,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+):
     """
     Create a MSSQL VDB
     :param dlpx_obj: DDP session object
@@ -207,8 +221,9 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
     timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
     try:
         vdb_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, database, vdb_name)
-        raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
+            dlpx_obj.server_session, database, vdb_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
     vdb_params = vo.MSSqlProvisionParameters()
@@ -219,27 +234,35 @@ def create_mssql_vdb(dlpx_obj, group_ref, vdb_name,
     vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
     vdb_params.source_config = vo.MSSqlSIConfig()
     vdb_params.source_config.database_name = vdb_name
-    vdb_params.source_config.environment_user = \
-        environment_obj.primary_user
+    vdb_params.source_config.environment_user = environment_obj.primary_user
     vdb_params.source_config.repository = get_references.find_obj_by_name(
-        dlpx_obj.server_session, repository, env_inst).reference
-    vdb_params.timeflow_point_parameters = \
-        timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
-                                        timestamp)
+        dlpx_obj.server_session, repository, env_inst
+    ).reference
+    vdb_params.timeflow_point_parameters = timeflow_obj.set_timeflow_point(
+        source_obj, timestamp_type, timestamp
+    )
     vdb_params.timeflow_point_parameters.container = source_obj.reference
-    dx_logging.print_info(f'{engine_name} provisioning {vdb_name}')
+    dx_logging.print_info(f"{engine_name} provisioning {vdb_name}")
     database.provision(dlpx_obj.server_session, vdb_params)
     # Add the job into the jobs dictionary so we can track its progress
-    dlpx_obj.jobs[
-        dlpx_obj.server_session.address
-    ] = dlpx_obj.server_session.last_job
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
-def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
-                      environment_obj, source_obj, mntpoint,
-                      timestamp, timestamp_type='SNAPSHOT', pre_refresh=None,
-                      post_refresh=None, pre_rollback=None,
-                      post_rollback=None, configure_clone=None):
+def create_vfiles_vdb(
+    dlpx_obj,
+    group_ref,
+    vfiles_name,
+    environment_obj,
+    source_obj,
+    mntpoint,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+    pre_refresh=None,
+    post_refresh=None,
+    pre_rollback=None,
+    post_rollback=None,
+    configure_clone=None,
+):
     """
     Create a vfiles VDB
     :param dlpx_obj: DDP session object
@@ -276,8 +299,9 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
     try:
         vdb_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, database, vfiles_name)
-        raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
+            dlpx_obj.server_session, database, vfiles_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
     vfiles_params = vo.AppDataProvisionParameters()
@@ -288,79 +312,82 @@ def create_vfiles_vdb(dlpx_obj, group_ref, vfiles_name,
     vfiles_params.container.group = group_ref
     vfiles_params.container.name = vfiles_name
     vfiles_params.source_config.name = vfiles_name
-    vfiles_params.source_config.path = f'{mntpoint}/{vfiles_name}'
+    vfiles_params.source_config.path = f"{mntpoint}/{vfiles_name}"
     vfiles_params.source_config.environment_user = environment_obj.primary_user
-    vfiles_params.source_config.repository = \
-        get_references.find_db_repo(
-            dlpx_obj.server_session, 'AppDataRepository',
-            environment_obj.reference, 'Unstructured Files')
+    vfiles_params.source_config.repository = get_references.find_db_repo(
+        dlpx_obj.server_session,
+        "AppDataRepository",
+        environment_obj.reference,
+        "Unstructured Files",
+    )
     vfiles_params.source.name = vfiles_name
     vfiles_params.source.parameters = {}
     vfiles_params.source.operations = vo.VirtualSourceOperations()
     if pre_refresh:
-        vfiles_params.source.operations.pre_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vfiles_params.source.operations.pre_refresh = vo.RunCommandOnSourceOperation()
         vfiles_params.source.operations.pre_refresh.command = pre_refresh
     if post_refresh:
-        vfiles_params.source.operations.post_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vfiles_params.source.operations.post_refresh = vo.RunCommandOnSourceOperation()
         vfiles_params.source.operations.post_refresh.command = post_refresh
     if pre_rollback:
-        vfiles_params.source.operations.pre_rollback = \
-            vo.RunCommandOnSourceOperation
+        vfiles_params.source.operations.pre_rollback = vo.RunCommandOnSourceOperation
         vfiles_params.source.operations.pre_rollback.command = pre_rollback
     if post_rollback:
-        vfiles_params.source.operations.post_rollback = \
-            vo.RunCommandOnSourceOperation()
+        vfiles_params.source.operations.post_rollback = vo.RunCommandOnSourceOperation()
         vfiles_params.source.operations.post_rollback.command = post_rollback
     if configure_clone:
-        vfiles_params.source.operations.configure_clone = \
+        vfiles_params.source.operations.configure_clone = (
             vo.RunCommandOnSourceOperation()
-        vfiles_params.source.operations.configure_clone.command = \
-            configure_clone
+        )
+        vfiles_params.source.operations.configure_clone.command = configure_clone
     if timestamp_type is None:
         vfiles_params.timeflow_point_parameters = vo.TimeflowPointSemantic()
         vfiles_params.timeflow_point_parameters.container = source_obj.reference
-        vfiles_params.timeflow_point_parameters.location = 'LATEST_POINT'
-    elif timestamp_type.upper() == 'SNAPSHOT':
+        vfiles_params.timeflow_point_parameters.location = "LATEST_POINT"
+    elif timestamp_type.upper() == "SNAPSHOT":
         try:
             dx_snap_params = timeflow_obj.set_timeflow_point(
-                source_obj, timestamp_type, timestamp)
+                source_obj, timestamp_type, timestamp
+            )
         except exceptions.RequestError as err:
             raise dlpx_exceptions.DlpxException(
-                f'Could not set the timeflow point:\n{err}')
-        if dx_snap_params.type == 'TimeflowPointSemantic':
+                f"Could not set the timeflow point:\n{err}"
+            )
+        if dx_snap_params.type == "TimeflowPointSemantic":
             vfiles_params.timeflow_point_parameters = vo.TimeflowPointSemantic()
-            vfiles_params.timeflow_point_parameters.container = \
-                dx_snap_params.container
-            vfiles_params.timeflow_point_parameters.location = \
-                dx_snap_params.location
-        elif dx_snap_params.type == 'TimeflowPointTimestamp':
-            vfiles_params.timeflow_point_parameters = \
-                vo.TimeflowPointTimestamp()
-            vfiles_params.timeflow_point_parameters.timeflow = \
-                dx_snap_params.timeflow
-            vfiles_params.timeflow_point_parameters.timestamp = \
-                dx_snap_params.timestamp
-    dx_logging.print_info(f'{engine_name}: Provisioning {vfiles_name}\n')
+            vfiles_params.timeflow_point_parameters.container = dx_snap_params.container
+            vfiles_params.timeflow_point_parameters.location = dx_snap_params.location
+        elif dx_snap_params.type == "TimeflowPointTimestamp":
+            vfiles_params.timeflow_point_parameters = vo.TimeflowPointTimestamp()
+            vfiles_params.timeflow_point_parameters.timeflow = dx_snap_params.timeflow
+            vfiles_params.timeflow_point_parameters.timestamp = dx_snap_params.timestamp
+    dx_logging.print_info(f"{engine_name}: Provisioning {vfiles_name}\n")
     try:
         database.provision(dlpx_obj.server_session, vfiles_params)
     except (exceptions.RequestError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
-            f'ERROR: Could not provision the database {vfiles_name}\n{err}')
+            f"ERROR: Could not provision the database {vfiles_name}\n{err}"
+        )
     # Add the job into the jobs dictionary so we can track its progress
-    dlpx_obj.jobs[
-        dlpx_obj.server_session.address
-    ] = dlpx_obj.server_session.last_job
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
-def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
-                         environment_obj, source_obj, env_inst, mntpoint,
-                         timestamp, timestamp_type='SNAPSHOT',
-                         pre_refresh=None, post_refresh=None,
-                         pre_rollback=None, post_rollback=None,
-                         configure_clone=None
-                         ):
+def create_oracle_si_vdb(
+    dlpx_obj,
+    group_ref,
+    vdb_name,
+    environment_obj,
+    source_obj,
+    env_inst,
+    mntpoint,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+    pre_refresh=None,
+    post_refresh=None,
+    pre_rollback=None,
+    post_rollback=None,
+    configure_clone=None,
+):
     """
     Create an Oracle SI VDB
     :param dlpx_obj: DDP session object
@@ -400,8 +427,9 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     engine_name = list(dlpx_obj.dlpx_ddps)[0]
     try:
         vdb_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, database, vdb_name)
-        raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
+            dlpx_obj.server_session, database, vdb_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
     vdb_params = vo.OracleProvisionParameters()
@@ -413,53 +441,44 @@ def create_oracle_si_vdb(dlpx_obj, group_ref, vdb_name,
     vdb_params.source.allow_auto_vdb_restart_on_host_reboot = False
     vdb_params.source.mount_base = mntpoint
     vdb_params.source_config = vo.OracleSIConfig()
-    vdb_params.source_config.environment_user = \
-        environment_obj.primary_user
+    vdb_params.source_config.environment_user = environment_obj.primary_user
     vdb_params.source.operations = vo.VirtualSourceOperations()
     if pre_refresh:
-        vdb_params.source.operations.pre_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.pre_refresh = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.pre_refresh.command = pre_refresh
     if post_refresh:
-        vdb_params.source.operations.post_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_refresh = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.post_refresh.command = post_refresh
     if pre_rollback:
-        vdb_params.source.operations.pre_rollback = \
-            vo.RunCommandOnSourceOperation
+        vdb_params.source.operations.pre_rollback = vo.RunCommandOnSourceOperation
         vdb_params.source.operations.pre_rollback.command = pre_rollback
     if post_rollback:
-        vdb_params.source.operations.post_rollback = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_rollback = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.post_rollback.command = post_rollback
     if configure_clone:
-        vdb_params.source.operations.configure_clone = \
-            vo.RunCommandOnSourceOperation()
-        vdb_params.source.operations.configure_clone.command = \
-            configure_clone
+        vdb_params.source.operations.configure_clone = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.configure_clone.command = configure_clone
     vdb_params.source_config.database_name = vdb_name
     vdb_params.source_config.unique_name = vdb_name
     vdb_params.source_config.instance = vo.OracleInstance()
     vdb_params.source_config.instance.instance_name = vdb_name
     vdb_params.source_config.instance.instance_number = 1
     vdb_params.source_config.repository = get_references.find_db_repo(
-        dlpx_obj.server_session, 'OracleInstall', environment_obj.reference,
-        env_inst
+        dlpx_obj.server_session, "OracleInstall", environment_obj.reference, env_inst
     )
     timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
-    vdb_params.timeflow_point_parameters = \
-        timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
-                                        timestamp)
-    dx_logging.print_info(f'{engine_name}: Provisioning {vdb_name}')
+    vdb_params.timeflow_point_parameters = timeflow_obj.set_timeflow_point(
+        source_obj, timestamp_type, timestamp
+    )
+    dx_logging.print_info(f"{engine_name}: Provisioning {vdb_name}")
     try:
         database.provision(dlpx_obj.server_session, vdb_params)
     except (exceptions.RequestError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
-            f'ERROR: Could not provision the database {vdb_name}\n{err}')
+            f"ERROR: Could not provision the database {vdb_name}\n{err}"
+        )
     # Add the job into the jobs dictionary so we can track its progress
-    dlpx_obj.jobs[
-        dlpx_obj.server_session.address
-    ] = dlpx_obj.server_session.last_job
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
 @run_async
@@ -479,63 +498,84 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'],
-            engine['use_https']
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
-            f'ERROR: dx_provision_vdb encountered an error authenticating to '
-            f' {engine["ip_address"]} :\n{err}')
+            f"ERROR: dx_provision_vdb encountered an error authenticating to "
+            f' {engine["ip_address"]} :\n{err}'
+        )
     group_ref = get_references.find_obj_by_name(
-        dlpx_obj.server_session, group, ARGUMENTS['--target_grp']).reference
+        dlpx_obj.server_session, group, ARGUMENTS["--target_grp"]
+    ).reference
     environment_obj = get_references.find_obj_by_name(
-        dlpx_obj.server_session, environment, ARGUMENTS['--env_name'])
+        dlpx_obj.server_session, environment, ARGUMENTS["--env_name"]
+    )
     source_obj = get_references.find_obj_by_name(
-        dlpx_obj.server_session, database, ARGUMENTS['--source'])
+        dlpx_obj.server_session, database, ARGUMENTS["--source"]
+    )
     thingstodo = ["thingstodo"]
     try:
         with dlpx_obj.job_mode(single_thread):
             while dlpx_obj.jobs or thingstodo:
                 if thingstodo:
-                    arg_type = ARGUMENTS['--type'].lower()
+                    arg_type = ARGUMENTS["--type"].lower()
                     if arg_type == "oracle":
                         create_oracle_si_vdb(
-                            dlpx_obj, group_ref, ARGUMENTS['--db'],
-                            environment_obj, source_obj,
-                            ARGUMENTS['--envinst'], ARGUMENTS['--mntpoint'],
-                            ARGUMENTS['--timestamp'],
-                            ARGUMENTS['--timestamp_type'],
-                            ARGUMENTS['--prerefresh'],
-                            ARGUMENTS['--postrefresh'],
-                            ARGUMENTS['--prerollback'],
-                            ARGUMENTS['--postrollback'],
-                            ARGUMENTS['--configure-clone']
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            environment_obj,
+                            source_obj,
+                            ARGUMENTS["--envinst"],
+                            ARGUMENTS["--mntpoint"],
+                            ARGUMENTS["--timestamp"],
+                            ARGUMENTS["--timestamp_type"],
+                            ARGUMENTS["--prerefresh"],
+                            ARGUMENTS["--postrefresh"],
+                            ARGUMENTS["--prerollback"],
+                            ARGUMENTS["--postrollback"],
+                            ARGUMENTS["--configure-clone"],
                         )
                     elif arg_type == "ase":
-                        create_ase_vdb(dlpx_obj, group_ref, ARGUMENTS['--db'],
-                                       source_obj,
-                                       ARGUMENTS['--envinst'],
-                                       ARGUMENTS['--timestamp'],
-                                       ARGUMENTS['--timestamp_type'],
-                                       ARGUMENTS['--no_truncate_log']
-                                       )
+                        create_ase_vdb(
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            source_obj,
+                            ARGUMENTS["--envinst"],
+                            ARGUMENTS["--timestamp"],
+                            ARGUMENTS["--timestamp_type"],
+                            ARGUMENTS["--no_truncate_log"],
+                        )
                     elif arg_type == "mssql":
                         create_mssql_vdb(
-                            dlpx_obj, group_ref, ARGUMENTS['--db'],
-                            environment_obj, source_obj,
-                            ARGUMENTS['--envinst'], ARGUMENTS['--timestamp'],
-                            ARGUMENTS['--timestamp_type']
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            environment_obj,
+                            source_obj,
+                            ARGUMENTS["--envinst"],
+                            ARGUMENTS["--timestamp"],
+                            ARGUMENTS["--timestamp_type"],
                         )
                     elif arg_type == "vfiles":
                         create_vfiles_vdb(
-                            dlpx_obj, group_ref, ARGUMENTS['--db'],
-                            environment_obj, source_obj,
-                            ARGUMENTS['--envinst'], ARGUMENTS['--mntpoint'],
-                            ARGUMENTS['--prerefresh'],
-                            ARGUMENTS['--postrefresh'],
-                            ARGUMENTS['--prerollback'],
-                            ARGUMENTS['--postrollback'],
-                            ARGUMENTS['--configure-clone']
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            environment_obj,
+                            source_obj,
+                            ARGUMENTS["--envinst"],
+                            ARGUMENTS["--mntpoint"],
+                            ARGUMENTS["--prerefresh"],
+                            ARGUMENTS["--postrefresh"],
+                            ARGUMENTS["--prerollback"],
+                            ARGUMENTS["--postrollback"],
+                            ARGUMENTS["--configure-clone"],
                         )
                     thingstodo.pop()
                 run_job.find_job_state(engine, dlpx_obj)
@@ -546,8 +586,9 @@ def main_workflow(engine, dlpx_obj, single_thread):
         exceptions.JobError,
         exceptions.HttpError,
     ) as err:
-        dx_logging.print_exception(f'Error in dx_provision_vdb: '
-                                   f'{engine["ip_address"]}\n{err}')
+        dx_logging.print_exception(
+            f"Error in dx_provision_vdb: " f'{engine["ip_address"]}\n{err}'
+        )
 
 
 def main():
@@ -556,22 +597,24 @@ def main():
     """
     time_start = time.time()
     dx_session_obj = get_session.GetSession()
-    dx_logging.logging_est(ARGUMENTS['--logdir'])
-    config_file_path = ARGUMENTS['--config']
-    single_thread = ARGUMENTS['--single_thread']
-    engine = ARGUMENTS['--engine']
+    dx_logging.logging_est(ARGUMENTS["--logdir"])
+    config_file_path = ARGUMENTS["--config"]
+    single_thread = ARGUMENTS["--single_thread"]
+    engine = ARGUMENTS["--engine"]
     try:
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
         # all the servers.
-        for each in run_job.run_job(main_workflow, dx_session_obj, engine,
-                                    single_thread):
+        for each in run_job.run_job(
+            main_workflow, dx_session_obj, engine, single_thread
+        ):
             # join them back together so that we wait for all threads to
             # complete
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'script took {elapsed_minutes} minutes to '
-                              f'get this far.')
+        dx_logging.print_info(
+            f"script took {elapsed_minutes} minutes to " f"get this far."
+        )
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
@@ -580,19 +623,21 @@ def main():
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function
         # call.
-        dx_logging.print_exception(f'ERROR: Please check the ERROR message '
-                                   f'below:\n {err.error}')
+        dx_logging.print_exception(
+            f"ERROR: Please check the ERROR message " f"below:\n {err.error}"
+        )
         sys.exit(2)
 
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         dx_logging.print_exception(
-            f'ERROR: Connection failed to the Delphix DDP. Please check '
-            f'the ERROR message below:\n{err.status}')
+            f"ERROR: Connection failed to the Delphix DDP. Please check "
+            f"the ERROR message below:\n{err.status}"
+        )
         sys.exit(2)
 
     except KeyError as err:
-        dx_logging.print_exception(f'ERROR: Key not found:\n{err}')
+        dx_logging.print_exception(f"ERROR: Key not found:\n{err}")
         sys.exit(2)
 
     except exceptions.JobError as err:
@@ -600,22 +645,23 @@ def main():
         # have actionable data
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_exception(
-            f'A job failed in the Delphix Engine:\n{err.job}.'
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get '
-            f'this far')
+            f"A job failed in the Delphix Engine:\n{err.job}."
+            f"{basename(__file__)} took {elapsed_minutes} minutes to get "
+            f"this far"
+        )
         sys.exit(3)
 
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
+        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(f'{basename(__file__)} took {elapsed_minutes} '
-                              f'minutes to get this far.')
+        dx_logging.print_info(
+            f"{basename(__file__)} took {elapsed_minutes} " f"minutes to get this far."
+        )
 
 
 if __name__ == "__main__":
     # Grab our ARGUMENTS from the doc at the top of the script
-    ARGUMENTS = docopt.docopt(__doc__,
-                              version=basename(__file__) + " " + VERSION)
+    ARGUMENTS = docopt.docopt(__doc__, version=basename(__file__) + " " + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

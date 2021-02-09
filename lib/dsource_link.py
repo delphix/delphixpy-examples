@@ -2,11 +2,10 @@
 Create an object to link MS SQL or ASE dSources
 """
 
-from delphixpy.v1_10_2.web import sourceconfig
-from delphixpy.v1_10_2.web import group
 from delphixpy.v1_10_2.web import environment
+from delphixpy.v1_10_2.web import group
+from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import vo
-
 from lib import dlpx_exceptions
 from lib import get_references
 
@@ -17,8 +16,8 @@ class DsourceLink:
     """
     Base class for linking dSources
     """
-    def __init__(self, dlpx_obj, dsource_name, db_passwd, db_user, dx_group,
-                 db_type):
+
+    def __init__(self, dlpx_obj, dsource_name, db_passwd, db_user, dx_group, db_type):
         """
         Attributes required for linking MS SQL or ASE dSources
         :param dlpx_obj: A Delphix DDP session object
@@ -49,21 +48,24 @@ class DsourceLink:
         Prepare the dsource object for linking
         """
         self.link_params.name = self.dsource_name
-        if self.db_type.lower() == 'oracle':
+        if self.db_type.lower() == "oracle":
             self.link_params.link_data = vo.OracleLinkData()
-        elif self.db_type.lower() == 'sybase':
+        elif self.db_type.lower() == "sybase":
             self.link_params.link_data = vo.ASELinkData()
-        elif self.db_type.lower() == 'mssql':
+        elif self.db_type.lower() == "mssql":
             self.link_params.link_data = vo.MSSqlLinkData()
         self.link_params.group = get_references.find_obj_by_name(
-            self.dlpx_obj.server_session, group, self.dx_group).reference
+            self.dlpx_obj.server_session, group, self.dx_group
+        ).reference
         self.link_params.link_data.db_credentials = vo.PasswordCredential()
         self.link_params.link_data.db_credentials.password = self.db_passwd
         self.link_params.link_data.db_user = self.db_user
         # Create blank sourcing policy
         self.link_params.link_data.sourcing_policy = vo.SourcingPolicy()
         self.link_params.link_data.sourcing_policy.logsync_enabled = False
-        self.link_params.link_data.config = self.get_or_create_sourceconfig(self.srccfg_obj)
+        self.link_params.link_data.config = self.get_or_create_sourceconfig(
+            self.srccfg_obj
+        )
         return self.link_params
 
     def get_or_create_sourceconfig(self, sourceconfig_obj=None):
@@ -74,10 +76,9 @@ class DsourceLink:
         """
         try:
             return get_references.find_obj_by_name(
-                self.dlpx_obj.server_session, sourceconfig,
-                self.dsource_name).reference
+                self.dlpx_obj.server_session, sourceconfig, self.dsource_name
+            ).reference
         except dlpx_exceptions.DlpxObjectNotFound:
             self.link_params.link_data.config = sourceconfig.create(
-                self.dlpx_obj.server_session, sourceconfig_obj).reference
-
-
+                self.dlpx_obj.server_session, sourceconfig_obj
+            ).reference
