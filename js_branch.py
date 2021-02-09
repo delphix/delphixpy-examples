@@ -55,8 +55,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.015"
-
 import re
 import sys
 import traceback
@@ -87,6 +85,8 @@ from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.015"
 
 
 def create_branch(
@@ -450,13 +450,13 @@ def main():
     except DlpxException as e:
         # We use this exception handler when an error occurs in a function call.
 
-        print ("\nERROR: Please check the ERROR message below:\n{}".format(e.message))
+        print("\nERROR: Please check the ERROR message below:\n{}".format(e.message))
         sys.exit(2)
 
     except HttpError as e:
         # We use this exception handler when our connection to Delphix fails
 
-        print (
+        print(
             "\nERROR: Connection failed to the Delphix Engine. Please "
             "check the ERROR message below:\n{}".format(e.message)
         )
@@ -466,7 +466,7 @@ def main():
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
 
-        print ("A job failed in the Delphix Engine:\n{}".format(e.job))
+        print("A job failed in the Delphix Engine:\n{}".format(e.job))
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(
@@ -489,8 +489,8 @@ def main():
     except:
         # Everything else gets caught here
 
-        print (sys.exc_info()[0])
-        print (traceback.format_exc())
+        print(sys.exc_info()[0])
+        print(traceback.format_exc())
         elapsed_minutes = time_elapsed()
         print_info(
             "{} took {:.2f} minutes to get this far".format(

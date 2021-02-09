@@ -95,8 +95,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.2.0018"
-
 import sys
 from os.path import basename
 from time import sleep
@@ -134,6 +132,8 @@ from lib.GetReferences import find_dbrepo
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import get_running_job
 from lib.GetSession import GetSession
+
+VERSION = "v.0.2.0018"
 
 
 def create_ora_sourceconfig(engine_name, port_num=1521):
@@ -392,9 +392,9 @@ def link_ase_dsource(engine_name):
                 dx_session_obj.server_session, database, arguments["--dsource_name"]
             ).reference,
         )
-        print("{} sucessfully linked {}".format(
-            dsource_ref, arguments["--dsource_name"]
-        ))
+        print(
+            "{} sucessfully linked {}".format(dsource_ref, arguments["--dsource_name"])
+        )
     except (RequestError, HttpError) as e:
         print_exception(
             "Database link failed for {}:\n{}".format(arguments["--dsource_name"], e)
@@ -685,4 +685,4 @@ if __name__ == "__main__":
 
     except DocoptExit as e:
         # print 'Exited because options were not specified: {}\n'.format(e)
-        print (e.message)
+        print(e.message)

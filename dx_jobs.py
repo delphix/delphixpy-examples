@@ -43,8 +43,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.002"
-
 import re
 import sys
 from os.path import basename
@@ -63,6 +61,8 @@ from lib.DxLogging import print_debug
 from lib.DxLogging import print_exception
 from lib.DxLogging import print_info
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.002"
 
 
 def list_jobs():
@@ -85,7 +85,7 @@ def list_jobs():
 
             if arguments["--title"]:
                 if re.search(arguments["--title"], job_info.title, re.IGNORECASE):
-                    print (
+                    print(
                         "Action={}, Job State={}, Parent Action State={},"
                         "Percent Complete={}, Reference={}, Target={},"
                         "Target Name={}, Title={}, User={}\n".format(
@@ -101,7 +101,7 @@ def list_jobs():
                         )
                     )
             else:
-                print (
+                print(
                     "Action=%s, Job State=%s, Parent Action State=%s,"
                     "Percent Complete=%s, Reference=%s, Target=%s,"
                     "Target Name=%s, Title=%s, User=%s\n"
@@ -122,7 +122,7 @@ def list_jobs():
 
             if arguments["--title"]:
                 if re.search(arguments["--title"], job_info.title, re.IGNORECASE):
-                    print (
+                    print(
                         "Action=%s, Job State=%s, Parent Action State=%s,"
                         "Percent Complete=%s, Reference=%s, Target=%s,"
                         "Target Name=%s, Title=%s, User=%s\n"
@@ -139,7 +139,7 @@ def list_jobs():
                         )
                     )
             else:
-                print (
+                print(
                     "Action=%s, Job State=%s, Parent Action State=%s,"
                     "Percent Complete=%s, Reference=%s, Target=%s,"
                     "Target Name=%s, Title=%s, User=%s\n"

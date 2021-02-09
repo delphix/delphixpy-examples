@@ -5,6 +5,7 @@
 #
 
 from __future__ import print_function
+
 import argparse
 import httplib
 import json
@@ -68,7 +69,7 @@ def main():
 
     response = dlpx_get("delphix/user")
     for item in response["result"]:
-        print (item["name"])
+        print(item["name"])
     # exit with success
     sys.exit(0)
 

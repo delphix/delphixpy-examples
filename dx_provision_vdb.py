@@ -99,8 +99,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.2.305"
-
 import re
 import signal
 import sys
@@ -153,6 +151,8 @@ from lib.DxTimeflow import DxTimeflow
 from lib.GetReferences import find_dbrepo
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.2.305"
 
 
 def create_ase_vdb(
@@ -842,7 +842,7 @@ def main_workflow(engine):
         )
 
     except DlpxException as e:
-        print (
+        print(
             "\nERROR: Engine %s encountered an error while provisioning "
             "%s:\n%s\n" % (engine["hostname"], arguments["--target"], e)
         )
@@ -1195,14 +1195,14 @@ def main(argv):
         We use this exception handler when an error occurs in a function call.
         """
 
-        print ("\nERROR: Please check the ERROR message below:\n%s" % (e.message))
+        print("\nERROR: Please check the ERROR message below:\n%s" % (e.message))
         sys.exit(2)
 
     except HttpError as e:
         """
         We use this exception handler when our connection to Delphix fails
         """
-        print (
+        print(
             "\nERROR: Connection failed to the Delphix Engine. Please "
             "check the ERROR message below:\n%s" % (e.message)
         )
@@ -1236,8 +1236,8 @@ def main(argv):
         """
         Everything else gets caught here
         """
-        print (sys.exc_info()[0])
-        print (traceback.format_exc())
+        print(sys.exc_info()[0])
+        print(traceback.format_exc())
         elapsed_minutes = time_elapsed()
         print_info(
             "%s took %s minutes to get this far"

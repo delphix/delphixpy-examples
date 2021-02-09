@@ -5,8 +5,6 @@ This script configures the sysadmin user and configures domain0
 Will come back and properly throw this with logging, etc
 """
 from __future__ import print_function
-VERSION = "v.2.3.005"
-CONTENTDIR = "/u02/app/content"
 
 import getopt
 import logging
@@ -30,6 +28,9 @@ from delphixpy.v1_6_0.web.vo import PasswordCredential
 from delphixpy.v1_6_0.web.vo import User
 from lib.GetSession import GetSession
 
+VERSION = "v.2.3.005"
+CONTENTDIR = "/u02/app/content"
+
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
     """
@@ -42,23 +43,23 @@ def system_serversess(f_engine_address, f_engine_username, f_engine_password):
 
 
 def help():
-    print (
+    print(
         "\n"
         + basename(__file__)
         + " [-e <engine ip>] [-o <old sysadmin password] [-p <new sysadmin password]"
     )
-    print (
+    print(
         "\n\nScript requires three parameters, the IP of the Delphix Engine, the initial sysadmin password to connect with,  and the new sysadmin password you want to use"
     )
-    print ("-h - Prints this message")
-    print (
+    print("-h - Prints this message")
+    print(
         "-e <Delphix Engine IP>  - Engine must be up, unconfigured, and console screen must be green"
     )
-    print (
+    print(
         "-o <old sysadmin password>  - will use this password to initially access the system"
     )
-    print ("-p <new sysadmin password>  - will set the sysadmin user to this password")
-    print ("-v - Print version information and exit")
+    print("-p <new sysadmin password>  - will set the sysadmin user to this password")
+    print("-v - Print version information and exit")
     sys.exit(2)
 
 
@@ -130,7 +131,7 @@ def time_elapsed():
 
 
 def version():
-    print ("Version: " + VERSION)
+    print("Version: " + VERSION)
     logging_est()
     set_exit_handler(on_exit)
     sys.exit(1)

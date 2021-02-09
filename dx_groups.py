@@ -45,8 +45,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.002"
-
 import sys
 from os.path import basename
 from time import sleep
@@ -69,6 +67,8 @@ from lib.GetReferences import find_all_objects
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
 
+VERSION = "v.0.0.002"
+
 
 def add_group(group_name):
     """
@@ -79,7 +79,7 @@ def add_group(group_name):
 
     try:
         group.create(dx_session_obj.server_session, group_obj)
-        print ("Attempting to create {}".format(group_name))
+        print("Attempting to create {}".format(group_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Creating the group {} "
@@ -96,7 +96,7 @@ def delete_group(group_name):
 
     try:
         group.delete(dx_session_obj.server_session, group_obj.reference)
-        print ("Attempting to delete {}".format(group_name))
+        print("Attempting to delete {}".format(group_name))
     except (DlpxException, RequestError) as e:
         print_exception(
             "\nERROR: Deleting the group {} "
@@ -112,7 +112,7 @@ def list_groups():
     group_list = find_all_objects(dx_session_obj.server_session, group)
 
     for group_obj in group_list:
-        print ("Group: {}".format(group_obj.name))
+        print("Group: {}".format(group_obj.name))
 
 
 def run_async(func):

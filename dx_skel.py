@@ -37,8 +37,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.001"
-
 import sys
 from os.path import basename
 from time import sleep
@@ -57,6 +55,8 @@ from lib.DxLogging import print_exception
 from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.001"
 
 
 def run_async(func):

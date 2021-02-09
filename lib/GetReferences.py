@@ -6,9 +6,6 @@ import re
 from datetime import datetime
 
 from dateutil import tz
-from .DlpxException import DlpxException
-from .DxLogging import print_debug
-from .DxLogging import print_exception
 
 from delphixpy.v1_8_0.exceptions import HttpError
 from delphixpy.v1_8_0.exceptions import JobError
@@ -19,6 +16,10 @@ from delphixpy.v1_8_0.web import repository
 from delphixpy.v1_8_0.web import source
 from delphixpy.v1_8_0.web import sourceconfig
 from delphixpy.v1_8_0.web.service import time
+
+from .DlpxException import DlpxException
+from .DxLogging import print_debug
+from .DxLogging import print_exception
 
 VERSION = "v.0.2.0019"
 

@@ -61,9 +61,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.100"
-
-
 import json
 import logging
 import signal
@@ -91,6 +88,8 @@ from delphixpy.v1_6_0.web.vo import ASELatestBackupSyncParameters
 from delphixpy.v1_6_0.web.vo import ASENewBackupSyncParameters
 from delphixpy.v1_6_0.web.vo import ASESpecificBackupSyncParameters
 from delphixpy.v1_6_0.web.vo import MSSqlSyncParameters
+
+VERSION = "v.0.0.100"
 
 
 def ase_latest_backup_sync_parameters():
@@ -798,7 +797,7 @@ if __name__ == "__main__":
         and not (arguments["--object_type"])
         and not (arguments["--all_dbs"])
     ):
-        print (__doc__)
+        print(__doc__)
         sys.exit()
     # Feed our arguments to the main function, and off we go!
     main(arguments)

@@ -4,7 +4,6 @@ Adam Bowen - May 2017
 This script grabs
 """
 from __future__ import print_function
-VERSION = "v.2.3.003"
 
 import getopt
 import logging
@@ -20,6 +19,8 @@ from delphixpy.v1_6_0.exceptions import JobError
 from delphixpy.v1_6_0.web import system
 from lib.GetSession import GetSession
 
+VERSION = "v.2.3.003"
+
 
 def system_serversess(f_engine_address, f_engine_username, f_engine_password):
     """
@@ -32,17 +33,17 @@ def system_serversess(f_engine_address, f_engine_username, f_engine_password):
 
 
 def help():
-    print ("\n" + basename(__file__) + " [-e <engine ip>] [-p <sysadmin password]")
-    print (
+    print("\n" + basename(__file__) + " [-e <engine ip>] [-p <sysadmin password]")
+    print(
         "\n\nScript requires two parameters, the IP of the Delphix Engine and the sysadmin password you want to use"
     )
-    print ("-h - Prints this message")
-    print (
+    print("-h - Prints this message")
+    print(
         "-e <Delphix Engine IP>  - Engine must be up and console screen must be green"
     )
-    print ("-p <sysadmin password>  - sysadmin password")
-    print ("-d <directory> - directory where key will be saved")
-    print ("-v - Print version information and exit")
+    print("-p <sysadmin password>  - sysadmin password")
+    print("-d <directory> - directory where key will be saved")
+    print("-v - Print version information and exit")
     sys.exit(2)
 
 
@@ -114,7 +115,7 @@ def time_elapsed():
 
 
 def version():
-    print ("Version: " + VERSION)
+    print("Version: " + VERSION)
     logging_est()
     set_exit_handler(on_exit)
     sys.exit(1)

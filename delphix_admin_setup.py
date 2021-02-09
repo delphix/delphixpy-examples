@@ -5,8 +5,6 @@ This script configures the delphix_admin user after domain0 is configured
 Will come back and properly throw this with logging, etc
 """
 from __future__ import print_function
-VERSION = "v.2.3.002"
-CONTENTDIR = "/u02/app/content"
 
 import getopt
 import logging
@@ -24,6 +22,9 @@ from delphixpy.v1_6_0.web.vo import CredentialUpdateParameters
 from delphixpy.v1_6_0.web.vo import PasswordCredential
 from delphixpy.v1_6_0.web.vo import User
 
+VERSION = "v.2.3.002"
+CONTENTDIR = "/u02/app/content"
+
 
 def serversess(f_engine_address, f_engine_username, f_engine_password):
     """
@@ -36,25 +37,25 @@ def serversess(f_engine_address, f_engine_username, f_engine_password):
 
 
 def help():
-    print (
+    print(
         "\n"
         + basename(__file__)
         + " [-e <engine ip>] [-o <old delphix_admin password] [-p <new delphix_admin password]"
     )
-    print (
+    print(
         "\n\nScript requires three parameters, the IP of the Delphix Engine, the initial delphix_admin password to connect with,  and the new delphix_admin password you want to use"
     )
-    print ("-h - Prints this message")
-    print (
+    print("-h - Prints this message")
+    print(
         "-e <Delphix Engine IP>  - Engine must be up, unconfigured, and console screen must be green"
     )
-    print (
+    print(
         "-o <old delphix_admin password>  - will use this password to initially access the system"
     )
-    print (
+    print(
         "-p <new delphix_admin password>  - will set the delphix_admin user to this password"
     )
-    print ("-v - Print version information and exit")
+    print("-v - Print version information and exit")
     sys.exit(2)
 
 
@@ -126,7 +127,7 @@ def time_elapsed():
 
 
 def version():
-    print ("Version: " + VERSION)
+    print("Version: " + VERSION)
     logging_est()
     set_exit_handler(on_exit)
     sys.exit(1)

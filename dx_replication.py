@@ -56,8 +56,6 @@ Options:
 """
 from __future__ import print_function
 
-VERSION = "v.0.0.002"
-
 import sys
 from os.path import basename
 from time import sleep
@@ -81,6 +79,8 @@ from lib.DxLogging import print_info
 from lib.GetReferences import find_obj_by_name
 from lib.GetReferences import find_obj_specs
 from lib.GetSession import GetSession
+
+VERSION = "v.0.0.002"
 
 
 def create_replication_job():
@@ -165,7 +165,7 @@ def list_replication_jobs():
                 database.get(dx_session_obj.server_session, obj_spec_ref).name
             )
 
-        print (
+        print(
             "Name: {}\nReplicated Objects: {}\nEnabled: {}\nEncrypted: {}\n"
             "Reference: {}\nSchedule: {}\nTarget Host: {}\n\n".format(
                 rep_job.name,
