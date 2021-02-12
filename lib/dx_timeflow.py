@@ -18,7 +18,7 @@ from lib import dlpx_exceptions
 from lib import get_references
 from lib import dx_logging
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.3.002"
 
 
 class DxTimeflow:
@@ -151,10 +151,10 @@ class DxTimeflow:
         snapshots = snapshot.get_all(self._engine)
         for snapshot_obj in snapshots:
             if str(snapshot_obj.name).startswith(snap_name):
-                return snapshot_obj.name
+                return snapshot_obj.reference
             elif str(snapshot_obj.latest_change_point.timestamp).startswith(
                     snap_name):
-                return snapshot_obj.name
+                return snapshot_obj.reference
 
     def set_timeflow_point(self, container_obj, timestamp_type,
                            timestamp='LATEST', timeflow_name=None):
@@ -185,7 +185,6 @@ class DxTimeflow:
             elif timestamp:
                 snapshot_obj = self.find_snapshot(container_obj.reference)
                 if snapshot_obj:
-                    import pdb;pdb.set_trace()
                     timeflow_point_parameters = vo.TimeflowPointTimestamp()
                     timeflow_point_parameters.timeflow = snapshot_obj.timeflow
                     timeflow_point_parameters.timestamp = \
