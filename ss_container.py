@@ -246,7 +246,6 @@ def add_owner(dlpx_obj, owner_name, container_name):
             f'{container_name}:\n{err}'
         )
 
-
 def refresh_container(dlpx_obj, container_name):
     """
     Refreshes a container
@@ -447,7 +446,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     except dlpx_exceptions.DlpxObjectNotFound as err:
         dx_logging.print_exception(
             f'ERROR: Delphix Engine {engine["ip_address"]} encountered '
-            f'an error while creating the session:\n{err}\n'
+            f"an error while creating the session:\n{err}\n"
         )
     try:
         with dlpx_obj.job_mode(single_thread):
@@ -502,8 +501,8 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     f'User {ARGUMENTS["--add_owner"]} was granted '
                     f'access to {ARGUMENTS["--container_name"]}'
                 )
-            elif ARGUMENTS['--refresh_container']:
-                refresh_container(engine,dlpx_obj, ARGUMENTS['--refresh_container'])
+            elif ARGUMENTS["--refresh_container"]:
+                refresh_container(engine, dlpx_obj, ARGUMENTS["--refresh_container"])
                 dx_logging.print_info(
                     f'The container {ARGUMENTS["--refresh_container"]}'
                     f' was refreshed.'
@@ -537,7 +536,7 @@ def main():
         single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
-        for each in run_job.run_job(
+        for each in run_job.run_job_mt(
             main_workflow, dx_session_obj, engine, single_thread
         ):
             each.join()

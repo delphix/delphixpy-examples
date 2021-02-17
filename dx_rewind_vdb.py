@@ -93,16 +93,15 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
     # Sanity check to make sure our container object has a reference
     if container_obj.reference:
         try:
-            if container_obj.runtime.enabled == 'ENABLED':
+            if container_obj.runtime.enabled == "ENABLED":
                 dx_logging.print_info(
-                    f'INFO: {engine_name} Rewinding '
-                    f'{container_obj.name} to {timestamp}\n'
+                    f"INFO: {engine_name} Rewinding "
+                    f"{container_obj.name} to {timestamp}\n"
                 )
-            elif container_obj.virtual is not True or container_obj.staging \
-                    is True:
+            elif container_obj.virtual is not True or container_obj.staging is True:
                 raise dlpx_exceptions.DlpxException(
-                    f'{container_obj.name} in engine {engine_name} is not '
-                    f'a virtual object. Skipping.\n'
+                    f"{container_obj.name} in engine {engine_name} is not "
+                    f"a virtual object. Skipping.\n"
                 )
         # This exception is raised if rewinding a vFiles VDB since
         # AppDataContainer does not have virtual, staging or enabled attributes
@@ -129,8 +128,8 @@ def rewind_database(dlpx_obj, vdb_name, timestamp, timestamp_type="SNAPSHOT"):
             exceptions.JobError,
         ) as err:
             raise dlpx_exceptions.DlpxException(
-                f'ERROR: {engine_name} encountered an error on '
-                f'{container_obj.name} during the rewind process:\n{err}'
+                f"ERROR: {engine_name} encountered an error on "
+                f"{container_obj.name} during the rewind process:\n{err}"
             )
     # Don't do anything if the database is disabled
     else:
@@ -156,8 +155,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix DDP
         dlpx_obj.dlpx_session(
-            engine["ip_address"], engine["username"], engine["password"],
-            engine['use_https']
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxException as err:
         dx_logging.print_exception(
@@ -196,9 +197,9 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS['--logdir'])
-        config_file_path = ARGUMENTS['--config']
-        single_thread = ARGUMENTS['--single_thread']
+        dx_logging.logging_est(ARGUMENTS["--logdir"])
+        config_file_path = ARGUMENTS["--config"]
+        single_thread = ARGUMENTS["--single_thread"]
         engine = ARGUMENTS["--engine"]
         dx_session_obj.get_config(config_file_path)
         # This is the function that will handle processing main_workflow for
