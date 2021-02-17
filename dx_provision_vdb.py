@@ -44,6 +44,10 @@ Examples:
   --postrollback "/u01/app/oracle/product/scripts/PostRollback.sh" \
   --vdb_restart true
 
+  dx_provision_vdb.py --source sPDB1  --db vPDB1 --target_grp dev \
+  --env_name LinuxTarget --type oramt \
+  --envinst /u01/app/oracle/product/18.0.0.0/dbhome_1
+
 Options:
   --source <name>           Name of the source object
   --target_grp <name>       The group into which Delphix will place the VDB.
@@ -51,14 +55,16 @@ Options:
   --no_truncate_log         Don't truncate log on checkpoint (ASE only)
   --env_name <name>         The name of the Target environment in Delphix
   --type <type>             The type of VDB this is.
-                            oracle | mssql | ase | vfiles
+                            oracle | oramt | mssql | ase | vfiles
   --logsync                 Enable logsync
   --prerefresh <name>       Pre-Hook commands before a refresh
   --postrefresh <name>      Post-Hook commands after a refresh
   --prerollback <name>      Post-Hook commands before a rollback
   --postrollback <name>     Post-Hook commands after a rollback
   --configure-clone <name>  Configure Clone commands
-  --vdb_restart <bool>      Either True or False. Default: False
+  --vdb_restart <bool>      Automatically start VDBs after a host reboot.
+                            Either True or False.
+                            [default: True]
   --envinst <name>          The identifier of the instance in Delphix.
                             ex. "/u01/app/oracle/product/11.2.0/dbhome_1"
                             ex. LINUXTARGET
@@ -102,6 +108,7 @@ from delphixpy.v1_10_2.web import database
 from delphixpy.v1_10_2.web import environment
 from delphixpy.v1_10_2.web import group
 from delphixpy.v1_10_2.web import repository
+from delphixpy.v1_10_2.web import sourceconfig
 from delphixpy.v1_10_2.web import vo
 from lib import dlpx_exceptions
 from lib import dx_logging
@@ -111,7 +118,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.006"
+VERSION = "v.0.3.007"
 
 
 def create_ase_vdb(
@@ -481,6 +488,101 @@ def create_oracle_si_vdb(
     dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
+def create_oracle_mt_vdb(
+    dlpx_obj,
+    group_ref,
+    vdb_name,
+    source_obj,
+    mntpoint,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+    pre_refresh=None,
+    post_refresh=None,
+    pre_rollback=None,
+    post_rollback=None,
+    configure_clone=None,
+):
+    """
+    Create an Oracle Multi Tenant VDB
+    :param dlpx_obj: DDP session object
+    :type dlpx_obj: lib.GetSession.GetSession object
+    :param group_ref: Group name where the VDB will be created
+    :type group_ref: str
+    :param vdb_name: Name of the VDB
+    :type vdb_name: str
+    delphixpy.v1_10_2.web.objects.OracleDatabaseContainer.OracleDatabaseContainer
+    :param mntpoint: Where to mount the Delphix filesystem
+    :type mntpoint: str
+    :param timestamp: The Delphix semantic for the point in time on the
+    source from which to refresh the VDB
+    :type timestamp: str
+    :param timestamp_type: The Delphix semantic for the point in time on
+    the source from which you want to refresh your VDB either SNAPSHOT or TIME
+    :type timestamp_type: str
+    :param pre_refresh: Pre-Hook commands before a refresh
+    :type pre_refresh: str
+    :param post_refresh: Post-Hook commands after a refresh
+    :type post_refresh: str
+    :param pre_rollback: Commands before a rollback
+    :type pre_rollback: str
+    :param post_rollback: Commands after a rollback
+    :type post_rollback: str
+    :param configure_clone: Configure clone commands
+    :type configure_clone: str
+    """
+    engine_name = list(dlpx_obj.dlpx_ddps)[0]
+    cdb_obj = get_references.find_obj_by_name(
+        dlpx_obj.server_session, sourceconfig, ARGUMENTS["--source"]
+    )
+    try:
+        vdb_obj = get_references.find_obj_by_name(
+            dlpx_obj.server_session, database, vdb_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
+    except dlpx_exceptions.DlpxObjectNotFound:
+        pass
+    vdb_params = vo.OracleMultitenantProvisionParameters()
+    vdb_params.open_resetlogs = True
+    vdb_params.container = vo.OracleDatabaseContainer()
+    vdb_params.container.group = group_ref
+    vdb_params.container.name = vdb_name
+    vdb_params.source = vo.OracleVirtualPdbSource()
+    vdb_params.source.allow_auto_vdb_restart_on_host_reboot = True
+    vdb_params.source.mount_base = mntpoint
+    vdb_params.source_config = vo.OraclePDBConfig()
+    vdb_params.source_config.database_name = vdb_name
+    vdb_params.source_config.cdb_config = cdb_obj.cdb_config
+    vdb_params.source.operations = vo.VirtualSourceOperations()
+    if pre_refresh:
+        vdb_params.source.operations.pre_refresh = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.pre_refresh.command = pre_refresh
+    if post_refresh:
+        vdb_params.source.operations.post_refresh = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_refresh.command = post_refresh
+    if pre_rollback:
+        vdb_params.source.operations.pre_rollback = vo.RunCommandOnSourceOperation
+        vdb_params.source.operations.pre_rollback.command = pre_rollback
+    if post_rollback:
+        vdb_params.source.operations.post_rollback = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_rollback.command = post_rollback
+    if configure_clone:
+        vdb_params.source.operations.configure_clone = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.configure_clone.command = configure_clone
+    timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
+    vdb_params.timeflow_point_parameters = timeflow_obj.set_timeflow_point(
+        source_obj, timestamp_type, timestamp
+    )
+    dx_logging.print_info(f"{engine_name}: Provisioning {vdb_name}")
+    try:
+        database.provision(dlpx_obj.server_session, vdb_params)
+    except (exceptions.RequestError, exceptions.HttpError) as err:
+        raise dlpx_exceptions.DlpxException(
+            f"ERROR: Could not provision the database {vdb_name}\n{err}"
+        )
+    # Add the job into the jobs dictionary so we can track its progress
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
+
+
 @run_async
 def main_workflow(engine, dlpx_obj, single_thread):
     """
@@ -531,6 +633,21 @@ def main_workflow(engine, dlpx_obj, single_thread):
                             environment_obj,
                             source_obj,
                             ARGUMENTS["--envinst"],
+                            ARGUMENTS["--mntpoint"],
+                            ARGUMENTS["--timestamp"],
+                            ARGUMENTS["--timestamp_type"],
+                            ARGUMENTS["--prerefresh"],
+                            ARGUMENTS["--postrefresh"],
+                            ARGUMENTS["--prerollback"],
+                            ARGUMENTS["--postrollback"],
+                            ARGUMENTS["--configure-clone"],
+                        )
+                    elif arg_type == "oramt":
+                        create_oracle_mt_vdb(
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            source_obj,
                             ARGUMENTS["--mntpoint"],
                             ARGUMENTS["--timestamp"],
                             ARGUMENTS["--timestamp_type"],
