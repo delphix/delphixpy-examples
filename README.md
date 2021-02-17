@@ -67,14 +67,42 @@ The two main autoformatters that we use are
  - `black`: General Python formatting
  - `isort`: Import sorting
 
-## Statement of Support
+## Running the formatting
 
-This software is provided as-is, without warranty of any kind or
-commercial support through Delphix. See the associated license for
-additional details. Questions, issues, feature requests, and
-contributions should be directed to the community as outlined in the
-[Delphix Community
-Guidelines](https://delphix.github.io/community-guidelines.html).
+The formatting is automatically run remotely on every Github pull
+request and on every push to Github.
+
+It is possible to run these locally in two ways. Automatically before
+every push and manually.
+
+To have the checks run automatically before every push you can enable
+`pre-commit`.
+
+```
+tox
+.tox/format/bin/pre-commit install --hook-type pre-push
+```
+
+To run the checks manually:
+On the entire repository
+```
+	tox -- --all-files
+```
+on a specific file
+```
+	tox -- --file <file-name>
+```
+On every file in the most recent commit
+```
+    git diff-tree --no-commit-id --name-only -r HEAD | xargs tox -- --files
+```
+
+## Something neat worth noting
+
+Each of the scripts leverage
+[docopt](https://github.com/docopt/docopt), which is a great module
+for parsing POSIX compliant help documentation as arguments. It's
+really awesome.
 
 ## License
 
