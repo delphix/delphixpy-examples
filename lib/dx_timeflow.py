@@ -162,20 +162,6 @@ class DxTimeflow:
             elif str(snapshot_obj.latest_change_point.timestamp).startswith(snap_name):
                 return snapshot_obj.reference
 
-    def find_snapshot_object(self, snap_name):
-        """
-        Method to find a snapshot by name
-        :param snap_name: Name of the snapshot
-        :type snap_name: str
-        :return: snapshot name
-        """
-        snapshots = snapshot.get_all(self._engine)
-        for snapshot_obj in snapshots:
-            if str(snapshot_obj.name).startswith(snap_name):
-                return snapshot_obj
-            elif str(snapshot_obj.latest_change_point.timestamp).startswith(snap_name):
-                return snapshot_obj
-
     def set_timeflow_point(
         self, container_obj, timestamp_type, timestamp="LATEST", timeflow_name=None
     ):
