@@ -4,3 +4,4 @@ pip
 python-dateutil
 setuptools
 untangle
+cryptography

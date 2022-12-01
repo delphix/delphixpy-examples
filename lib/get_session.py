@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Corey Brune - Oct 2016
 # This class handles the config file and authentication to a DDP
 # requirements
 # pip install docopt delphixpy
@@ -19,8 +18,9 @@ from delphixpy.v1_10_2 import web
 from delphixpy.v1_10_2.delphix_engine import DelphixEngine
 from lib import dlpx_exceptions
 from lib import dx_logging
+from lib import dx_config
 
-VERSION = "v.0.3.001"
+VERSION = "v.0.4.000"
 
 
 class GetSession:
@@ -33,7 +33,7 @@ class GetSession:
         self.dlpx_ddps = {}
         self.jobs = {}
 
-    def get_config(self, config_file_path="./config/dxtools.conf"):
+    def get_config(self, config_file_path="./config/dxtools.conf", engine="default"):
         """
         This method reads in the dxtools.conf file
 
@@ -41,6 +41,8 @@ class GetSession:
         :type config_file_path: str
         :return: dict containing engine information
         """
+        eng_dct = {}
+        new_eng = {}
         # First test to see that the file is there and we can open it
         try:
             with open(config_file_path) as config_file:
@@ -57,19 +59,29 @@ class GetSession:
                 f"again.\n {err}"
             )
         for each in config.keys():
-            temp_config = config[each].pop()
-            use_https = temp_config["use_https"]
-            if use_https and use_https.lower() == "true":
-                temp_config["use_https"] = True
-            else:
-                temp_config["use_https"] = False
-            self.dlpx_ddps[each] = temp_config
+            for eng in config[each]:
+                if eng["isEncrypted"] is False:
+                    config_obj = dx_config.DxConfig()
+                    new_eng = config_obj.encrypt_json(eng)
+                    new_eng["isEncrypted"] = True
+                    eng = new_eng
+                hostname = eng["hostname"]
+                self.dlpx_ddps[hostname] = eng
+        if new_eng:
+            try:
+                with open(config_file_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=4)
+            except IOError:
+                raise dlpx_exceptions.DlpxException(
+                    f"\nERROR: Was unable to open {config_file_path}. Please "
+                    f"check the path and permissions, and try again.\n"
+                )
 
     def dlpx_session(
         self,
         f_engine_address,
         f_engine_username,
-        f_engine_password=None,
+        f_engine_password,
         enable_https=True,
     ):
         """
@@ -84,17 +96,20 @@ class GetSession:
         :type enable_https: bool
         :return: delphixpy.v1_10_2.delphix_engine.DelphixEngine object
         """
+        config_obj = dx_config.DxConfig()
         f_engine_namespace = "DOMAIN"
         # Remove the next 3 lines if using in a production environment.
         if not os.environ.get("PYTHONHTTPSVERIFY", "") and getattr(
             ssl, "_create_unverified_context", None
         ):
             ssl._create_default_https_context = ssl._create_unverified_context
+        unenc_pass = config_obj.decrypt_cred(f_engine_password)
+        unenc_user = config_obj.decrypt_cred(f_engine_username)
         try:
             self.server_session = DelphixEngine(
                 f_engine_address,
-                f_engine_username,
-                f_engine_password,
+                unenc_user,
+                unenc_pass,
                 f_engine_namespace,
                 enable_https,
             )
@@ -108,7 +123,7 @@ class GetSession:
                 f"ERROR: An error occurred while authenticating to "
                 f"{f_engine_address}:\n {err}\n"
             )
-        except (TimeoutError) as err:
+        except TimeoutError as err:
             raise dlpx_exceptions.DlpxException(
                 f"ERROR: Timeout while authenticating to "
                 f"{f_engine_address}:\n {err}\n"
