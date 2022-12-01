@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Adam Bowen - Apr 2016
 # This script provisions a vdb or dSource
-# Updated by Corey Brune Aug 2016
 # --- Create vFiles VDB
 # requirements
 # pip install docopt delphixpy
@@ -117,7 +115,6 @@ from lib import get_references
 from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
-
 
 VERSION = 'v.0.3.007'
 
@@ -488,13 +485,21 @@ def create_oracle_si_vdb(
     dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
-def create_oracle_mt_vdb(dlpx_obj, group_ref, vdb_name,
-                         source_obj, mntpoint,
-                         timestamp, timestamp_type='SNAPSHOT',
-                         pre_refresh=None, post_refresh=None,
-                         pre_rollback=None, post_rollback=None,
-                         configure_clone=None
-                         ):
+
+def create_oracle_mt_vdb(
+    dlpx_obj,
+    group_ref,
+    vdb_name,
+    source_obj,
+    mntpoint,
+    timestamp,
+    timestamp_type="SNAPSHOT",
+    pre_refresh=None,
+    post_refresh=None,
+    pre_rollback=None,
+    post_rollback=None,
+    configure_clone=None,
+):
     """
     Create an Oracle Multi Tenant VDB
     :param dlpx_obj: DDP session object
@@ -525,11 +530,14 @@ def create_oracle_mt_vdb(dlpx_obj, group_ref, vdb_name,
     """
     engine_name = list(dlpx_obj.dlpx_ddps)[0]
     cdb_obj = get_references.find_obj_by_name(
-        dlpx_obj.server_session, sourceconfig, ARGUMENTS['--source'])
+
+        dlpx_obj.server_session, sourceconfig, ARGUMENTS["--source"]
+    )
     try:
         vdb_obj = get_references.find_obj_by_name(
-            dlpx_obj.server_session, database, vdb_name)
-        raise dlpx_exceptions.DlpxObjectExists(f'{vdb_obj} exists.')
+            dlpx_obj.server_session, database, vdb_name
+        )
+        raise dlpx_exceptions.DlpxObjectExists(f"{vdb_obj} exists.")
     except dlpx_exceptions.DlpxObjectNotFound:
         pass
     vdb_params = vo.OracleMultitenantProvisionParameters()
@@ -545,40 +553,33 @@ def create_oracle_mt_vdb(dlpx_obj, group_ref, vdb_name,
     vdb_params.source_config.cdb_config = cdb_obj.cdb_config
     vdb_params.source.operations = vo.VirtualSourceOperations()
     if pre_refresh:
-        vdb_params.source.operations.pre_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.pre_refresh = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.pre_refresh.command = pre_refresh
     if post_refresh:
-        vdb_params.source.operations.post_refresh = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_refresh = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.post_refresh.command = post_refresh
     if pre_rollback:
-        vdb_params.source.operations.pre_rollback = \
-            vo.RunCommandOnSourceOperation
+        vdb_params.source.operations.pre_rollback = vo.RunCommandOnSourceOperation
         vdb_params.source.operations.pre_rollback.command = pre_rollback
     if post_rollback:
-        vdb_params.source.operations.post_rollback = \
-            vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.post_rollback = vo.RunCommandOnSourceOperation()
         vdb_params.source.operations.post_rollback.command = post_rollback
     if configure_clone:
-        vdb_params.source.operations.configure_clone = \
-            vo.RunCommandOnSourceOperation()
-        vdb_params.source.operations.configure_clone.command = \
-            configure_clone
+        vdb_params.source.operations.configure_clone = vo.RunCommandOnSourceOperation()
+        vdb_params.source.operations.configure_clone.command = configure_clone
     timeflow_obj = dx_timeflow.DxTimeflow(dlpx_obj.server_session)
-    vdb_params.timeflow_point_parameters = \
-        timeflow_obj.set_timeflow_point(source_obj, timestamp_type,
-                                        timestamp)
-    dx_logging.print_info(f'{engine_name}: Provisioning {vdb_name}')
+    vdb_params.timeflow_point_parameters = timeflow_obj.set_timeflow_point(
+        source_obj, timestamp_type, timestamp
+    )
+    dx_logging.print_info(f"{engine_name}: Provisioning {vdb_name}")
     try:
         database.provision(dlpx_obj.server_session, vdb_params)
     except (exceptions.RequestError, exceptions.HttpError) as err:
         raise dlpx_exceptions.DlpxException(
-            f'ERROR: Could not provision the database {vdb_name}\n{err}')
+            f"ERROR: Could not provision the database {vdb_name}\n{err}"
+        )
     # Add the job into the jobs dictionary so we can track its progress
-    dlpx_obj.jobs[
-        dlpx_obj.server_session.address
-    ] = dlpx_obj.server_session.last_job
+    dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
 @run_async
@@ -642,15 +643,18 @@ def main_workflow(engine, dlpx_obj, single_thread):
                         )
                     elif arg_type == "oramt":
                         create_oracle_mt_vdb(
-                            dlpx_obj, group_ref, ARGUMENTS['--db'],
-                            source_obj, ARGUMENTS['--mntpoint'],
-                            ARGUMENTS['--timestamp'],
-                            ARGUMENTS['--timestamp_type'],
-                            ARGUMENTS['--prerefresh'],
-                            ARGUMENTS['--postrefresh'],
-                            ARGUMENTS['--prerollback'],
-                            ARGUMENTS['--postrollback'],
-                            ARGUMENTS['--configure-clone']
+                            dlpx_obj,
+                            group_ref,
+                            ARGUMENTS["--db"],
+                            source_obj,
+                            ARGUMENTS["--mntpoint"],
+                            ARGUMENTS["--timestamp"],
+                            ARGUMENTS["--timestamp_type"],
+                            ARGUMENTS["--prerefresh"],
+                            ARGUMENTS["--postrefresh"],
+                            ARGUMENTS["--prerollback"],
+                            ARGUMENTS["--postrollback"],
+                            ARGUMENTS["--configure-clone"],
                         )
                     elif arg_type == "ase":
                         create_ase_vdb(

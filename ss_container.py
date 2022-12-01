@@ -140,7 +140,7 @@ def create_container(dlpx_obj, template_name, container_name, database_name):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f'Container {container_name} was not created. The error was: {err}'
+            f"Container {container_name} was not created. The error was: {err}"
         )
 
 
@@ -242,9 +242,9 @@ def add_owner(dlpx_obj, owner_name, container_name):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f'The user was not removed from the container '
-            f'{container_name}:\n{err}'
+            f"The user was not removed from the container " f"{container_name}:\n{err}"
         )
+
 
 def refresh_container(dlpx_obj, container_name):
     """
@@ -270,8 +270,7 @@ def refresh_container(dlpx_obj, container_name):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f'Container {container_name} was not refreshed. '
-            f'The error was:\n{err}'
+            f"Container {container_name} was not refreshed. " f"The error was:\n{err}"
         )
 
 
@@ -312,8 +311,7 @@ def delete_container(dlpx_obj, container_name, keep_vdbs=False):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f'Container {container_name} was not deleted. '
-            f'The error was:\n{err}'
+            f"Container {container_name} was not deleted. " f"The error was:\n{err}"
         )
 
 
@@ -342,7 +340,7 @@ def list_containers(dlpx_obj):
         exceptions.RequestError,
     ) as err:
         dx_logging.print_exception(
-            f'ERROR: SS Containers could not be listed. The error was:\n{err}'
+            f"ERROR: SS Containers could not be listed. The error was:\n{err}"
         )
 
 
@@ -363,7 +361,7 @@ def reset_container(dlpx_obj, container_name):
         )
     except exceptions.RequestError as err:
         dx_logging.print_exception(
-            f'ERROR: SS Container was not reset. The error was:\n{err}'
+            f"ERROR: SS Container was not reset. The error was:\n{err}"
         )
 
 
@@ -414,11 +412,10 @@ def convert_dct_str(obj_dct):
             if isinstance(js_jdbc, list):
                 js_str += f'{js_db}: {", ".join(js_jdbc)}\n'
             elif isinstance(js_jdbc, str):
-                js_str += f'{js_db}: {js_jdbc}\n'
+                js_str += f"{js_db}: {js_jdbc}\n"
     else:
         raise dlpx_exceptions.DlpxException(
-            f'Passed a non-dictionary object to convert_dct_str():'
-            f'{type(obj_dct)}'
+            f"Passed a non-dictionary object to convert_dct_str():" f"{type(obj_dct)}"
         )
     return js_str
 
@@ -440,8 +437,10 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         # Setup the connection to the Delphix Engine
         dlpx_obj.dlpx_session(
-            engine['ip_address'], engine['username'], engine['password'],
-            engine['use_https']
+            engine["ip_address"],
+            engine["username"],
+            engine["password"],
+            engine["use_https"],
         )
     except dlpx_exceptions.DlpxObjectNotFound as err:
         dx_logging.print_exception(
@@ -541,9 +540,7 @@ def main():
         ):
             each.join()
         elapsed_minutes = run_job.time_elapsed(time_start)
-        dx_logging.print_info(
-            f'script took {elapsed_minutes} minutes to get this far.'
-        )
+        dx_logging.print_info(f"script took {elapsed_minutes} minutes to get this far.")
     # Here we handle what we do when the unexpected happens
     except SystemExit as err:
         # This is what we use to handle our sys.exit(#)
@@ -551,14 +548,14 @@ def main():
     except dlpx_exceptions.DlpxException as err:
         # We use this exception handler when an error occurs in a function.
         dx_logging.print_exception(
-            f'ERROR: Please check the ERROR message below:\n{err}'
+            f"ERROR: Please check the ERROR message below:\n{err}"
         )
         sys.exit(2)
     except exceptions.HttpError as err:
         # We use this exception handler when our connection to Delphix fails
         print(
-            f'ERROR: Connection failed to the Delphix Engine. Please '
-            f'check the error message below:\n{err}'
+            f"ERROR: Connection failed to the Delphix Engine. Please "
+            f"check the error message below:\n{err}"
         )
         sys.exit(2)
     except exceptions.JobError as err:
@@ -567,7 +564,7 @@ def main():
         print(f'A job failed in the Delphix Engine:\n{err.job}')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get this far.'
+            f"{basename(__file__)} took {elapsed_minutes} minutes to get this far."
         )
         sys.exit(3)
     except KeyboardInterrupt:
@@ -575,7 +572,7 @@ def main():
         dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
-            f'{basename(__file__)} took {elapsed_minutes} minutes to get this far.'
+            f"{basename(__file__)} took {elapsed_minutes} minutes to get this far."
         )
 
 
