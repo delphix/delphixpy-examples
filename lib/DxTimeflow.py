@@ -36,7 +36,7 @@ VERSION = "v.0.2.003"
 
 
 class DxTimeflow(object):
-    """Shared methods for timeflows """
+    """Shared methods for timeflows"""
 
     def __init__(self, engine):
         self.engine = engine
