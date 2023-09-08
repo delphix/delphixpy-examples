@@ -46,6 +46,19 @@ def convert_timestamp(engine, timestamp):
         return None
 
 
+def find_obj_specs(engine, obj_lst):
+    """
+    Function to find objects for replication
+    engine: Delphix Virtualization session object
+    obj_lst: List of names for replication
+    :return: List of references for the given object names
+    """
+    rep_lst = []
+    for obj in obj_lst:
+        rep_lst.append(find_obj_by_name(engine, database, obj).reference)
+    return rep_lst
+
+
 def get_running_job(engine, object_ref):
     """
     Function to find a running job from the DB target reference.

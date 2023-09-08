@@ -112,7 +112,8 @@ def create_container(dlpx_obj, template_name, container_name, database_name):
     container_ds_lst = []
     for data_set in database_name.split(":"):
         container_ds_lst.append(
-            get_references.build_data_source_params(dlpx_obj, database, data_set)
+            get_references.build_data_source_params(dlpx_obj, database,
+                                                    data_set)
         )
     try:
         ss_template_ref = get_references.find_obj_by_name(
@@ -122,7 +123,8 @@ def create_container(dlpx_obj, template_name, container_name, database_name):
         ss_container_params.timeline_point_parameters = (
             vo.JSTimelinePointLatestTimeInput()
         )
-        ss_container_params.timeline_point_parameters.sourceDataLayout = ss_template_ref
+        ss_container_params.timeline_point_parameters.sourceDataLayout = \
+            ss_template_ref
         ss_container_params.data_sources = container_ds_lst
         ss_container_params.name = container_name
         container_ref = selfservice.container.create(
@@ -169,8 +171,8 @@ def remove_owner(dlpx_obj, owner_name, container_name):
         exceptions.HttpError,
     ) as err:
         dx_logging.print_exception(
-            f"The user was not added to container "
-            f"{container_name}. The error was:\n{err}"
+            f'The user was not added to container '
+            f'{container_name}. The error was:\n{err}'
         )
 
 
@@ -208,7 +210,7 @@ def restore_container(dlpx_obj, container_name, bookmark_name):
         exceptions.RequestError,
         exceptions.HttpError,
     ) as err:
-        dx_logging.print_exception(f"The container was not restored:\n{err}")
+        dx_logging.print_exception(f'The container was not restored:\n{err}')
 
 
 def add_owner(dlpx_obj, owner_name, container_name):
@@ -290,7 +292,8 @@ def delete_container(dlpx_obj, container_name, keep_vdbs=False):
             selfservice.container.delete(
                 dlpx_obj.server_session,
                 get_references.find_obj_by_name(
-                    dlpx_obj.server_session, selfservice.container, container_name
+                    dlpx_obj.server_session, selfservice.container,
+                    container_name
                 ).reference,
                 ss_container_params,
             )
@@ -298,7 +301,8 @@ def delete_container(dlpx_obj, container_name, keep_vdbs=False):
             selfservice.container.delete(
                 dlpx_obj.server_session,
                 get_references.find_obj_by_name(
-                    dlpx_obj.server_session, selfservice.container, container_name
+                    dlpx_obj.server_session, selfservice.container,
+                    container_name
                 ).reference,
             )
     except (
@@ -326,9 +330,9 @@ def list_containers(dlpx_obj):
                 dlpx_obj.server_session, ss_container.last_updated[:-5]
             )
             dx_logging.print_info(
-                f"{ss_container.name}, {ss_container.active_branch}, "
-                f"{ss_container.owner}, {ss_container.reference},"
-                f"{ss_container.template}, {last_updated}"
+                f'{ss_container.name}, {ss_container.active_branch}, '
+                f'{ss_container.owner}, {ss_container.reference},'
+                f'{ss_container.template}, {last_updated}'
             )
     except (
         dlpx_exceptions.DlpxException,
@@ -380,15 +384,15 @@ def list_hierarchy(dlpx_obj, container_name):
             dlpx_obj.server_session, database, data_source.container
         )
 
-        if hasattr(data_source.runtime, "instance_jdbc_string"):
+        if hasattr(data_source.runtime, 'instance_jdbc_string'):
             database_dct[db_name] = data_source.runtime.instance_jdbc_string
         else:
             database_dct[db_name] = None
     try:
         dx_logging.print_info(
-            f"Container: {container_name}\n"
-            f"Related VDBs: "
-            f"{convert_dct_str(database_dct)}\n"
+            f'Container: {container_name}\n'
+            f'Related VDBs: '
+            f'{convert_dct_str(database_dct)}\n'
         )
     except AttributeError as err:
         dx_logging.print_exception(err)
@@ -445,52 +449,52 @@ def main_workflow(engine, dlpx_obj, single_thread):
         )
     try:
         with dlpx_obj.job_mode(single_thread):
-            if ARGUMENTS["--create_container"]:
+            if ARGUMENTS['--create_container']:
                 create_container(
                     dlpx_obj,
-                    ARGUMENTS["--template_name"],
-                    ARGUMENTS["--create_container"],
-                    ARGUMENTS["--database"],
+                    ARGUMENTS['--template_name'],
+                    ARGUMENTS['--create_container'],
+                    ARGUMENTS['--database'],
                 )
                 dx_logging.print_info(
                     f'Self Service Container {ARGUMENTS["--create_container"]}'
-                    f"was created successfully."
+                    f'was created successfully.'
                 )
-            elif ARGUMENTS["--delete_container"]:
+            elif ARGUMENTS['--delete_container']:
                 delete_container(
                     dlpx_obj,
-                    ARGUMENTS["--delete_container"],
-                    ARGUMENTS["--keep_vdbs"],
+                    ARGUMENTS['--delete_container'],
+                    ARGUMENTS['--keep_vdbs'],
                 )
-            elif ARGUMENTS["--list"]:
+            elif ARGUMENTS['--list']:
                 list_containers(dlpx_obj)
-            elif ARGUMENTS["--remove_owner"]:
+            elif ARGUMENTS['--remove_owner']:
                 remove_owner(
                     dlpx_obj,
-                    ARGUMENTS["--remove_owner"],
-                    ARGUMENTS["--container_name"],
+                    ARGUMENTS['--remove_owner'],
+                    ARGUMENTS['--container_name'],
                 )
                 dx_logging.print_info(
                     f'User {ARGUMENTS["--remove_owner"]} had '
-                    f"access revoked from "
+                    f'access revoked from '
                     f'{ARGUMENTS["--container_name"]}'
                 )
-            elif ARGUMENTS["--restore_container"]:
+            elif ARGUMENTS['--restore_container']:
                 restore_container(
                     dlpx_obj,
-                    ARGUMENTS["--restore_container"],
-                    ARGUMENTS["--bookmark_name"],
+                    ARGUMENTS['--restore_container'],
+                    ARGUMENTS['--bookmark_name'],
                 )
                 dx_logging.print_info(
                     f'Container {ARGUMENTS["--restore_container"]} '
-                    f"was restored successfully with bookmark "
+                    f'was restored successfully with bookmark '
                     f'{ARGUMENTS["--bookmark_name"]}'
                 )
-            elif ARGUMENTS["--add_owner"]:
+            elif ARGUMENTS['--add_owner']:
                 add_owner(
                     dlpx_obj,
-                    ARGUMENTS["--add_owner"],
-                    ARGUMENTS["--container_name"],
+                    ARGUMENTS['--add_owner'],
+                    ARGUMENTS['--container_name'],
                 )
                 dx_logging.print_info(
                     f'User {ARGUMENTS["--add_owner"]} was granted '
@@ -500,12 +504,12 @@ def main_workflow(engine, dlpx_obj, single_thread):
                 refresh_container(engine, dlpx_obj, ARGUMENTS["--refresh_container"])
                 dx_logging.print_info(
                     f'The container {ARGUMENTS["--refresh_container"]}'
-                    f" was refreshed."
+                    f' was refreshed.'
                 )
-            elif ARGUMENTS["--list_hierarchy"]:
-                list_hierarchy(dlpx_obj, ARGUMENTS["--list_hierarchy"])
-            elif ARGUMENTS["--reset_container"]:
-                reset_container(dlpx_obj, ARGUMENTS["--reset_container"])
+            elif ARGUMENTS['--list_hierarchy']:
+                list_hierarchy(dlpx_obj, ARGUMENTS['--list_hierarchy'])
+            elif ARGUMENTS['--reset_container']:
+                reset_container(dlpx_obj, ARGUMENTS['--reset_container'])
                 print(f'Container {ARGUMENTS["--reset_container"]} was reset.')
     except (
         dlpx_exceptions.DlpxException,
@@ -526,10 +530,10 @@ def main():
     time_start = time.time()
     try:
         dx_session_obj = get_session.GetSession()
-        dx_logging.logging_est(ARGUMENTS["--logdir"])
-        config_file_path = ARGUMENTS["--config"]
+        dx_logging.logging_est(ARGUMENTS['--logdir'])
+        config_file_path = ARGUMENTS['--config']
         single_thread = ARGUMENTS["--single_thread"]
-        engine = ARGUMENTS["--engine"]
+        engine = ARGUMENTS['--engine']
         dx_session_obj.get_config(config_file_path)
         for each in run_job.run_job_mt(
             main_workflow, dx_session_obj, engine, single_thread
@@ -557,7 +561,7 @@ def main():
     except exceptions.JobError as err:
         # We use this exception handler when a job fails in Delphix so that we
         # have actionable data
-        print(f"A job failed in the Delphix Engine:\n{err.job}")
+        print(f'A job failed in the Delphix Engine:\n{err.job}')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
             f"{basename(__file__)} took {elapsed_minutes} minutes to get this far."
@@ -565,15 +569,15 @@ def main():
         sys.exit(3)
     except KeyboardInterrupt:
         # We use this exception handler to gracefully handle ctrl+c exits
-        dx_logging.print_debug("You sent a CTRL+C to interrupt the process")
+        dx_logging.print_debug('You sent a CTRL+C to interrupt the process')
         elapsed_minutes = run_job.time_elapsed(time_start)
         dx_logging.print_info(
             f"{basename(__file__)} took {elapsed_minutes} minutes to get this far."
         )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Grab our ARGUMENTS from the doc at the top of the script
-    ARGUMENTS = docopt(__doc__, version=basename(__file__) + " " + VERSION)
+    ARGUMENTS = docopt(__doc__, version=basename(__file__) + ' ' + VERSION)
     # Feed our ARGUMENTS to the main function, and off we go!
     main()

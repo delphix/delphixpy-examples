@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-# Adam Bowen - Apr 2016
 # This script snapshots a vdb or dSource
-# Corey Brune - March 2017
-# Updated to allow backup of Sybase
-# requirements
-# pip install docopt delphixpy
 
 # The below doc follows the POSIX compliant standards and allows us to use
 # This doc to also define our ARGUMENTS for the script.
 """Snapshot dSources and VDB's
 
 Usage:
-  dx_snapshot_db.py (--group <name> |--name <name> | --all_dbs )
+  dx_snapshot_db.py (--group <name> |--name <name> | --all_dbs | --list)
                   [--engine <identifier>]
                   [--usebackup --bck_file <name> --parallel <n>]
                   [--poll <n> --create_bckup --single_thread <bool>]
@@ -32,6 +27,7 @@ Options:
   --engine <identifier>     Alt Identifier of Delphix engine in dxtools.conf.
                             [default: default]
   --all_dbs                 Run against all database objects
+  --list                    List all snapshots
   --single_thread           Run as a single thread. False if running multiple
                             threads.
                             [default: False]
@@ -65,6 +61,7 @@ import docopt
 
 from delphixpy.v1_10_2 import exceptions
 from delphixpy.v1_10_2.web import database
+from delphixpy.v1_10_2.web import snapshot
 from delphixpy.v1_10_2.web import source
 from delphixpy.v1_10_2.web import vo
 from lib import dlpx_exceptions
@@ -74,8 +71,19 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.002"
+VERSION = "v.0.3.003"
 
+def list_snapshots(dlpx_obj, db_name=None):
+    """
+    """
+    if db_name:
+        snapshots = snapshot.get_all(dlpx_obj, database=db_name)
+        for snap in snapshots:
+            print(snap)
+    elif db_name is None:
+        snapshots = snapshot.get_all(dlpx_obj)
+        for snap in snapshots:
+            print(snap)
 
 def snapshot_database(
     dlpx_obj,
@@ -160,6 +168,8 @@ def snapshot_database(
             dlpx_obj.jobs[dlpx_obj.server_session.address].append(
                 dlpx_obj.server_session.last_job
             )
+        print(container_obj_ref)
+        return(dlpx_obj.server_session.last_job)
 
 
 @run_async
@@ -192,7 +202,7 @@ def main_workflow(engine, dlpx_obj, single_thread):
     try:
         with dlpx_obj.job_mode(single_thread):
             if ARGUMENTS["--name"] is not None:
-                snapshot_database(
+                last_job = snapshot_database(
                     dlpx_obj,
                     ARGUMENTS["--name"],
                     None,
@@ -231,7 +241,18 @@ def main_workflow(engine, dlpx_obj, single_thread):
                     ARGUMENTS["--bck_file"],
                     ARGUMENTS["--create_bckup"],
                 )
+            elif ARGUMENTS["--list"]:
+                list_snapshots(dlpx_obj.server_session)
             run_job.track_running_jobs(engine, dlpx_obj)
+            snap_name = run_job.find_snapshot_ref_jobid(
+                dlpx_obj.server_session, dlpx_obj.server_session.last_job
+            )
+            if snap_name:
+                snap_obj = get_references.find_obj_by_name(
+                    dlpx_obj.server_session, snapshot, f'{snap_name}'
+                )
+            print(snap_obj.name)
+                
     except (
         dlpx_exceptions.DlpxObjectNotFound,
         exceptions.RequestError,

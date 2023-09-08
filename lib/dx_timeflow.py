@@ -159,7 +159,8 @@ class DxTimeflow:
         for snapshot_obj in snapshots:
             if str(snapshot_obj.name).startswith(snap_name):
                 return snapshot_obj.reference
-            elif str(snapshot_obj.latest_change_point.timestamp).startswith(snap_name):
+            elif str(snapshot_obj.latest_change_point.timestamp).startswith(
+                    snap_name):
                 return snapshot_obj.reference
 
     def set_timeflow_point(

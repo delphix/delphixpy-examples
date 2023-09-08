@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Adam Bowen - Apr 2016
 # This script provisions a vdb or dSource
-# Updated by Corey Brune Aug 2016
 # --- Create vFiles VDB
 # requirements
 # pip install docopt delphixpy
@@ -118,8 +116,7 @@ from lib import get_session
 from lib import run_job
 from lib.run_async import run_async
 
-VERSION = "v.0.3.007"
-
+VERSION = 'v.0.3.007'
 
 def create_ase_vdb(
     dlpx_obj,
@@ -488,6 +485,7 @@ def create_oracle_si_vdb(
     dlpx_obj.jobs[dlpx_obj.server_session.address] = dlpx_obj.server_session.last_job
 
 
+
 def create_oracle_mt_vdb(
     dlpx_obj,
     group_ref,
@@ -532,6 +530,7 @@ def create_oracle_mt_vdb(
     """
     engine_name = list(dlpx_obj.dlpx_ddps)[0]
     cdb_obj = get_references.find_obj_by_name(
+
         dlpx_obj.server_session, sourceconfig, ARGUMENTS["--source"]
     )
     try:

@@ -1,6 +1,7 @@
 """
 Runs jobs passing a function as an argument. Thread safe.
 """
+import re
 import time
 
 from delphixpy.v1_10_2 import exceptions
@@ -8,7 +9,7 @@ from delphixpy.v1_10_2.web import job
 from lib import dlpx_exceptions
 from lib import dx_logging
 
-VERSION = "v.0.3.004"
+VERSION = "v.0.3.005"
 
 
 def run_job(main_func, dx_obj, engine="default", single_thread=True):
@@ -28,6 +29,7 @@ def run_job(main_func, dx_obj, engine="default", single_thread=True):
     """
     threads = []
     # if engine ="all", run against every engine in config_file
+    import pdb;pdb.set_trace()
     if engine == "all":
         dx_logging.print_info(f"Executing against all Delphix Engines")
         try:
@@ -109,7 +111,7 @@ def run_job_mt(main_func, dx_obj, engine="default", single_thread=True):
         try:
             for delphix_ddp in dx_obj.dlpx_ddps.keys():
                 is_default = dx_obj.dlpx_ddps[delphix_ddp]["default"]
-                if is_default and is_default.lower() == "true":
+                if is_default is True:
                     dx_obj_default = dx_obj
                     dx_obj_default.dlpx_ddps = {
                         delphix_ddp: dx_obj.dlpx_ddps[delphix_ddp]
@@ -242,6 +244,25 @@ def find_job_state_by_jobid(engine, dx_obj, job_id, poll=20):
         job_obj = job.get(dx_obj.server_session, job_id)
     dx_logging.print_info(f"Job: {job_id} completed with status: {job_obj.job_state}")
     return job_obj.job_state
+
+
+def find_snapshot_ref_jobid(dx_obj, job_id):
+    """
+    Retrieves snapshot ref
+    :param engine: Dictionary containing info on the DDP (IP, username, etc.)
+    :param dx_obj: Delphix session object from config
+    :type dx_obj: lib.get_session.GetSession object
+    :param job_id: Job ID to check the state
+    :return:
+    """
+    # get the job object
+    job_obj = job.get(dx_obj, job_id)
+    snapshot_details = job_obj.events[7].message_details
+    try:
+        snapshot_name = re.search('@.*Z', snapshot_details)
+        return(snapshot_name.group())
+    except AttributeError:
+        return False
 
 
 def time_elapsed(time_start):
